@@ -29,7 +29,11 @@ func TestCtlogResolver(t *testing.T) {
 					Namespace: "rhtas",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					Prefix: "trusted-artifact-signer",
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "trusted-artifact-signer",
+						},
+					},
 				},
 			},
 			wantErr: true,
@@ -42,7 +46,7 @@ func TestCtlogResolver(t *testing.T) {
 					Namespace: "rhtas",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					Prefix: "trusted-artifact-signer",
+					Logs: []rhtasv1.CTLogConfig{{Prefix: "trusted-artifact-signer"}},
 				},
 				Status: rhtasv1.CTlogStatus{
 					Conditions: []metav1.Condition{tlsResolved},
@@ -58,7 +62,7 @@ func TestCtlogResolver(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					Prefix: "logs/sigstore",
+					Logs: []rhtasv1.CTLogConfig{{Prefix: "logs/sigstore"}},
 				},
 				Status: rhtasv1.CTlogStatus{
 					TLS: rhtasv1.TLS{

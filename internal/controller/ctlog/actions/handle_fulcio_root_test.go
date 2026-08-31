@@ -208,7 +208,12 @@ func TestCertCan_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					RootCertificates: tt.env.certificates,
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "test-log",
+							Roots:  tt.env.certificates,
+						},
+					},
 				},
 				Status: tt.env.status,
 			}
@@ -509,7 +514,12 @@ func TestCert_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					RootCertificates: tt.env.certificates,
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "test-log",
+							Roots:  tt.env.certificates,
+						},
+					},
 				},
 				Status: tt.env.status,
 			}

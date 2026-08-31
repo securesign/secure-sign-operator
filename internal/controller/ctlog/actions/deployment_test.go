@@ -27,7 +27,11 @@ func createCTLogInstance() *rhtasv1.CTlog {
 			Trillian: rhtasv1.ServiceReference{
 				URL: "trillian-logserver.default.svc:8091",
 			},
-			Prefix: "trusted-artifact-signer",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
@@ -237,8 +241,8 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -288,8 +292,8 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 
 	// First, create a deployment in PKCS#11 mode
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -310,8 +314,8 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 		"precondition: hsm-lib should be present in PKCS#11 mode")
 
 	// Now switch to file mode and re-apply the deployment ensures
-	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	l := labels.For(ComponentName, DeploymentName, instance.Name)
 	action := deployAction{}
@@ -346,8 +350,8 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: &rhtasv1.SecretKeySelector{

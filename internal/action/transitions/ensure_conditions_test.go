@@ -116,7 +116,7 @@ func TestEnsureConditions_Handle(t *testing.T) {
 			},
 			supplier: func(c *rhtasv1.CTlog) []string {
 				conditions := []string{"base"}
-				if c.Spec.TreeID != nil {
+				if len(c.Spec.Logs) > 0 && c.Spec.Logs[0].LogId != nil {
 					conditions = append(conditions, "extra")
 				}
 				return conditions
@@ -144,7 +144,12 @@ func TestEnsureConditions_Handle(t *testing.T) {
 					Namespace: nn.Namespace,
 				},
 				Spec: rhtasv1.CTlogSpec{
-					TreeID: func() *int64 { v := int64(123); return &v }(),
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "log",
+							LogId:  func() *int64 { v := int64(123); return &v }(),
+						},
+					},
 				},
 				Status: rhtasv1.CTlogStatus{
 					Conditions: tt.conditions,

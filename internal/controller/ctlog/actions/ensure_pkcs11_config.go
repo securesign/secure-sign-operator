@@ -33,10 +33,13 @@ func (a ensurePKCS11Config) Name() string {
 // CanHandle fires only when Type==pkcs11 AND either:
 //   - The component is in Creating (or later) state, AND
 //   - PKCS11Condition is not yet set, OR
-//   - The content hash of spec.signer.pkcs11 fields differs from the hash
+//   - The content hash of spec.logs[0].signer.pkcs11 fields differs from the hash
 //     stored in the PKCS11Condition message (drift detection).
 func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	if instance.Spec.Signer.Type != rhtasv1.SignerTypePKCS11 {
+	if len(instance.Spec.Logs) == 0 || instance.Spec.Logs[0].Signer == nil {
+		return false
+	}
+	if instance.Spec.Logs[0].Signer.Type != rhtasv1.SignerTypePKCS11 {
 		return false
 	}
 
@@ -50,7 +53,7 @@ func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog
 	}
 
 	// Drift detection: compare current spec hash against stored annotation.
-	currentHash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	currentHash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
 	storedHash := instance.GetAnnotations()[annotations.PKCS11SpecHash]
 	return currentHash != storedHash
 }
@@ -60,10 +63,10 @@ func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog
 // ConfigCondition to trigger server config regeneration, and sets
 // PKCS11Condition to True.
 func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	p := instance.Spec.Signer.PKCS11
+	p := instance.Spec.Logs[0].Signer.PKCS11
 	if p == nil {
 		return a.Error(ctx,
-			reconcile.TerminalError(fmt.Errorf("spec.signer.pkcs11 is nil but signer type is pkcs11")),
+			reconcile.TerminalError(fmt.Errorf("spec.logs[0].signer.pkcs11 is nil but signer type is pkcs11")),
 			instance,
 		)
 	}

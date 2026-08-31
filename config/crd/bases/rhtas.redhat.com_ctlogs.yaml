@@ -1767,6 +1767,231 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              logs:
+                description: |-
+                  Logs defines the list of certificate transparency logs (active and frozen shards).
+                  Each entry represents either the active log or a frozen shard.
+                items:
+                  description: CTLogConfig defines the configuration for a certificate
+                    transparency log (active or frozen).
+                  properties:
+                    frozenSTH:
+                      description: |-
+                        FrozenSTH is the frozen SignedTreeHead for a frozen shard.
+                        Only meaningful when readonly is true.
+                      properties:
+                        sha256RootHash:
+                          description: Sha256RootHash is the Base64-encoded root hash.
+                          format: byte
+                          type: string
+                        timestamp:
+                          description: Timestamp is the Unix timestamp when the STH
+                            was signed.
+                          format: date-time
+                          type: string
+                        treeHeadSignature:
+                          description: TreeHeadSignature is the Base64-encoded signature.
+                          format: byte
+                          type: string
+                        treeSize:
+                          description: TreeSize is the number of leaves in the tree.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    logId:
+                      description: LogId is the optional Trillian tree ID. If not
+                        set, the operator will generate one.
+                      format: int64
+                      minimum: 1
+                      type: integer
+                    mirror:
+                      description: Mirror indicates if this is a mirror log (read-only,
+                        no signing).
+                      type: boolean
+                    notAfterLimit:
+                      description: RFC3339 timestamp when this log's certificates
+                        expire.
+                      format: date-time
+                      type: string
+                    notAfterStart:
+                      description: RFC3339 timestamp when this log's certificates
+                        become valid.
+                      format: date-time
+                      type: string
+                    prefix:
+                      description: |-
+                        Prefix is the name of the log. The prefix cannot be empty and can
+                        contain "/" path separator characters to define global override handler prefix.
+                      pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                      type: string
+                    readonly:
+                      description: Readonly indicates if this is a frozen/read-only
+                        shard.
+                      type: boolean
+                    roots:
+                      description: |-
+                        Roots is a list of secrets containing root certificates acceptable to the log.
+                        The certs are served through get-roots endpoint. Optional for mirrors.
+                      items:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    signer:
+                      description: Signer configuration. Required for active logs,
+                        optional for frozen shards.
+                      properties:
+                        file:
+                          description: Configuration for file-based signer
+                          properties:
+                            privateKeyRef:
+                              description: The private key used for signing STHs etc.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            publicKeyRef:
+                              description: |-
+                                The public key matching the private key (if both are present). It is
+                                used only by mirror logs for verifying the source log's signatures, but can
+                                be specified for regular logs as well for the convenience of test tools.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                          x-kubernetes-validations:
+                          - message: privateKeyRef cannot be empty
+                            rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
+                        pkcs11:
+                          description: Configuration for PKCS#11/HSM-based signer
+                          properties:
+                            modulePath:
+                              description: Absolute path to the PKCS#11 module (.so).
+                              minLength: 1
+                              pattern: ^/.+\..+$
+                              type: string
+                            pinSecretRef:
+                              description: Reference to a Secret key containing the
+                                HSM user PIN.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            publicKeyRef:
+                              description: PEM-encoded public key matching the HSM-resident
+                                private key.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            tokenLabel:
+                              description: Token label identifying the HSM slot.
+                              minLength: 1
+                              type: string
+                          required:
+                          - modulePath
+                          - pinSecretRef
+                          - publicKeyRef
+                          - tokenLabel
+                          type: object
+                          x-kubernetes-validations:
+                          - message: publicKeyRef is required for CTLog PKCS#11 signer
+                            rule: has(self.publicKeyRef)
+                          - message: modulePath is required for CTLog PKCS#11 signer
+                            rule: has(self.modulePath)
+                          - message: tokenLabel is required for CTLog PKCS#11 signer
+                            rule: has(self.tokenLabel)
+                          - message: pinSecretRef is required for CTLog PKCS#11 signer
+                            rule: has(self.pinSecretRef)
+                        type:
+                          description: Type of the signer backend
+                          enum:
+                          - file
+                          - pkcs11
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: pkcs11 configuration is required when type is pkcs11
+                        rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.pkcs11)'
+                      - message: file configuration must not be set when type is pkcs11
+                        rule: '!has(self.type) || self.type != ''pkcs11'' || !has(self.file)'
+                      - message: pkcs11 configuration must not be set when type is
+                          file
+                        rule: '!has(self.type) || self.type != ''file'' || !has(self.pkcs11)'
+                  required:
+                  - prefix
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+                x-kubernetes-list-map-keys:
+                - logId
+                x-kubernetes-list-type: map
               maxCertChainSize:
                 description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
                 format: int64
@@ -1852,21 +2077,6 @@ spec:
                   rule: '!has(self.serviceMonitor) || !has(self.serviceMonitor.enabled)
                     || !self.serviceMonitor.enabled || (has(self.metrics) && has(self.metrics.enabled)
                     && self.metrics.enabled)'
-              notAfterLimit:
-                description: RFC3339 timestamp when this log's certificates expire.
-                format: date-time
-                type: string
-              notAfterStart:
-                description: RFC3339 timestamp when this log's certificates become
-                  valid.
-                format: date-time
-                type: string
-              prefix:
-                description: |-
-                  Prefix is the name of the log. The prefix cannot be empty and can
-                  contain "/" path separator characters to define global override handler prefix.
-                pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
-                type: string
               replicas:
                 description: Number of desired pods.
                 format: int32
@@ -1931,232 +2141,6 @@ spec:
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
                 type: object
-              rootCertificates:
-                description: |-
-                  List of secrets containing root certificates that are acceptable to the log.
-                  The certs are served through get-roots endpoint. Optional in mirrors.
-                items:
-                  description: SecretKeySelector selects a key of a Secret.
-                  properties:
-                    key:
-                      description: The key of the secret to select from. Must be a
-                        valid secret key.
-                      pattern: ^[-._a-zA-Z0-9]+$
-                      type: string
-                    name:
-                      description: |-
-                        Name of the referent.
-                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      type: string
-                  required:
-                  - key
-                  - name
-                  type: object
-                  x-kubernetes-map-type: atomic
-                type: array
-                x-kubernetes-list-type: atomic
-              sharding:
-                description: Inactive shards
-                items:
-                  description: CTlogLogRange defines the range and key details of
-                    a frozen CTlog shard (read-only)
-                  properties:
-                    frozenSTHRef:
-                      description: |-
-                        Reference to a secret containing the frozen SignedTreeHead (STH) for this shard.
-                        The STH is the final, immutable signed tree head for a frozen shard.
-                      properties:
-                        key:
-                          description: The key of the secret to select from. Must
-                            be a valid secret key.
-                          pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    notAfterLimit:
-                      description: RFC3339 timestamp when this shard's certificates
-                        expire.
-                      format: date-time
-                      type: string
-                    notAfterStart:
-                      description: RFC3339 timestamp when this shard's certificates
-                        become valid.
-                      format: date-time
-                      type: string
-                    prefix:
-                      description: Prefix for the shard's URL path (e.g., "shard-12345").
-                        Required to generate proper shard URLs.
-                      pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
-                      type: string
-                    publicKeyRef:
-                      description: Reference to a secret containing the public key
-                        for the log shard
-                      properties:
-                        key:
-                          description: The key of the secret to select from. Must
-                            be a valid secret key.
-                          pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    treeID:
-                      description: ID of Merkle tree in Trillian backend
-                      format: int64
-                      minimum: 1
-                      type: integer
-                  required:
-                  - prefix
-                  - treeID
-                  type: object
-                  x-kubernetes-map-type: atomic
-                type: array
-                x-kubernetes-list-map-keys:
-                - treeID
-                x-kubernetes-list-type: map
-              signer:
-                description: Signer configuration
-                properties:
-                  file:
-                    description: Configuration for file-based signer
-                    properties:
-                      privateKeyRef:
-                        description: The private key used for signing STHs etc.
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      publicKeyRef:
-                        description: |-
-                          The public key matching the private key (if both are present). It is
-                          used only by mirror logs for verifying the source log's signatures, but can
-                          be specified for regular logs as well for the convenience of test tools.
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                    x-kubernetes-validations:
-                    - message: privateKeyRef cannot be empty
-                      rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
-                  pkcs11:
-                    description: Configuration for PKCS#11/HSM-based signer
-                    properties:
-                      modulePath:
-                        description: Absolute path to the PKCS#11 module (.so).
-                        minLength: 1
-                        pattern: ^/.+\..+$
-                        type: string
-                      pinSecretRef:
-                        description: Reference to a Secret key containing the HSM
-                          user PIN.
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      publicKeyRef:
-                        description: PEM-encoded public key matching the HSM-resident
-                          private key.
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      tokenLabel:
-                        description: Token label identifying the HSM slot.
-                        minLength: 1
-                        type: string
-                    required:
-                    - modulePath
-                    - pinSecretRef
-                    - publicKeyRef
-                    - tokenLabel
-                    type: object
-                    x-kubernetes-validations:
-                    - message: publicKeyRef is required for CTLog PKCS#11 signer
-                      rule: has(self.publicKeyRef)
-                    - message: modulePath is required for CTLog PKCS#11 signer
-                      rule: has(self.modulePath)
-                    - message: tokenLabel is required for CTLog PKCS#11 signer
-                      rule: has(self.tokenLabel)
-                    - message: pinSecretRef is required for CTLog PKCS#11 signer
-                      rule: has(self.pinSecretRef)
-                  type:
-                    description: Type of the signer backend
-                    enum:
-                    - file
-                    - pkcs11
-                    type: string
-                type: object
-                x-kubernetes-validations:
-                - message: pkcs11 configuration is required when type is pkcs11
-                  rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.pkcs11)'
-                - message: file configuration must not be set when type is pkcs11
-                  rule: '!has(self.type) || self.type != ''pkcs11'' || !has(self.file)'
-                - message: pkcs11 configuration must not be set when type is file
-                  rule: '!has(self.type) || self.type != ''file'' || !has(self.pkcs11)'
               tls:
                 description: Configuration for enabling TLS (Transport Layer Security)
                   encryption for manged service.
@@ -2242,13 +2226,6 @@ spec:
                       type: string
                   type: object
                 type: array
-              treeID:
-                description: |-
-                  The ID of a Trillian tree that stores the log data.
-                  If it is unset, the operator will create new Merkle tree in the Trillian backend
-                format: int64
-                minimum: 1
-                type: integer
               trillian:
                 description: Trillian service configuration
                 properties:
@@ -3073,7 +3050,7 @@ spec:
                 - name
                 x-kubernetes-list-type: map
             required:
-            - signer
+            - logs
             type: object
           status:
             description: CTlogStatus defines the observed state of CTlog component
@@ -3137,8 +3114,112 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              logs:
+                description: Logs contains status information for each log.
+                items:
+                  description: CTlogLogStatus contains status information for a single
+                    log.
+                  properties:
+                    logId:
+                      description: LogId is the Trillian tree ID.
+                      format: int64
+                      type: integer
+                    prefix:
+                      description: Prefix is the log's URL prefix.
+                      type: string
+                    privateKeyPasswordRef:
+                      description: PrivateKeyPasswordRef points to the secret containing
+                        the private key password (if encrypted).
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    privateKeyRef:
+                      description: PrivateKeyRef points to the secret containing the
+                        private key (for active logs only).
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    publicKey:
+                      description: PublicKey is the PEM-encoded public key.
+                      type: string
+                    publicKeyRef:
+                      description: PublicKeyRef points to the secret containing the
+                        public key.
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    readonly:
+                      description: Readonly indicates if this is a frozen shard.
+                      type: boolean
+                    rootCertificates:
+                      description: RootCertificates are the resolved root certificates.
+                      items:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      type: array
+                      x-kubernetes-list-type: atomic
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+                x-kubernetes-list-map-keys:
+                - logId
+                x-kubernetes-list-type: map
               privateKeyPasswordRef:
-                description: SecretKeySelector selects a key of a Secret.
+                description: 'Deprecated: Use logs[0].PrivateKeyPasswordRef instead'
                 properties:
                   key:
                     description: The key of the secret to select from. Must be a valid
@@ -3156,7 +3237,7 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               privateKeyRef:
-                description: SecretKeySelector selects a key of a Secret.
+                description: 'Deprecated: Use logs[0].PrivateKeyRef instead'
                 properties:
                   key:
                     description: The key of the secret to select from. Must be a valid
@@ -3174,11 +3255,12 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               publicKey:
-                description: PEM-encoded public key resolved from the CTlog signer
-                  secret.
+                description: |-
+                  PEM-encoded public key resolved from the CTlog signer secret.
+                  Deprecated: Use logs[0].PublicKey instead
                 type: string
               publicKeyRef:
-                description: SecretKeySelector selects a key of a Secret.
+                description: 'Deprecated: Use logs[0].PublicKeyRef instead'
                 properties:
                   key:
                     description: The key of the secret to select from. Must be a valid
@@ -3196,6 +3278,7 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               rootCertificates:
+                description: 'Deprecated: Use logs[0].RootCertificates instead'
                 items:
                   description: SecretKeySelector selects a key of a Secret.
                   properties:
@@ -3277,7 +3360,9 @@ spec:
                 - message: privateKeyRef cannot be empty
                   rule: (!has(self.certificateRef) || has(self.privateKeyRef))
               treeID:
-                description: The ID of a Trillian tree that stores the log data.
+                description: |-
+                  The ID of a Trillian tree that stores the log data.
+                  Deprecated: Use logs[0].LogId instead
                 format: int64
                 type: integer
               url:

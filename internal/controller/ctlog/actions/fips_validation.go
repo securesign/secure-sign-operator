@@ -24,19 +24,24 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.CTlog] {
 func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client) ([]fipsAction.CryptoRef, error) {
 	var refs []fipsAction.CryptoRef
 
-	// Signer keys
-	var privateKeyRef, publicKeyRef *rhtasv1.SecretKeySelector
-	if i.Spec.Signer.File != nil {
-		privateKeyRef = i.Spec.Signer.File.PrivateKeyRef
-		publicKeyRef = i.Spec.Signer.File.PublicKeyRef
-	}
-	if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, privateKeyRef,
-		"spec.signer.file.privateKeyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
-		return nil, err
-	}
-	if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, publicKeyRef,
-		"spec.signer.file.publicKeyRef", fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
-		return nil, err
+	// Signer keys from active logs (non-readonly)
+	for logIdx, log := range i.Spec.Logs {
+		if log.Readonly != nil && *log.Readonly {
+			continue // Skip read-only logs
+		}
+		var privateKeyRef, publicKeyRef *rhtasv1.SecretKeySelector
+		if log.Signer != nil && log.Signer.File != nil {
+			privateKeyRef = log.Signer.File.PrivateKeyRef
+			publicKeyRef = log.Signer.File.PublicKeyRef
+		}
+		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, privateKeyRef,
+			fmt.Sprintf("spec.logs[%d].signer.file.privateKeyRef", logIdx), fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
+			return nil, err
+		}
+		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, publicKeyRef,
+			fmt.Sprintf("spec.logs[%d].signer.file.publicKeyRef", logIdx), fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
+			return nil, err
+		}
 	}
 
 	// TLS material
@@ -49,19 +54,13 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 		return nil, err
 	}
 
-	// Root certificates (populated by HandleFulcioCertAction before this action runs)
-	for idx := range i.Status.RootCertificates {
-		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &i.Status.RootCertificates[idx],
-			fmt.Sprintf("status.rootCertificates[%d]", idx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
-			return nil, err
-		}
-	}
-
-	// Shard keys (for read-only shards in sharding configuration)
-	for idx, shard := range i.Spec.Sharding {
-		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, shard.PublicKeyRef,
-			fmt.Sprintf("spec.sharding[%d].publicKeyRef", idx), fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
-			return nil, err
+	// Root certificates (from each log in Logs array)
+	for logIdx, log := range i.Spec.Logs {
+		for certIdx := range log.Roots {
+			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &log.Roots[certIdx],
+				fmt.Sprintf("spec.logs[%d].roots[%d]", logIdx, certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
+				return nil, err
+			}
 		}
 	}
 
