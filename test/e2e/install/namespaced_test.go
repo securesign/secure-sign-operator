@@ -130,23 +130,28 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 						Namespace: namespaces["trillian"].Name,
 					},
 				},
-				Signer: rhtasv1.CTlogSigner{
-					Type: "file",
-					File: &rhtasv1.CTlogFile{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-ctlog-secret",
-							},
-							Key: "private",
-						},
-					},
-				},
-				RootCertificates: []rhtasv1.SecretKeySelector{
+				Logs: []rhtasv1.CTLogConfig{
 					{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
+						Prefix: "test",
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: "my-ctlog-secret",
+									},
+									Key: "private",
+								},
+							},
 						},
-						Key: "cert",
+						Roots: []rhtasv1.SecretKeySelector{
+							{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "cert",
+							},
+						},
 					},
 				},
 			},
