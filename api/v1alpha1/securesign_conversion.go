@@ -1,11 +1,12 @@
 package v1alpha1
 
+//nolint:unused
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
-	"k8s.io/apimachinery/pkg/api/equality" //nolint:unused // used in ConvertTo method
+	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
