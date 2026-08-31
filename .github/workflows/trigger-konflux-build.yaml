@@ -4,6 +4,9 @@ on:
 
 jobs:
   trigger-konflux-build:
+    permissions:
+      contents: write
+      pull-requests: write
     uses: securesign/actions/.github/workflows/trigger-konflux-build.yaml@main
     with:
       branch: main
