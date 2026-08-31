@@ -3101,7 +3101,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: only one log can be active at a time
-                  rule: self.logs.filter(x, x.active == true).size() <= 1
+                  rule: '!has(self.logs) || self.logs.filter(x, x.active == true).size()
+                    <= 1'
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio
                 properties:
