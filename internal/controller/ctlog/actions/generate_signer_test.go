@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,6 +28,18 @@ func ctlogInstance() *rhtasv1.CTlog {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "instance",
 			Namespace: "default",
+		},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					LogId:  ptr.To(int64(123456)),
+					Prefix: "test-log",
+					Signer: &rhtasv1.CTlogSigner{Type: "file"},
+					Roots: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+					},
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			Conditions: []metav1.Condition{
