@@ -5,7 +5,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/equality" //nolint:unused // used in ConvertTo method
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
