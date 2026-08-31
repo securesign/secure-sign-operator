@@ -22,7 +22,7 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
-// +kubebuilder:validation:XValidation:rule="self.logs.filter(x, x.active == true).size() <= 1",message="only one log can be active at a time"
+// +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, x.active == true).size() <= 1",message="only one log can be active at a time"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
