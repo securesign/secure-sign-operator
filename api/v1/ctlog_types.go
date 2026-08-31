@@ -22,7 +22,7 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
-// +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, x.active == true).size() <= 1",message="only one log can be active at a time"
+// +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, has(x.active) && x.active == true).size() <= 1",message="only one log can be active at a time"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
@@ -90,6 +90,7 @@ type CTlogPKCS11Config struct {
 
 // CTLogConfig defines the configuration for a certificate transparency log (active or frozen).
 // +structType=atomic
+// +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef) || (has(self.readonly) && self.readonly == true)",message="privateKeyRef cannot be empty for non-readonly logs when publicKeyRef is set"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the
@@ -178,7 +179,6 @@ type CTlogSigner struct {
 }
 
 // CTlogFile defines the desired state of the CTlog file-based signer
-// +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type CTlogFile struct {
 	// The private key used for signing STHs etc.
 	//+optional
