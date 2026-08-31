@@ -30,9 +30,9 @@ type CTlogSpec struct {
 	// Each entry represents either the active log or a frozen shard.
 	// +required
 	// +listType=map
-	// +listMapKey=logId
+	// +listMapKey=prefix
 	// +patchStrategy=merge
-	// +patchMergeKey=logId
+	// +patchMergeKey=prefix
 	Logs []CTLogConfig `json:"logs"`
 
 	// Define whether you want to export service or not
@@ -217,6 +217,7 @@ type CTlogLogStatus struct {
 	// LogId is the Trillian tree ID.
 	LogId *int64 `json:"logId,omitempty"`
 	// Prefix is the log's URL prefix.
+	// +kubebuilder:validation:Required
 	Prefix string `json:"prefix,omitempty"`
 	// PrivateKeyRef points to the secret containing the private key (for active logs only).
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
@@ -238,9 +239,9 @@ type CTlogStatus struct {
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	// Logs contains status information for each log.
 	// +listType=map
-	// +listMapKey=logId
+	// +listMapKey=prefix
 	// +patchStrategy=merge
-	// +patchMergeKey=logId
+	// +patchMergeKey=prefix
 	// +optional
 	Logs []CTlogLogStatus `json:"logs,omitempty"`
 
