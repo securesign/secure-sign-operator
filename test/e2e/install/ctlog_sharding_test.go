@@ -127,68 +127,64 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		})
 
 		It("Configure sharding with new tree", func(ctx SpecContext) {
+			Expect(newTreeId).NotTo(BeZero())
 
+			secretName := "ctlog-sharding-config"
+			newCtlogSecret := ctlog.CreateSecret(namespace.Name, secretName)
+
+			// Prepare config with sharding
+			cfg := &configpb.LogMultiConfig{}
+			now := time.Now()
+			timestamp := &timestamppb.Timestamp{
+				Seconds: now.Unix(), Nanos: int32(now.Nanosecond()),
+			}
+			Expect(prototext.Unmarshal(oldConfig.Data["config"], cfg)).To(Succeed())
+
+			// First config entry is the frozen shard
+			frozen := cfg.LogConfigs.Config[0]
+			Expect(frozen).ToNot(BeNil())
+
+			// Store the old tree ID before modifying
+			frozenTreeId := frozen.LogId
+
+			// Create a copy for the active shard
+			cfg.LogConfigs.Config = append(cfg.LogConfigs.Config, proto.Clone(frozen).(*configpb.LogConfig))
+			active := cfg.LogConfigs.Config[1]
+
+			// Configure the frozen shard (read-only, no private key needed)
+			frozen.LogId = frozenTreeId // Ensure LogId is set correctly
+			frozen.NotAfterLimit = timestamp
+			frozen.Prefix = "trusted-artifact-signer-shard-0"
+			frozen.PrivateKey = nil // Frozen shards are read-only
+			frozen.IsReadonly = true
+
+			// Configure the active shard
+			active.LogId = newTreeId
+			active.Prefix = "trusted-artifact-signer"
+			password := ""
+			if pwd, ok := newCtlogSecret.Data["password"]; ok {
+				password = string(pwd)
+			}
+			activeAnyKey, err := anypb.New(&keyspb.PEMKeyFile{
+				Path:     "/ctfe-keys/private",
+				Password: password,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			active.PrivateKey = activeAnyKey
+			active.PublicKey = nil
+			active.NotAfterStart = timestamp
+
+			configdata, err := prototext.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			newCtlogSecret.Data["config"] = configdata
+			newCtlogSecret.Data["fulcio"] = oldConfig.Data["fulcio"]
+			newCtlogSecret.Data["public-0"] = oldConfig.Data["public"]
+
+			Expect(cli.Create(ctx, newCtlogSecret)).To(Succeed())
+
+			// Update securesign resource with new tree and sharding config
 			Eventually(func() error {
 				s := securesign.Get(ctx, cli, namespace.Name, "test")
-
-				if newTreeId == 0 {
-					return fmt.Errorf("new tree ID not set")
-				}
-
-				secretName := "ctlog-sharding-config"
-				newCtlogSecret := ctlog.CreateSecret(namespace.Name, secretName)
-
-				// Prepare config with sharding
-				cfg := &configpb.LogMultiConfig{}
-				now := time.Now()
-				timestamp := &timestamppb.Timestamp{
-					Seconds: now.Unix(), Nanos: int32(now.Nanosecond()),
-				}
-				Expect(prototext.Unmarshal(oldConfig.Data["config"], cfg)).To(Succeed())
-
-				// First config entry is the frozen shard
-				frozen := cfg.LogConfigs.Config[0]
-				Expect(frozen).ToNot(BeNil())
-
-				// Store the old tree ID before modifying
-				frozenTreeId := frozen.LogId
-
-				// Create a copy for the active shard
-				cfg.LogConfigs.Config = append(cfg.LogConfigs.Config, proto.Clone(frozen).(*configpb.LogConfig))
-				active := cfg.LogConfigs.Config[1]
-
-				// Configure the frozen shard (read-only, no private key needed)
-				frozen.LogId = frozenTreeId // Ensure LogId is set correctly
-				frozen.NotAfterLimit = timestamp
-				frozen.Prefix = "trusted-artifact-signer-shard-0"
-				frozen.PrivateKey = nil // Frozen shards are read-only
-				frozen.IsReadonly = true
-
-				// Configure the active shard
-				active.LogId = newTreeId
-				active.Prefix = "trusted-artifact-signer"
-				password := ""
-				if pwd, ok := newCtlogSecret.Data["password"]; ok {
-					password = string(pwd)
-				}
-				activeAnyKey, err := anypb.New(&keyspb.PEMKeyFile{
-					Path:     "/ctfe-keys/private",
-					Password: password,
-				})
-				Expect(err).ToNot(HaveOccurred())
-				active.PrivateKey = activeAnyKey
-				active.PublicKey = nil
-				active.NotAfterStart = timestamp
-
-				configdata, err := prototext.Marshal(cfg)
-				Expect(err).ToNot(HaveOccurred())
-				newCtlogSecret.Data["config"] = configdata
-				newCtlogSecret.Data["fulcio"] = oldConfig.Data["fulcio"]
-				newCtlogSecret.Data["public-0"] = oldConfig.Data["public"]
-
-				Expect(cli.Create(ctx, newCtlogSecret)).To(Succeed())
-
-				// Update securesign resource with new tree and sharding config
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
 
 				// Update CTlog spec to use new Logs array structure
