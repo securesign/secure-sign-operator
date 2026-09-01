@@ -95,8 +95,9 @@ type CTlogPKCS11Config struct {
 // CTLogConfig defines the configuration for a certificate transparency log (active or frozen).
 // +structType=atomic
 // +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef) || (has(self.readonly) && self.readonly == true)",message="privateKeyRef cannot be empty for non-readonly logs when publicKeyRef is set"
-// +kubebuilder:validation:XValidation:rule="!has(self.readonly) || self.readonly != true || has(self.logId)",message="logId is required for readonly shards"
-// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && has(self.rootCerts.roots) && size(self.rootCerts.roots) > 0)",message="rootCerts.roots is required for non-active logs — the active log resolves root certificates from spec.fulcio"
+// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.logId)",message="logId is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.signer)",message="signer is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && has(self.rootCerts.roots) && size(self.rootCerts.roots) > 0)",message="rootCerts.roots is required for non-active logs"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the
