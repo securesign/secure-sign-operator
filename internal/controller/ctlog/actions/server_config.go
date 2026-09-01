@@ -338,7 +338,16 @@ func (i serverConfig) handlePrivateKey(ctx context.Context, instance *rhtasv1.CT
 	if err != nil {
 		return nil, err
 	}
-	password, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
+	// Prefer spec-level PrivateKeyPasswordRef (from the active log's signer config),
+	// then fall back to the deprecated status-level ref for backward compatibility.
+	var passwordRef *rhtasv1.SecretKeySelector
+	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
+	if activeLog != nil && activeLog.Signer != nil && activeLog.Signer.File != nil && activeLog.Signer.File.PrivateKeyPasswordRef != nil {
+		passwordRef = activeLog.Signer.File.PrivateKeyPasswordRef
+	} else {
+		passwordRef = instance.Status.PrivateKeyPasswordRef
+	}
+	password, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, passwordRef)
 	if err != nil {
 		return nil, err
 	}
@@ -508,6 +517,10 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	}
 
 	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
+	if activeLog != nil && activeLog.Signer != nil && activeLog.Signer.File != nil && activeLog.Signer.File.PrivateKeyPasswordRef != nil {
+		ref := activeLog.Signer.File.PrivateKeyPasswordRef
+		annotations[labels.LabelNamespace+"/privateKeyPasswordRef"] = fmt.Sprintf("%s/%s", ref.Name, ref.Key)
+	}
 	if activeLog != nil && activeLog.Prefix != "" {
 		annotations[labels.LabelNamespace+"/logPrefix"] = activeLog.Prefix
 	}

@@ -105,11 +105,12 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 		}
 	}
 
-	// Backward compat: PrivateKeyPasswordRef was removed from spec but may still
-	// exist in status for deployments using legacy encrypted keys. Preserve it
-	// unless the key reference changed.
-	if oldPasswordRef != nil &&
+	if file != nil && file.PrivateKeyPasswordRef != nil {
+		instance.Status.PrivateKeyPasswordRef = file.PrivateKeyPasswordRef
+	} else if oldPasswordRef != nil &&
 		equality.Semantic.DeepEqual(instance.Status.PrivateKeyRef, oldPrivateKeyRef) {
+		// Backward compat: preserve existing status password ref when the key
+		// reference hasn't changed (legacy encrypted-key deployments).
 		instance.Status.PrivateKeyPasswordRef = oldPasswordRef
 	} else {
 		instance.Status.PrivateKeyPasswordRef = nil
