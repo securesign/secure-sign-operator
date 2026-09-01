@@ -45,7 +45,8 @@ type CTlogSpec struct {
 	// Trillian service configuration
 	Trillian ServiceReference `json:"trillian,omitempty"`
 
-	// Fulcio service configuration for root certificate resolution
+	// Fulcio service reference for resolving the active log's root certificate.
+	// Non-active logs must provide root certificates explicitly via rootCerts.roots.
 	Fulcio ServiceReference `json:"fulcio,omitempty"`
 
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
@@ -95,6 +96,7 @@ type CTlogPKCS11Config struct {
 // +structType=atomic
 // +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef) || (has(self.readonly) && self.readonly == true)",message="privateKeyRef cannot be empty for non-readonly logs when publicKeyRef is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.readonly) || self.readonly != true || has(self.logId)",message="logId is required for readonly shards"
+// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && has(self.rootCerts.roots) && size(self.rootCerts.roots) > 0)",message="rootCerts.roots is required for non-active logs — the active log resolves root certificates from spec.fulcio"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the
@@ -109,8 +111,7 @@ type CTLogConfig struct {
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
 	Prefix string `json:"prefix"`
 
-	// RootCerts binds root certificates for this log entry, either by referencing
-	// a Fulcio CR or by providing secret references directly.
+	// RootCerts binds root certificates for this log entry via secret references.
 	// +optional
 	RootCerts *RootCertBinding `json:"rootCerts,omitempty"`
 
@@ -165,12 +166,7 @@ type CTLogFrozenSTH struct {
 }
 
 // RootCertBinding binds root certificates for a CTLog log entry.
-// Roots can be resolved either from a referenced Fulcio CR or provided directly as secret references.
-// +kubebuilder:validation:XValidation:rule="!(has(self.ref) && has(self.roots) && size(self.roots) > 0)",message="ref and roots are mutually exclusive"
 type RootCertBinding struct {
-	// Ref is an in-cluster reference to a Fulcio CR whose root certificate will be used.
-	//+optional
-	Ref *ServiceReferenceRef `json:"ref,omitempty"`
 	// Roots is a list of secrets containing root certificates acceptable to the log.
 	// +optional
 	// +listType=atomic
