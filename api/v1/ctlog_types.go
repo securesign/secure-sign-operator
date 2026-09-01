@@ -45,6 +45,9 @@ type CTlogSpec struct {
 	// Trillian service configuration
 	Trillian ServiceReference `json:"trillian,omitempty"`
 
+	// Fulcio service configuration for root certificate resolution
+	Fulcio ServiceReference `json:"fulcio,omitempty"`
+
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`

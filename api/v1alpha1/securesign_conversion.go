@@ -85,6 +85,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Ctlog.Monitoring.Tuf.URL == "" {
 		dst.Spec.Ctlog.Monitoring.Tuf.Ref = restored.Spec.Ctlog.Monitoring.Tuf.Ref
 	}
+	dst.Spec.Ctlog.Fulcio = restored.Spec.Ctlog.Fulcio
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
 	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
