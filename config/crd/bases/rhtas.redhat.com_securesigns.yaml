@@ -1896,30 +1896,56 @@ spec:
                           description: Readonly indicates if this is a frozen/read-only
                             shard.
                           type: boolean
-                        roots:
+                        rootCerts:
                           description: |-
-                            Roots is a list of secrets containing root certificates acceptable to the log.
-                            The certs are served through get-roots endpoint. Optional for mirrors.
-                          items:
-                            description: SecretKeySelector selects a key of a Secret.
-                            properties:
-                              key:
-                                description: The key of the secret to select from.
-                                  Must be a valid secret key.
-                                pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              name:
-                                description: |-
-                                  Name of the referent.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                            x-kubernetes-map-type: atomic
-                          type: array
-                          x-kubernetes-list-type: atomic
+                            RootCerts binds root certificates for this log entry, either by referencing
+                            a Fulcio CR or by providing secret references directly.
+                          properties:
+                            ref:
+                              description: Ref is an in-cluster reference to a Fulcio
+                                CR whose root certificate will be used.
+                              properties:
+                                name:
+                                  description: Name of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                                namespace:
+                                  description: Namespace of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - namespace
+                              type: object
+                            roots:
+                              description: Roots is a list of secrets containing root
+                                certificates acceptable to the log.
+                              items:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.
+                                      Must be a valid secret key.
+                                    pattern: ^[-._a-zA-Z0-9]+$
+                                    type: string
+                                  name:
+                                    description: |-
+                                      Name of the referent.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          type: object
+                          x-kubernetes-validations:
+                          - message: ref and roots are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.roots) && size(self.roots)
+                              > 0)'
                         signer:
                           description: Signer configuration. Required for active and
                             frozen logs. Optional only for mirrors.
@@ -2065,6 +2091,8 @@ spec:
                         rule: '!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef)
                           || has(self.signer.file.privateKeyRef) || (has(self.readonly)
                           && self.readonly == true)'
+                      - message: logId is required for readonly shards
+                        rule: '!has(self.readonly) || self.readonly != true || has(self.logId)'
                     type: array
                     x-kubernetes-list-map-keys:
                     - prefix

@@ -239,12 +239,14 @@ func WithProvidedCerts() Opts {
 						},
 					},
 				},
-				Roots: []rhtasv1.SecretKeySelector{
-					{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
+				RootCerts: &rhtasv1.RootCertBinding{
+					Roots: []rhtasv1.SecretKeySelector{
+						{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "cert",
 						},
-						Key: "cert",
 					},
 				},
 			},
@@ -371,12 +373,14 @@ func WithPKCS11Signer(namespace string) Opts {
 					},
 				},
 				// --- CTLog root certificates (Fulcio's CA) ---
-				Roots: []rhtasv1.SecretKeySelector{
-					{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "fulcio-root-ca",
+				RootCerts: &rhtasv1.RootCertBinding{
+					Roots: []rhtasv1.SecretKeySelector{
+						{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "fulcio-root-ca",
+							},
+							Key: "cert.pem",
 						},
-						Key: "cert.pem",
 					},
 				},
 			},

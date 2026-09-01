@@ -359,9 +359,9 @@ func TestCTlogConversionUnit(t *testing.T) {
 									PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
 								},
 							},
-							Roots: []rhtasv1.SecretKeySelector{
+							RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
-							},
+							}},
 						},
 					},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{

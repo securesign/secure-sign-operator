@@ -55,10 +55,10 @@ func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) 
 		return false
 	case len(instance.Status.RootCertificates) == 0:
 		return true
-	case activeLog == nil || len(activeLog.Roots) == 0:
+	case activeLog == nil || activeLog.RootCerts == nil || len(activeLog.RootCerts.Roots) == 0:
 		return true
 	default:
-		return !equality.Semantic.DeepDerivative(activeLog.Roots, instance.Status.RootCertificates)
+		return !equality.Semantic.DeepDerivative(activeLog.RootCerts.Roots, instance.Status.RootCertificates)
 	}
 }
 
@@ -76,7 +76,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 	}
 
 	activeLog := utils.ActiveLog(instance.Spec.Logs)
-	userProvidedRoots := activeLog != nil && len(activeLog.Roots) > 0
+	userProvidedRoots := activeLog != nil && activeLog.RootCerts != nil && len(activeLog.RootCerts.Roots) > 0
 
 	if !userProvidedRoots {
 		cert, err := g.discoverFulcioRootCert(ctx, instance)
@@ -133,7 +133,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks}
 	} else {
-		instance.Status.RootCertificates = activeLog.Roots
+		instance.Status.RootCertificates = activeLog.RootCerts.Roots
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

@@ -134,14 +134,14 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 								},
 							},
 						},
-						Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 							{
 								LocalObjectReference: rhtasv1.LocalObjectReference{
 									Name: "test-root-cert",
 								},
 								Key: "cert",
 							},
-						},
+						}},
 					},
 				},
 			},
