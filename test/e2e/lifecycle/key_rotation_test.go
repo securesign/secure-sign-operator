@@ -368,14 +368,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 								},
 							},
 						},
-						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: []rhtasv1.SecretKeySelector{
 							{
 								LocalObjectReference: rhtasv1.LocalObjectReference{
 									Name: secretName,
 								},
 								Key: "cert",
 							},
-						}},
+						},
 					},
 					{
 						LogId:    ptr.To(*oldTreeId),
@@ -392,14 +392,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 								},
 							},
 						},
-						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: []rhtasv1.SecretKeySelector{
 							{
 								LocalObjectReference: rhtasv1.LocalObjectReference{
 									Name: secretName,
 								},
 								Key: "fulcio-0",
 							},
-						}},
+						},
 					},
 				}
 

@@ -39,9 +39,9 @@ func ctlogInstance() *rhtasv1.CTlog {
 					Prefix: "test-log",
 					Active: ptr.To(true),
 					Signer: &rhtasv1.CTlogSigner{Type: "file"},
-					RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
+					RootCerts: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
-					}},
+					},
 				},
 			},
 		},

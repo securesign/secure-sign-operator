@@ -1913,34 +1913,29 @@ spec:
                             shard.
                           type: boolean
                         rootCerts:
-                          description: RootCerts binds root certificates for this
-                            log entry via secret references.
-                          properties:
-                            roots:
-                              description: Roots is a list of secrets containing root
-                                certificates acceptable to the log.
-                              items:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.
-                                      Must be a valid secret key.
-                                    pattern: ^[-._a-zA-Z0-9]+$
-                                    type: string
-                                  name:
-                                    description: |-
-                                      Name of the referent.
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              type: array
-                              x-kubernetes-list-type: atomic
-                          type: object
+                          description: |-
+                            RootCerts is a list of secrets containing root certificates acceptable to this log.
+                            Required for non-active logs; the active log resolves root certs from spec.fulcio.
+                          items:
+                            description: SecretKeySelector selects a key of a Secret.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.
+                                  Must be a valid secret key.
+                                pattern: ^[-._a-zA-Z0-9]+$
+                                type: string
+                              name:
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type: array
+                          x-kubernetes-list-type: atomic
                         signer:
                           description: Signer configuration. Required for active and
                             frozen logs. Optional only for mirrors.
@@ -2109,10 +2104,9 @@ spec:
                         rule: (has(self.active) && self.active == true) || has(self.logId)
                       - message: signer is required for non-active logs
                         rule: (has(self.active) && self.active == true) || has(self.signer)
-                      - message: rootCerts.roots is required for non-active logs
+                      - message: rootCerts is required for non-active logs
                         rule: (has(self.active) && self.active == true) || (has(self.rootCerts)
-                          && has(self.rootCerts.roots) && size(self.rootCerts.roots)
-                          > 0)
+                          && size(self.rootCerts) > 0)
                     type: array
                     x-kubernetes-list-map-keys:
                     - prefix

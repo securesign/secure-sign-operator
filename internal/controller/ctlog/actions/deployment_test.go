@@ -33,9 +33,9 @@ func createCTLogInstance() *rhtasv1.CTlog {
 					Prefix: "trusted-artifact-signer",
 					Active: ptr.To(true),
 					Signer: &rhtasv1.CTlogSigner{Type: "file"},
-					RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
+					RootCerts: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
-					}},
+					},
 				},
 			},
 		},

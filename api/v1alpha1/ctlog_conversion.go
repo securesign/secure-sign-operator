@@ -47,9 +47,9 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 				}
 			}
 			// Extract root certificates from the log
-			if log.RootCerts != nil && len(log.RootCerts.Roots) > 0 {
-				out.RootCertificates = make([]SecretKeySelector, len(log.RootCerts.Roots))
-				for i, root := range log.RootCerts.Roots {
+			if len(log.RootCerts) > 0 {
+				out.RootCertificates = make([]SecretKeySelector, len(log.RootCerts))
+				for i, root := range log.RootCerts {
 					if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(&root, &out.RootCertificates[i], s); err != nil {
 						return err
 					}
@@ -107,11 +107,9 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 		}
 	}
 	if len(in.RootCertificates) > 0 {
-		log.RootCerts = &rhtasv1.RootCertBinding{
-			Roots: make([]rhtasv1.SecretKeySelector, len(in.RootCertificates)),
-		}
+		log.RootCerts = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
 		for i, root := range in.RootCertificates {
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &log.RootCerts.Roots[i], s); err != nil {
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &log.RootCerts[i], s); err != nil {
 				return err
 			}
 		}

@@ -443,8 +443,8 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			Readonly:           log.Readonly != nil && *log.Readonly,
 		}
 
-		if log.RootCerts != nil && len(log.RootCerts.Roots) > 0 {
-			for _, selector := range log.RootCerts.Roots {
+		if len(log.RootCerts) > 0 {
+			for _, selector := range log.RootCerts {
 				data, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &selector)
 				if err != nil {
 					return nil, fmt.Errorf("shard %s root cert %s/%s: %w", log.Prefix, selector.Name, selector.Key, err)
@@ -568,8 +568,8 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 				logId = *log.LogId
 			}
 			rootCertsStr := ""
-			if log.RootCerts != nil {
-				for _, r := range log.RootCerts.Roots {
+			if len(log.RootCerts) > 0 {
+				for _, r := range log.RootCerts {
 					rootCertsStr += r.Name + "/" + r.Key + ","
 				}
 			}
