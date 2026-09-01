@@ -299,6 +299,11 @@ func (in *CTlogFile) DeepCopyInto(out *CTlogFile) {
 		*out = new(SecretKeySelector)
 		**out = **in
 	}
+	if in.PrivateKeyPasswordRef != nil {
+		in, out := &in.PrivateKeyPasswordRef, &out.PrivateKeyPasswordRef
+		*out = new(SecretKeySelector)
+		**out = **in
+	}
 	if in.PublicKeyRef != nil {
 		in, out := &in.PublicKeyRef, &out.PublicKeyRef
 		*out = new(SecretKeySelector)
