@@ -3,7 +3,6 @@ package actions
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -15,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -79,7 +79,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 	userProvidedRoots := activeLog != nil && len(activeLog.Roots) > 0
 
 	if !userProvidedRoots {
-		cert, err := g.discoverFulcioRootCert(ctx, instance.Namespace)
+		cert, err := g.discoverFulcioRootCert(ctx, instance)
 		if err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
@@ -151,17 +151,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g handleFulcioCert) discoverFulcioRootCert(ctx context.Context, namespace string) ([]byte, error) {
-	item, err := trustmaterial.FindReadyInstance(ctx, g.Client, namespace, &rhtasv1.FulcioList{})
-	if err != nil {
-		if errors.Is(err, trustmaterial.ErrNoReadyInstance) {
-			return nil, fmt.Errorf("no ready fulcio instance found")
-		}
-		return nil, err
-	}
-	fulcio, ok := item.(*rhtasv1.Fulcio)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type %T for ready Fulcio instance", item)
+func (g handleFulcioCert) discoverFulcioRootCert(ctx context.Context, instance *rhtasv1.CTlog) ([]byte, error) {
+	fulcio := &rhtasv1.Fulcio{}
+	if err := serviceresolver.PopulateInstance(ctx, g.Client, instance.Spec.Fulcio, instance.Namespace, fulcio); err != nil {
+		return nil, fmt.Errorf("resolving Fulcio instance: %w", err)
 	}
 	if fulcio.Status.CertificateChain == "" {
 		return nil, fmt.Errorf("fulcio root certificate not yet available")

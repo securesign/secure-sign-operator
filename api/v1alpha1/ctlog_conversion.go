@@ -135,6 +135,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Trillian.URL == "" {
 		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
 	}
+	dst.Spec.Fulcio = restored.Spec.Fulcio
 	if dst.Spec.Monitoring.Tuf.URL == "" {
 		dst.Spec.Monitoring.Tuf.Ref = restored.Spec.Monitoring.Tuf.Ref
 	}

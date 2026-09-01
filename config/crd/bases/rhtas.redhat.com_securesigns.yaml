@@ -1170,6 +1170,37 @@ spec:
                         - key
                         x-kubernetes-list-type: map
                     type: object
+                  fulcio:
+                    description: Fulcio service configuration for root certificate
+                      resolution
+                    properties:
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      url:
+                        description: |-
+                          Direct URL for an external or cross-namespace service.
+                          Accepts: host:port, dns:///host:port, http(s)://host/path
+                        maxLength: 2048
+                        minLength: 1
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
                   imagePullSecrets:
                     description: |-
                       ImagePullSecrets is an optional list of references to secrets in the same namespace

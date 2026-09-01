@@ -458,6 +458,7 @@ func (in *CTlogSpec) DeepCopyInto(out *CTlogSpec) {
 	in.Ingress.DeepCopyInto(&out.Ingress)
 	in.Monitoring.DeepCopyInto(&out.Monitoring)
 	in.Trillian.DeepCopyInto(&out.Trillian)
+	in.Fulcio.DeepCopyInto(&out.Fulcio)
 	in.TLS.DeepCopyInto(&out.TLS)
 	if in.MaxCertChainSize != nil {
 		in, out := &in.MaxCertChainSize, &out.MaxCertChainSize
