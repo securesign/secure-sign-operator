@@ -168,7 +168,6 @@ type CTLogFrozenSTH struct {
 	TreeHeadSignature []byte `json:"treeHeadSignature,omitempty"`
 }
 
-
 // CTlogSigner defines the desired state of the CTlog Signer
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"

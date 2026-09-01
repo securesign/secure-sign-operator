@@ -49,7 +49,6 @@ func readyFulcio() *rhtasv1.Fulcio {
 	}
 }
 
-
 func TestCertCan_Handle(t *testing.T) {
 	t.Parallel()
 
