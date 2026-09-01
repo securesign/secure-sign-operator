@@ -7,12 +7,18 @@ type ShardConfig struct {
 	PublicKey          []byte
 	PrivateKey         []byte
 	PrivateKeyPassword []byte
-	Prefix             string // URL path prefix for the shard
-	NotAfterStart      int64  // Unix timestamp: when shard certificates become valid
-	NotAfterLimit      int64  // Unix timestamp: when shard certificates expire
+	PKCS11             *PKCS11ShardConfig
+	Prefix             string
+	NotAfterStart      int64
+	NotAfterLimit      int64
 	FrozenSTH          *FrozenSTH
 	Readonly           bool
 	RootCerts          []RootCertificate
+}
+
+type PKCS11ShardConfig struct {
+	TokenLabel string
+	Pin        string
 }
 
 type FrozenSTH struct {

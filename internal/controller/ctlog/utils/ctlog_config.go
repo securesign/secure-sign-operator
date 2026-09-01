@@ -169,15 +169,26 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, defaultRootPems []stri
 		}
 	}
 
-	shardPrivateKeyFile := fmt.Sprintf("/ctfe-keys/shard-%d-private", shard.TreeID)
+	var privateKey *anypb.Any
+	if shard.PKCS11 != nil {
+		privateKey = mustMarshalAny(&keyspb.PKCS11Config{
+			TokenLabel: shard.PKCS11.TokenLabel,
+			Pin:        shard.PKCS11.Pin,
+			PublicKey:  string(shard.PublicKey),
+		})
+	} else {
+		shardPrivateKeyFile := fmt.Sprintf("/ctfe-keys/shard-%d-private", shard.TreeID)
+		privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
+			Path:     shardPrivateKeyFile,
+			Password: string(shard.PrivateKeyPassword),
+		})
+	}
 
 	cfg := &configpb.LogConfig{
-		LogId:        shard.TreeID,
-		Prefix:       shard.Prefix,
-		RootsPemFile: rootPems,
-		PrivateKey: mustMarshalAny(&keyspb.PEMKeyFile{
-			Path:     shardPrivateKeyFile,
-			Password: string(shard.PrivateKeyPassword)}),
+		LogId:          shard.TreeID,
+		Prefix:         shard.Prefix,
+		RootsPemFile:   rootPems,
+		PrivateKey:     privateKey,
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
