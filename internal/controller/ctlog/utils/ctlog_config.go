@@ -169,10 +169,15 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, defaultRootPems []stri
 		}
 	}
 
+	shardPrivateKeyFile := fmt.Sprintf("/ctfe-keys/shard-%d-private", shard.TreeID)
+
 	cfg := &configpb.LogConfig{
-		LogId:          shard.TreeID,
-		Prefix:         shard.Prefix,
-		RootsPemFile:   rootPems,
+		LogId:        shard.TreeID,
+		Prefix:       shard.Prefix,
+		RootsPemFile: rootPems,
+		PrivateKey: mustMarshalAny(&keyspb.PEMKeyFile{
+			Path:     shardPrivateKeyFile,
+			Password: string(shard.PrivateKeyPassword)}),
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
@@ -248,6 +253,9 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 		data[fulcioKey] = cert
 	}
 	for _, shard := range ctlogConfig.Shards {
+		if len(shard.PrivateKey) > 0 {
+			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
+		}
 		for i, cert := range shard.RootCerts {
 			data[fmt.Sprintf("shard-%d-root-%d", shard.TreeID, i)] = cert
 		}
