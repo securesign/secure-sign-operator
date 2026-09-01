@@ -97,7 +97,7 @@ type CTlogPKCS11Config struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef) || (has(self.readonly) && self.readonly == true)",message="privateKeyRef cannot be empty for non-readonly logs when publicKeyRef is set"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.logId)",message="logId is required for non-active logs"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.signer)",message="signer is required for non-active logs"
-// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && has(self.rootCerts.roots) && size(self.rootCerts.roots) > 0)",message="rootCerts.roots is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && size(self.rootCerts) > 0)",message="rootCerts is required for non-active logs"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the
@@ -112,9 +112,11 @@ type CTLogConfig struct {
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
 	Prefix string `json:"prefix"`
 
-	// RootCerts binds root certificates for this log entry via secret references.
+	// RootCerts is a list of secrets containing root certificates acceptable to this log.
+	// Required for non-active logs; the active log resolves root certs from spec.fulcio.
 	// +optional
-	RootCerts *RootCertBinding `json:"rootCerts,omitempty"`
+	// +listType=atomic
+	RootCerts []SecretKeySelector `json:"rootCerts,omitempty"`
 
 	// Signer configuration. Required for active and frozen logs. Optional only for mirrors.
 	// +optional
@@ -166,13 +168,6 @@ type CTLogFrozenSTH struct {
 	TreeHeadSignature []byte `json:"treeHeadSignature,omitempty"`
 }
 
-// RootCertBinding binds root certificates for a CTLog log entry.
-type RootCertBinding struct {
-	// Roots is a list of secrets containing root certificates acceptable to the log.
-	// +optional
-	// +listType=atomic
-	Roots []SecretKeySelector `json:"roots,omitempty"`
-}
 
 // CTlogSigner defines the desired state of the CTlog Signer
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"

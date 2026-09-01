@@ -54,8 +54,8 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			logStatus.RootCertificates = instance.Status.RootCertificates
 		} else {
 			logStatus.LogId = specLog.LogId
-			if specLog.RootCerts != nil {
-				logStatus.RootCertificates = specLog.RootCerts.Roots
+			if len(specLog.RootCerts) > 0 {
+				logStatus.RootCertificates = specLog.RootCerts
 			}
 			if specLog.Signer != nil && specLog.Signer.File != nil {
 				logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef

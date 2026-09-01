@@ -145,14 +145,14 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 								},
 							},
 						},
-						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: []rhtasv1.SecretKeySelector{
 							{
 								LocalObjectReference: rhtasv1.LocalObjectReference{
 									Name: "my-fulcio-secret",
 								},
 								Key: "cert",
 							},
-						}},
+						},
 					},
 				},
 			},

@@ -56,12 +56,12 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 
 	// Root certificates (from each log in Logs array)
 	for logIdx, log := range i.Spec.Logs {
-		if log.RootCerts == nil {
+		if len(log.RootCerts) == 0 {
 			continue
 		}
-		for certIdx := range log.RootCerts.Roots {
-			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &log.RootCerts.Roots[certIdx],
-				fmt.Sprintf("spec.logs[%d].rootCerts.roots[%d]", logIdx, certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
+		for certIdx := range log.RootCerts {
+			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &log.RootCerts[certIdx],
+				fmt.Sprintf("spec.logs[%d].rootCerts[%d]", logIdx, certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
 				return nil, err
 			}
 		}
