@@ -95,7 +95,6 @@ type CTlogPKCS11Config struct {
 // +structType=atomic
 // +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef) || (has(self.readonly) && self.readonly == true)",message="privateKeyRef cannot be empty for non-readonly logs when publicKeyRef is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.readonly) || self.readonly != true || has(self.logId)",message="logId is required for readonly shards"
-// +kubebuilder:validation:XValidation:rule="!has(self.readonly) || self.readonly != true || (has(self.signer) && has(self.signer.file) && has(self.signer.file.publicKeyRef))",message="signer.file.publicKeyRef is required for readonly shards"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the
