@@ -158,7 +158,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 	var cfg map[string][]byte
 	if isPKCS11 {
-		cfg, err = i.buildPKCS11Config(ctx, instance, trillianUrl, rootCerts)
+		cfg, err = i.buildPKCS11Config(ctx, instance, trillianUrl, rootCerts, shards)
 	} else {
 		certConfig, keyErr := i.handlePrivateKey(ctx, instance)
 		if keyErr != nil {
@@ -281,6 +281,7 @@ func (i serverConfig) buildPKCS11Config(
 	instance *rhtasv1.CTlog,
 	trillianUrl string,
 	rootCerts []ctlogUtils.RootCertificate,
+	shards []ctlogUtils.ShardConfig,
 ) (map[string][]byte, error) {
 	active := activeStatusLog(instance)
 	if active == nil {
@@ -309,6 +310,15 @@ func (i serverConfig) buildPKCS11Config(
 		return nil, fmt.Errorf("public key secret %s/%s is empty", active.PublicKeyRef.Name, active.PublicKeyRef.Key)
 	}
 
+	notAfterStart := int64(0)
+	notAfterLimit := int64(0)
+	if active.NotAfterStart != nil {
+		notAfterStart = active.NotAfterStart.Unix()
+	}
+	if active.NotAfterLimit != nil {
+		notAfterLimit = active.NotAfterLimit.Unix()
+	}
+
 	return ctlogUtils.CreateCtlogPKCS11Config(
 		trillianUrl,
 		*active.LogId,
@@ -317,6 +327,9 @@ func (i serverConfig) buildPKCS11Config(
 		string(pin),
 		publicKey,
 		active.Prefix,
+		shards,
+		notAfterStart,
+		notAfterLimit,
 	)
 }
 
