@@ -1013,7 +1013,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -1171,8 +1173,9 @@ spec:
                         x-kubernetes-list-type: map
                     type: object
                   fulcio:
-                    description: Fulcio service configuration for root certificate
-                      resolution
+                    description: |-
+                      Fulcio service reference for resolving the active log's root certificate.
+                      Non-active logs must provide root certificates explicitly via rootCerts.roots.
                     properties:
                       ref:
                         description: In-cluster reference to a component CR.
@@ -1297,7 +1300,9 @@ spec:
                                     description: Selects a key of a ConfigMap.
                                     properties:
                                       key:
-                                        description: The key to select.
+                                        description: |-
+                                          The key to select from the ConfigMap's Data field.
+                                          Keys in the BinaryData field are not currently propagated to container env vars.
                                         type: string
                                       name:
                                         default: ""
@@ -1755,10 +1760,21 @@ spec:
                             description: VolumeMount describes a mounting of a Volume
                               within a container.
                             properties:
-                              mountPath:
+                              bindMountOptions:
                                 description: |-
-                                  Path within the container at which the volume should be mounted.  Must
-                                  not contain ':'.
+                                  bindMountOptions is the list of additional bind mount options to apply when
+                                  mounting this volume into the container. Allowed values are noexec,
+                                  nodev, and nosuid. These are Linux mount options and have no effect on
+                                  Windows nodes.
+                                  This field is not supported with image volumes.
+                                  This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              mountPath:
+                                description: Path within the container at which the
+                                  volume should be mounted.
                                 type: string
                               mountPropagation:
                                 description: |-
@@ -1897,26 +1913,9 @@ spec:
                             shard.
                           type: boolean
                         rootCerts:
-                          description: |-
-                            RootCerts binds root certificates for this log entry, either by referencing
-                            a Fulcio CR or by providing secret references directly.
+                          description: RootCerts binds root certificates for this
+                            log entry via secret references.
                           properties:
-                            ref:
-                              description: Ref is an in-cluster reference to a Fulcio
-                                CR whose root certificate will be used.
-                              properties:
-                                name:
-                                  description: Name of the referenced CR.
-                                  minLength: 1
-                                  type: string
-                                namespace:
-                                  description: Namespace of the referenced CR.
-                                  minLength: 1
-                                  type: string
-                              required:
-                              - name
-                              - namespace
-                              type: object
                             roots:
                               description: Roots is a list of secrets containing root
                                 certificates acceptable to the log.
@@ -1942,10 +1941,6 @@ spec:
                               type: array
                               x-kubernetes-list-type: atomic
                           type: object
-                          x-kubernetes-validations:
-                          - message: ref and roots are mutually exclusive
-                            rule: '!(has(self.ref) && has(self.roots) && size(self.roots)
-                              > 0)'
                         signer:
                           description: Signer configuration. Required for active and
                             frozen logs. Optional only for mirrors.
@@ -2093,6 +2088,11 @@ spec:
                           && self.readonly == true)'
                       - message: logId is required for readonly shards
                         rule: '!has(self.readonly) || self.readonly != true || has(self.logId)'
+                      - message: rootCerts.roots is required for non-active logs —
+                          the active log resolves root certificates from spec.fulcio
+                        rule: (has(self.active) && self.active == true) || (has(self.rootCerts)
+                          && has(self.rootCerts.roots) && size(self.rootCerts.roots)
+                          > 0)
                     type: array
                     x-kubernetes-list-map-keys:
                     - prefix
@@ -2380,10 +2380,21 @@ spec:
                       description: VolumeMount describes a mounting of a Volume within
                         a container.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -2470,6 +2481,13 @@ spec:
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
                               type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
+                              type: integer
                             items:
                               description: |-
                                 items if unspecified, each key-value pair in the Data field of the referenced
@@ -2503,6 +2521,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -2584,6 +2609,18 @@ spec:
                                 Must be an empty string (default) or Memory.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                               type: string
+                            mode:
+                              description: |-
+                                mode specifies the permission bits for the emptyDir directory, in numeric
+                                notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                If not specified, defaults to 0777.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                will override the mode specified here.
+                                This field has no effect on Windows.
+                                This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -2633,6 +2670,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             sources:
                               description: |-
@@ -2733,6 +2777,13 @@ spec:
                                           Mutually-exclusive with name.  The contents of all selected
                                           ClusterTrustBundles will be unified and deduplicated.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -2773,6 +2824,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -2869,6 +2927,13 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -2976,6 +3041,13 @@ spec:
                                         description: Kubelet's generated CSRs will
                                           be addressed to this signer.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -3035,6 +3107,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -3082,6 +3161,13 @@ spec:
                                           path is the path relative to the mount point of the file to project the
                                           token into.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -3103,6 +3189,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             items:
                               description: |-
@@ -3137,6 +3230,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -4122,7 +4222,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -4646,7 +4748,9 @@ spec:
                                     description: Selects a key of a ConfigMap.
                                     properties:
                                       key:
-                                        description: The key to select.
+                                        description: |-
+                                          The key to select from the ConfigMap's Data field.
+                                          Keys in the BinaryData field are not currently propagated to container env vars.
                                         type: string
                                       name:
                                         default: ""
@@ -5104,10 +5208,21 @@ spec:
                             description: VolumeMount describes a mounting of a Volume
                               within a container.
                             properties:
-                              mountPath:
+                              bindMountOptions:
                                 description: |-
-                                  Path within the container at which the volume should be mounted.  Must
-                                  not contain ':'.
+                                  bindMountOptions is the list of additional bind mount options to apply when
+                                  mounting this volume into the container. Allowed values are noexec,
+                                  nodev, and nosuid. These are Linux mount options and have no effect on
+                                  Windows nodes.
+                                  This field is not supported with image volumes.
+                                  This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              mountPath:
+                                description: Path within the container at which the
+                                  volume should be mounted.
                                 type: string
                               mountPropagation:
                                 description: |-
@@ -5471,10 +5586,21 @@ spec:
                       description: VolumeMount describes a mounting of a Volume within
                         a container.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -5561,6 +5687,13 @@ spec:
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
                               type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
+                              type: integer
                             items:
                               description: |-
                                 items if unspecified, each key-value pair in the Data field of the referenced
@@ -5594,6 +5727,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -5675,6 +5815,18 @@ spec:
                                 Must be an empty string (default) or Memory.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                               type: string
+                            mode:
+                              description: |-
+                                mode specifies the permission bits for the emptyDir directory, in numeric
+                                notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                If not specified, defaults to 0777.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                will override the mode specified here.
+                                This field has no effect on Windows.
+                                This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -5724,6 +5876,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             sources:
                               description: |-
@@ -5824,6 +5983,13 @@ spec:
                                           Mutually-exclusive with name.  The contents of all selected
                                           ClusterTrustBundles will be unified and deduplicated.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -5864,6 +6030,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -5960,6 +6133,13 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -6067,6 +6247,13 @@ spec:
                                         description: Kubelet's generated CSRs will
                                           be addressed to this signer.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -6126,6 +6313,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -6173,6 +6367,13 @@ spec:
                                           path is the path relative to the mount point of the file to project the
                                           token into.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -6194,6 +6395,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             items:
                               description: |-
@@ -6228,6 +6436,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -7310,7 +7525,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -7577,7 +7794,9 @@ spec:
                                     description: Selects a key of a ConfigMap.
                                     properties:
                                       key:
-                                        description: The key to select.
+                                        description: |-
+                                          The key to select from the ConfigMap's Data field.
+                                          Keys in the BinaryData field are not currently propagated to container env vars.
                                         type: string
                                       name:
                                         default: ""
@@ -8035,10 +8254,21 @@ spec:
                             description: VolumeMount describes a mounting of a Volume
                               within a container.
                             properties:
-                              mountPath:
+                              bindMountOptions:
                                 description: |-
-                                  Path within the container at which the volume should be mounted.  Must
-                                  not contain ':'.
+                                  bindMountOptions is the list of additional bind mount options to apply when
+                                  mounting this volume into the container. Allowed values are noexec,
+                                  nodev, and nosuid. These are Linux mount options and have no effect on
+                                  Windows nodes.
+                                  This field is not supported with image volumes.
+                                  This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              mountPath:
+                                description: Path within the container at which the
+                                  volume should be mounted.
                                 type: string
                               mountPropagation:
                                 description: |-
@@ -8509,10 +8739,21 @@ spec:
                       description: VolumeMount describes a mounting of a Volume within
                         a container.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -8599,6 +8840,13 @@ spec:
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
                               type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
+                              type: integer
                             items:
                               description: |-
                                 items if unspecified, each key-value pair in the Data field of the referenced
@@ -8632,6 +8880,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -8713,6 +8968,18 @@ spec:
                                 Must be an empty string (default) or Memory.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                               type: string
+                            mode:
+                              description: |-
+                                mode specifies the permission bits for the emptyDir directory, in numeric
+                                notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                If not specified, defaults to 0777.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                will override the mode specified here.
+                                This field has no effect on Windows.
+                                This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -8762,6 +9029,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             sources:
                               description: |-
@@ -8862,6 +9136,13 @@ spec:
                                           Mutually-exclusive with name.  The contents of all selected
                                           ClusterTrustBundles will be unified and deduplicated.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -8902,6 +9183,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -8998,6 +9286,13 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -9105,6 +9400,13 @@ spec:
                                         description: Kubelet's generated CSRs will
                                           be addressed to this signer.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -9164,6 +9466,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -9211,6 +9520,13 @@ spec:
                                           path is the path relative to the mount point of the file to project the
                                           token into.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -9232,6 +9548,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             items:
                               description: |-
@@ -9266,6 +9589,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -9329,7 +9659,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -9682,7 +10014,9 @@ spec:
                                     description: Selects a key of a ConfigMap.
                                     properties:
                                       key:
-                                        description: The key to select.
+                                        description: |-
+                                          The key to select from the ConfigMap's Data field.
+                                          Keys in the BinaryData field are not currently propagated to container env vars.
                                         type: string
                                       name:
                                         default: ""
@@ -10140,10 +10474,21 @@ spec:
                             description: VolumeMount describes a mounting of a Volume
                               within a container.
                             properties:
-                              mountPath:
+                              bindMountOptions:
                                 description: |-
-                                  Path within the container at which the volume should be mounted.  Must
-                                  not contain ':'.
+                                  bindMountOptions is the list of additional bind mount options to apply when
+                                  mounting this volume into the container. Allowed values are noexec,
+                                  nodev, and nosuid. These are Linux mount options and have no effect on
+                                  Windows nodes.
+                                  This field is not supported with image volumes.
+                                  This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              mountPath:
+                                description: Path within the container at which the
+                                  volume should be mounted.
                                 type: string
                               mountPropagation:
                                 description: |-
@@ -12421,10 +12766,21 @@ spec:
                       description: VolumeMount describes a mounting of a Volume within
                         a container.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -12511,6 +12867,13 @@ spec:
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
                               type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
+                              type: integer
                             items:
                               description: |-
                                 items if unspecified, each key-value pair in the Data field of the referenced
@@ -12544,6 +12907,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -12625,6 +12995,18 @@ spec:
                                 Must be an empty string (default) or Memory.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                               type: string
+                            mode:
+                              description: |-
+                                mode specifies the permission bits for the emptyDir directory, in numeric
+                                notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                If not specified, defaults to 0777.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                will override the mode specified here.
+                                This field has no effect on Windows.
+                                This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -12674,6 +13056,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             sources:
                               description: |-
@@ -12774,6 +13163,13 @@ spec:
                                           Mutually-exclusive with name.  The contents of all selected
                                           ClusterTrustBundles will be unified and deduplicated.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -12814,6 +13210,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -12910,6 +13313,13 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -13017,6 +13427,13 @@ spec:
                                         description: Kubelet's generated CSRs will
                                           be addressed to this signer.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -13076,6 +13493,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -13123,6 +13547,13 @@ spec:
                                           path is the path relative to the mount point of the file to project the
                                           token into.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -13144,6 +13575,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             items:
                               description: |-
@@ -13178,6 +13616,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -14160,7 +14605,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -14413,7 +14860,9 @@ spec:
                                     description: Selects a key of a ConfigMap.
                                     properties:
                                       key:
-                                        description: The key to select.
+                                        description: |-
+                                          The key to select from the ConfigMap's Data field.
+                                          Keys in the BinaryData field are not currently propagated to container env vars.
                                         type: string
                                       name:
                                         default: ""
@@ -14871,10 +15320,21 @@ spec:
                             description: VolumeMount describes a mounting of a Volume
                               within a container.
                             properties:
-                              mountPath:
+                              bindMountOptions:
                                 description: |-
-                                  Path within the container at which the volume should be mounted.  Must
-                                  not contain ':'.
+                                  bindMountOptions is the list of additional bind mount options to apply when
+                                  mounting this volume into the container. Allowed values are noexec,
+                                  nodev, and nosuid. These are Linux mount options and have no effect on
+                                  Windows nodes.
+                                  This field is not supported with image volumes.
+                                  This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              mountPath:
+                                description: Path within the container at which the
+                                  volume should be mounted.
                                 type: string
                               mountPropagation:
                                 description: |-
@@ -15339,10 +15799,21 @@ spec:
                       description: VolumeMount describes a mounting of a Volume within
                         a container.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -15429,6 +15900,13 @@ spec:
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
                               type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
+                              type: integer
                             items:
                               description: |-
                                 items if unspecified, each key-value pair in the Data field of the referenced
@@ -15462,6 +15940,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -15543,6 +16028,18 @@ spec:
                                 Must be an empty string (default) or Memory.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                               type: string
+                            mode:
+                              description: |-
+                                mode specifies the permission bits for the emptyDir directory, in numeric
+                                notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                If not specified, defaults to 0777.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                will override the mode specified here.
+                                This field has no effect on Windows.
+                                This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -15592,6 +16089,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             sources:
                               description: |-
@@ -15692,6 +16196,13 @@ spec:
                                           Mutually-exclusive with name.  The contents of all selected
                                           ClusterTrustBundles will be unified and deduplicated.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -15732,6 +16243,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -15828,6 +16346,13 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -15935,6 +16460,13 @@ spec:
                                         description: Kubelet's generated CSRs will
                                           be addressed to this signer.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -15994,6 +16526,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -16041,6 +16580,13 @@ spec:
                                           path is the path relative to the mount point of the file to project the
                                           token into.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -16062,6 +16608,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             items:
                               description: |-
@@ -16096,6 +16649,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -17280,7 +17840,9 @@ spec:
                                     description: Selects a key of a ConfigMap.
                                     properties:
                                       key:
-                                        description: The key to select.
+                                        description: |-
+                                          The key to select from the ConfigMap's Data field.
+                                          Keys in the BinaryData field are not currently propagated to container env vars.
                                         type: string
                                       name:
                                         default: ""
@@ -17738,10 +18300,21 @@ spec:
                             description: VolumeMount describes a mounting of a Volume
                               within a container.
                             properties:
-                              mountPath:
+                              bindMountOptions:
                                 description: |-
-                                  Path within the container at which the volume should be mounted.  Must
-                                  not contain ':'.
+                                  bindMountOptions is the list of additional bind mount options to apply when
+                                  mounting this volume into the container. Allowed values are noexec,
+                                  nodev, and nosuid. These are Linux mount options and have no effect on
+                                  Windows nodes.
+                                  This field is not supported with image volumes.
+                                  This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              mountPath:
+                                description: Path within the container at which the
+                                  volume should be mounted.
                                 type: string
                               mountPropagation:
                                 description: |-
@@ -18135,10 +18708,21 @@ spec:
                       description: VolumeMount describes a mounting of a Volume within
                         a container.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -18225,6 +18809,13 @@ spec:
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
                               type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
+                              type: integer
                             items:
                               description: |-
                                 items if unspecified, each key-value pair in the Data field of the referenced
@@ -18258,6 +18849,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -18339,6 +18937,18 @@ spec:
                                 Must be an empty string (default) or Memory.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                               type: string
+                            mode:
+                              description: |-
+                                mode specifies the permission bits for the emptyDir directory, in numeric
+                                notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                If not specified, defaults to 0777.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                will override the mode specified here.
+                                This field has no effect on Windows.
+                                This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -18388,6 +18998,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             sources:
                               description: |-
@@ -18488,6 +19105,13 @@ spec:
                                           Mutually-exclusive with name.  The contents of all selected
                                           ClusterTrustBundles will be unified and deduplicated.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -18528,6 +19152,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -18624,6 +19255,13 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -18731,6 +19369,13 @@ spec:
                                         description: Kubelet's generated CSRs will
                                           be addressed to this signer.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -18790,6 +19435,13 @@ spec:
                                                 May not contain the path element '..'.
                                                 May not start with the string '..'.
                                               type: string
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -18837,6 +19489,13 @@ spec:
                                           path is the path relative to the mount point of the file to project the
                                           token into.
                                         type: string
+                                      user:
+                                        description: |-
+                                          user is Optional: The owner UID of the created file.
+                                          If specified, the item-level user field takes precedence over defaultUser.
+                                          (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -18858,6 +19517,13 @@ spec:
                                 This might be in conflict with other options that affect the file
                                 mode, like fsGroup, and the result can be other mode bits set.
                               format: int32
+                              type: integer
+                            defaultUser:
+                              description: |-
+                                defaultUser is Optional: The owner UID of the created files by default.
+                                The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                              format: int64
                               type: integer
                             items:
                               description: |-
@@ -18892,6 +19558,13 @@ spec:
                                       May not contain the path element '..'.
                                       May not start with the string '..'.
                                     type: string
+                                  user:
+                                    description: |-
+                                      user is Optional: The owner UID of the created file.
+                                      If specified, the item-level user field takes precedence over defaultUser.
+                                      (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -22705,7 +23378,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -24424,7 +25099,9 @@ spec:
                                   description: Selects a key of a ConfigMap.
                                   properties:
                                     key:
-                                      description: The key to select.
+                                      description: |-
+                                        The key to select from the ConfigMap's Data field.
+                                        Keys in the BinaryData field are not currently propagated to container env vars.
                                       type: string
                                     name:
                                       default: ""
@@ -28306,7 +28983,9 @@ spec:
                                           description: Selects a key of a ConfigMap.
                                           properties:
                                             key:
-                                              description: The key to select.
+                                              description: |-
+                                                The key to select from the ConfigMap's Data field.
+                                                Keys in the BinaryData field are not currently propagated to container env vars.
                                               type: string
                                             name:
                                               default: ""
@@ -28508,7 +29187,9 @@ spec:
                                           description: Selects a key of a ConfigMap.
                                           properties:
                                             key:
-                                              description: The key to select.
+                                              description: |-
+                                                The key to select from the ConfigMap's Data field.
+                                                Keys in the BinaryData field are not currently propagated to container env vars.
                                               type: string
                                             name:
                                               default: ""
