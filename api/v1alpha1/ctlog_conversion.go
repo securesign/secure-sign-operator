@@ -65,42 +65,51 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	// v1alpha1 always uses the hardcoded "trusted-artifact-signer" prefix
-	// Always ensure the first log exists with this prefix, as v1 requires at least one log
-	if len(out.Logs) == 0 {
-		out.Logs = make([]rhtasv1.CTLogConfig, 1)
-		out.Logs[0].Prefix = "trusted-artifact-signer"
-		// Default to file signer for empty specs
-		out.Logs[0].Signer = &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile}
-		out.Logs[0].Active = ptr.To(true)
+	// v1alpha1 always uses the hardcoded "trusted-artifact-signer" prefix.
+	// Find the matching log by prefix, or append a new entry if not found.
+	const v1alpha1Prefix = "trusted-artifact-signer"
+	idx := -1
+	for i := range out.Logs {
+		if out.Logs[i].Prefix == v1alpha1Prefix {
+			idx = i
+			break
+		}
 	}
-	// If we have data to populate, ensure it's in the first log with the correct prefix
+	if idx == -1 {
+		out.Logs = append(out.Logs, rhtasv1.CTLogConfig{
+			Prefix: v1alpha1Prefix,
+			Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile},
+			Active: ptr.To(true),
+		})
+		idx = len(out.Logs) - 1
+	}
+	log := &out.Logs[idx]
 	if in.TreeID != nil {
-		out.Logs[0].LogId = in.TreeID
+		log.LogId = in.TreeID
 	}
 	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
-		if out.Logs[0].Signer == nil {
-			out.Logs[0].Signer = &rhtasv1.CTlogSigner{}
+		if log.Signer == nil {
+			log.Signer = &rhtasv1.CTlogSigner{}
 		}
-		out.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
-		out.Logs[0].Signer.File = &rhtasv1.CTlogFile{}
+		log.Signer.Type = rhtasv1.SignerTypeFile
+		log.Signer.File = &rhtasv1.CTlogFile{}
 		if in.PrivateKeyRef != nil {
-			out.Logs[0].Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, out.Logs[0].Signer.File.PrivateKeyRef, s); err != nil {
+			log.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, log.Signer.File.PrivateKeyRef, s); err != nil {
 				return err
 			}
 		}
 		if in.PublicKeyRef != nil {
-			out.Logs[0].Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{}
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PublicKeyRef, out.Logs[0].Signer.File.PublicKeyRef, s); err != nil {
+			log.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{}
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PublicKeyRef, log.Signer.File.PublicKeyRef, s); err != nil {
 				return err
 			}
 		}
 	}
 	if len(in.RootCertificates) > 0 {
-		out.Logs[0].Roots = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
+		log.Roots = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
 		for i, root := range in.RootCertificates {
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &out.Logs[0].Roots[i], s); err != nil {
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &log.Roots[i], s); err != nil {
 				return err
 			}
 		}

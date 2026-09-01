@@ -7,9 +7,6 @@ func (s *Securesign) SetDefaults() {
 	s.Spec.Rekor.Attestations.SetDefaults()
 	s.Spec.Rekor.BackFillRedis.SetDefaults()
 
-	// CTLog Logs must be defaulted here so users can modify them on the Securesign CR
-	s.Spec.Ctlog.SetDefaults()
-
 	// bind all services together if created by Securesign umbrella
 	if s.Spec.Ctlog.Trillian.URL == "" && s.Spec.Ctlog.Trillian.Ref == nil {
 		s.Spec.Ctlog.Trillian.Ref = &ServiceReferenceRef{
