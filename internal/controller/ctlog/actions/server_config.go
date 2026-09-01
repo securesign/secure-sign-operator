@@ -38,6 +38,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/trillianUrl",
 	labels.LabelNamespace + "/rootCertificatesHash",
 	labels.LabelNamespace + "/privateKeyRef",
+	labels.LabelNamespace + "/privateKeyPasswordRef",
 	labels.LabelNamespace + "/logPrefix",
 	labels.LabelNamespace + "/pkcs11SpecHash",
 	labels.LabelNamespace + "/shardingHash",
@@ -338,16 +339,7 @@ func (i serverConfig) handlePrivateKey(ctx context.Context, instance *rhtasv1.CT
 	if err != nil {
 		return nil, err
 	}
-	// Prefer spec-level PrivateKeyPasswordRef (from the active log's signer config),
-	// then fall back to the deprecated status-level ref for backward compatibility.
-	var passwordRef *rhtasv1.SecretKeySelector
-	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
-	if activeLog != nil && activeLog.Signer != nil && activeLog.Signer.File != nil && activeLog.Signer.File.PrivateKeyPasswordRef != nil {
-		passwordRef = activeLog.Signer.File.PrivateKeyPasswordRef
-	} else {
-		passwordRef = instance.Status.PrivateKeyPasswordRef
-	}
-	password, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, passwordRef)
+	password, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
 	if err != nil {
 		return nil, err
 	}
@@ -373,11 +365,6 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 	return certs, nil
 }
 
-// validateExistingSecret checks if the existing server config secret is valid.
-// Returns:
-//   - nil if the secret is valid
-//   - errSecretInvalid if the secret needs recreation (not a failure)
-//   - other error for API errors - reconciliation should fail
 func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
 	// Collect all non-active logs
 	nonActiveLogs := make([]rhtasv1.CTLogConfig, 0)
@@ -389,7 +376,7 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 
 	shards := make([]ctlogUtils.ShardConfig, 0, len(nonActiveLogs))
 	for _, log := range nonActiveLogs {
-		var publicKey, privateKey, privateKeyPassword []byte
+		var publicKey, privateKey []byte
 		var pkcs11Cfg *ctlogUtils.PKCS11ShardConfig
 
 		if log.Signer != nil && log.Signer.File != nil {
@@ -405,13 +392,6 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 				privateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.Signer.File.PrivateKeyRef)
 				if err != nil {
 					return nil, fmt.Errorf("shard %s privateKeyRef: %w", log.Prefix, err)
-				}
-			}
-			if log.Signer.File.PrivateKeyPasswordRef != nil {
-				var err error
-				privateKeyPassword, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.Signer.File.PrivateKeyPasswordRef)
-				if err != nil {
-					return nil, fmt.Errorf("shard %s privateKeyPasswordRef: %w", log.Prefix, err)
 				}
 			}
 		}
@@ -453,14 +433,13 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		}
 
 		sc := ctlogUtils.ShardConfig{
-			TreeID:             treeID,
-			PublicKey:          publicKey,
-			PrivateKey:         privateKey,
-			PrivateKeyPassword: privateKeyPassword,
-			PKCS11:             pkcs11Cfg,
-			Prefix:             log.Prefix,
-			FrozenSTH:          frozenSTH,
-			Readonly:           log.Readonly != nil && *log.Readonly,
+			TreeID:     treeID,
+			PublicKey:  publicKey,
+			PrivateKey: privateKey,
+			PKCS11:     pkcs11Cfg,
+			Prefix:     log.Prefix,
+			FrozenSTH:  frozenSTH,
+			Readonly:   log.Readonly != nil && *log.Readonly,
 		}
 
 		if len(log.RootCerts) > 0 {
@@ -537,8 +516,8 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	}
 
 	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
-	if activeLog != nil && activeLog.Signer != nil && activeLog.Signer.File != nil && activeLog.Signer.File.PrivateKeyPasswordRef != nil {
-		ref := activeLog.Signer.File.PrivateKeyPasswordRef
+	if instance.Status.PrivateKeyPasswordRef != nil {
+		ref := instance.Status.PrivateKeyPasswordRef
 		annotations[labels.LabelNamespace+"/privateKeyPasswordRef"] = fmt.Sprintf("%s/%s", ref.Name, ref.Key)
 	}
 	if activeLog != nil && activeLog.Prefix != "" {
@@ -567,7 +546,8 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 			readonly := log.Readonly != nil && *log.Readonly
 			publicKeyRefStr := ""
 			privateKeyRefStr := ""
-			privateKeyPasswordRefStr := ""
+			pinRefStr := ""
+			tokenLabelStr := ""
 			if log.Signer != nil && log.Signer.File != nil {
 				if log.Signer.File.PublicKeyRef != nil {
 					publicKeyRefStr = log.Signer.File.PublicKeyRef.Name + "/" + log.Signer.File.PublicKeyRef.Key
@@ -575,17 +555,13 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 				if log.Signer.File.PrivateKeyRef != nil {
 					privateKeyRefStr = log.Signer.File.PrivateKeyRef.Name + "/" + log.Signer.File.PrivateKeyRef.Key
 				}
-				if log.Signer.File.PrivateKeyPasswordRef != nil {
-					privateKeyPasswordRefStr = log.Signer.File.PrivateKeyPasswordRef.Name + "/" + log.Signer.File.PrivateKeyPasswordRef.Key
-				}
 			}
-			tokenLabelStr := ""
 			if log.Signer != nil && log.Signer.PKCS11 != nil {
 				if log.Signer.PKCS11.PublicKeyRef != nil {
 					publicKeyRefStr = log.Signer.PKCS11.PublicKeyRef.Name + "/" + log.Signer.PKCS11.PublicKeyRef.Key
 				}
 				if log.Signer.PKCS11.PinSecretRef != nil {
-					privateKeyPasswordRefStr = log.Signer.PKCS11.PinSecretRef.Name + "/" + log.Signer.PKCS11.PinSecretRef.Key
+					pinRefStr = log.Signer.PKCS11.PinSecretRef.Name + "/" + log.Signer.PKCS11.PinSecretRef.Key
 				}
 				tokenLabelStr = log.Signer.PKCS11.TokenLabel
 			}
@@ -603,7 +579,7 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 					rootCertsStr += r.Name + "/" + r.Key + ","
 				}
 			}
-			_, _ = fmt.Fprintf(h, "%d:%s:%s:%s:%s:%s:%s:%v", logId, publicKeyRefStr, privateKeyRefStr, privateKeyPasswordRefStr, tokenLabelStr, frozenSTHRefStr, rootCertsStr, readonly)
+			_, _ = fmt.Fprintf(h, "%d:%s:%s:%s:%s:%s:%s:%v", logId, publicKeyRefStr, privateKeyRefStr, pinRefStr, tokenLabelStr, frozenSTHRefStr, rootCertsStr, readonly)
 		}
 		if hasNonActive {
 			annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))

@@ -19,7 +19,7 @@ func TestAlignStatusLogs_CanHandle(t *testing.T) {
 		canHandle bool
 	}{
 		{"pending", state.Pending, false},
-		{"creating", state.Creating, false},
+		{"creating", state.Creating, true},
 		{"initialize", state.Initialize, true},
 		{"ready", state.Ready, true},
 	}
@@ -196,6 +196,7 @@ func TestAlignStatusLogs_NoChangeSkips(t *testing.T) {
 				{
 					Prefix: "trusted-artifact-signer",
 					LogId:  ptr.To(int64(12345)),
+					Active: true,
 				},
 			},
 			Conditions: []metav1.Condition{

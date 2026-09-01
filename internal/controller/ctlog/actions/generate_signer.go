@@ -72,8 +72,6 @@ func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[str
 }
 
 func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
-	// Save existing status values before overwrite so we can preserve
-	// PrivateKeyPasswordRef for legacy encrypted-key deployments.
 	oldPasswordRef := instance.Status.PrivateKeyPasswordRef
 	oldPrivateKeyRef := instance.Status.PrivateKeyRef
 
@@ -105,12 +103,8 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 		}
 	}
 
-	if file != nil && file.PrivateKeyPasswordRef != nil {
-		instance.Status.PrivateKeyPasswordRef = file.PrivateKeyPasswordRef
-	} else if oldPasswordRef != nil &&
+	if oldPasswordRef != nil &&
 		equality.Semantic.DeepEqual(instance.Status.PrivateKeyRef, oldPrivateKeyRef) {
-		// Backward compat: preserve existing status password ref when the key
-		// reference hasn't changed (legacy encrypted-key deployments).
 		instance.Status.PrivateKeyPasswordRef = oldPasswordRef
 	} else {
 		instance.Status.PrivateKeyPasswordRef = nil

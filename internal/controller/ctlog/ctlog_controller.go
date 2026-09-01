@@ -129,6 +129,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		actions.NewResolveTreeAction(),
+		actions.NewAlignStatusLogsAction(),
 		actions.NewServerConfigAction(),
 
 		actions.NewRBACAction(),
@@ -147,7 +148,6 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		actions.NewRolloutCheckAction(),
 		actions.NewResolvePubKeyAction(),
-		actions.NewAlignStatusLogsAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.CTlog](),
 	}
