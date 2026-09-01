@@ -142,9 +142,9 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 									},
 								},
 							},
-							Roots: []rhtasv1.SecretKeySelector{
+							RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-							},
+							}},
 						},
 					},
 				},
@@ -196,9 +196,9 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 									},
 								},
 							},
-							Roots: []rhtasv1.SecretKeySelector{
+							RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-							},
+							}},
 						},
 					},
 				},
@@ -251,9 +251,9 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 									},
 								},
 							},
-							Roots: []rhtasv1.SecretKeySelector{
+							RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-							},
+							}},
 							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
 							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
 						},
@@ -344,9 +344,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						LogId:  ptr.To(int64(123456)),
 						Prefix: "trusted-artifact-signer",
 						Signer: &rhtasv1.CTlogSigner{Type: "file"},
-						Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-						},
+						}},
 					},
 				},
 			},
@@ -436,9 +436,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 							},
 						},
 					},
-					Roots: []rhtasv1.SecretKeySelector{
+					RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-					},
+					}},
 				})
 				return env{
 					instance: inst,
@@ -486,9 +486,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 								},
 							},
 						},
-						Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-						},
+						}},
 					},
 					rhtasv1.CTLogConfig{
 						LogId:    ptr.To(int64(666666)),
@@ -503,9 +503,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 								},
 							},
 						},
-						Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-						},
+						}},
 					},
 				)
 				return env{
@@ -608,9 +608,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 										},
 									},
 								},
-								Roots: []rhtasv1.SecretKeySelector{
+								RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
-								},
+								}},
 							},
 						},
 					},
@@ -685,9 +685,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 										},
 									},
 								},
-								Roots: []rhtasv1.SecretKeySelector{
+								RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
-								},
+								}},
 							},
 						},
 					},
@@ -750,9 +750,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 										PublicKeyRef: nil,
 									},
 								},
-								Roots: []rhtasv1.SecretKeySelector{
+								RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
-								},
+								}},
 							},
 						},
 					},
@@ -820,9 +820,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 										},
 									},
 								},
-								Roots: []rhtasv1.SecretKeySelector{
+								RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
-								},
+								}},
 							},
 						},
 					},
@@ -908,9 +908,9 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 						LogId:  ptr.To(int64(123456)),
 						Prefix: "trusted-artifact-signer",
 						Signer: &rhtasv1.CTlogSigner{Type: "file"},
-						Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-						},
+						}},
 					},
 				},
 			},
