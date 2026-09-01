@@ -179,8 +179,7 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, defaultRootPems []stri
 	} else {
 		shardPrivateKeyFile := fmt.Sprintf("/ctfe-keys/shard-%d-private", shard.TreeID)
 		privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
-			Path:     shardPrivateKeyFile,
-			Password: string(shard.PrivateKeyPassword),
+			Path: shardPrivateKeyFile,
 		})
 	}
 

@@ -142,17 +142,15 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		}
 
 		isPKCS11 := false
-		activeLog := ctlogutils.ActiveLog(instance.Spec.Logs)
-		if activeLog != nil && activeLog.Signer != nil {
-			isPKCS11 = activeLog.Signer.Type == rhtasv1.SignerTypePKCS11
-
-			if isPKCS11 {
-				p := activeLog.Signer.PKCS11
-				if p == nil {
-					return fmt.Errorf("PKCS#11 config not yet resolved")
+		for _, log := range instance.Spec.Logs {
+			if log.Signer != nil && log.Signer.Type == rhtasv1.SignerTypePKCS11 {
+				isPKCS11 = true
+				if log.Signer.PKCS11 == nil {
+					return fmt.Errorf("PKCS#11 config not yet resolved for log %s", log.Prefix)
 				}
-				modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(p.ModulePath))
+				modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(log.Signer.PKCS11.ModulePath))
 				appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
+				break
 			}
 		}
 

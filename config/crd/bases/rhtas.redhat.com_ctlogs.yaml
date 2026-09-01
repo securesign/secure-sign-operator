@@ -1913,24 +1913,6 @@ spec:
                         file:
                           description: Configuration for file-based signer
                           properties:
-                            privateKeyPasswordRef:
-                              description: The password for the private key, if encrypted.
-                              properties:
-                                key:
-                                  description: The key of the secret to select from.
-                                    Must be a valid secret key.
-                                  pattern: ^[-._a-zA-Z0-9]+$
-                                  type: string
-                                name:
-                                  description: |-
-                                    Name of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  type: string
-                              required:
-                              - key
-                              - name
-                              type: object
-                              x-kubernetes-map-type: atomic
                             privateKeyRef:
                               description: The private key used for signing STHs etc.
                               properties:
@@ -3302,10 +3284,70 @@ spec:
                   description: CTlogLogStatus contains status information for a single
                     log.
                   properties:
+                    active:
+                      description: Active indicates this is the currently active log.
+                      type: boolean
+                    frozenSTH:
+                      description: FrozenSTH is the frozen SignedTreeHead for a read-only
+                        shard.
+                      properties:
+                        sha256RootHash:
+                          description: Sha256RootHash is the Base64-encoded root hash.
+                          format: byte
+                          type: string
+                        timestamp:
+                          description: Timestamp is the Unix timestamp when the STH
+                            was signed.
+                          format: date-time
+                          type: string
+                        treeHeadSignature:
+                          description: TreeHeadSignature is the Base64-encoded signature.
+                          format: byte
+                          type: string
+                        treeSize:
+                          description: TreeSize is the number of leaves in the tree.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                      type: object
+                      x-kubernetes-map-type: atomic
                     logId:
                       description: LogId is the Trillian tree ID.
                       format: int64
                       type: integer
+                    notAfterLimit:
+                      description: NotAfterLimit is the timestamp when this log's
+                        certificates expire.
+                      format: date-time
+                      type: string
+                    notAfterStart:
+                      description: NotAfterStart is the timestamp when this log's
+                        certificates become valid.
+                      format: date-time
+                      type: string
+                    pinSecretRef:
+                      description: PinSecretRef points to the secret containing the
+                        HSM PIN (PKCS11 signer).
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    pkcs11TokenLabel:
+                      description: PKCS11TokenLabel is the HSM slot token label (PKCS11
+                        signer).
+                      type: string
                     prefix:
                       description: Prefix is the log's URL prefix.
                       type: string
@@ -3330,7 +3372,7 @@ spec:
                       x-kubernetes-map-type: atomic
                     privateKeyRef:
                       description: PrivateKeyRef points to the secret containing the
-                        private key (for active logs only).
+                        private key.
                       properties:
                         key:
                           description: The key of the secret to select from. Must
@@ -3394,6 +3436,10 @@ spec:
                         x-kubernetes-map-type: atomic
                       type: array
                       x-kubernetes-list-type: atomic
+                    signerType:
+                      description: SignerType is the signer backend type (file or
+                        pkcs11).
+                      type: string
                   required:
                   - prefix
                   type: object

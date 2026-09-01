@@ -191,10 +191,6 @@ type CTlogFile struct {
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 
-	// The password for the private key, if encrypted.
-	//+optional
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
-
 	// The public key matching the private key (if both are present). It is
 	// used only by mirror logs for verifying the source log's signatures, but can
 	// be specified for regular logs as well for the convenience of test tools.
@@ -210,7 +206,11 @@ type CTlogLogStatus struct {
 	// Prefix is the log's URL prefix.
 	// +kubebuilder:validation:Required
 	Prefix string `json:"prefix,omitempty"`
-	// PrivateKeyRef points to the secret containing the private key (for active logs only).
+	// Active indicates this is the currently active log.
+	Active bool `json:"active,omitempty"`
+	// SignerType is the signer backend type (file or pkcs11).
+	SignerType string `json:"signerType,omitempty"`
+	// PrivateKeyRef points to the secret containing the private key.
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// PrivateKeyPasswordRef points to the secret containing the private key password (if encrypted).
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
@@ -218,11 +218,24 @@ type CTlogLogStatus struct {
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
 	// PublicKey is the PEM-encoded public key.
 	PublicKey string `json:"publicKey,omitempty"`
+	// PinSecretRef points to the secret containing the HSM PIN (PKCS11 signer).
+	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
+	// PKCS11TokenLabel is the HSM slot token label (PKCS11 signer).
+	PKCS11TokenLabel string `json:"pkcs11TokenLabel,omitempty"`
 	// RootCertificates are the resolved root certificates.
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 	// Readonly indicates if this is a frozen shard.
 	Readonly *bool `json:"readonly,omitempty"`
+	// NotAfterStart is the timestamp when this log's certificates become valid.
+	// +optional
+	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
+	// NotAfterLimit is the timestamp when this log's certificates expire.
+	// +optional
+	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
+	// FrozenSTH is the frozen SignedTreeHead for a read-only shard.
+	// +optional
+	FrozenSTH *CTLogFrozenSTH `json:"frozenSTH,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

@@ -6,7 +6,6 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/state"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -24,7 +23,7 @@ func (a alignStatusLogs) Name() string {
 }
 
 func (a alignStatusLogs) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	return state.FromInstance(instance, constants.ReadyCondition) >= state.Initialize
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
@@ -41,25 +40,45 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 
 	for _, specLog := range instance.Spec.Logs {
 		logStatus := rhtasv1.CTlogLogStatus{
-			Prefix:   specLog.Prefix,
-			Readonly: specLog.Readonly,
+			Prefix:        specLog.Prefix,
+			Readonly:      specLog.Readonly,
+			NotAfterStart: specLog.NotAfterStart,
+			NotAfterLimit: specLog.NotAfterLimit,
+			FrozenSTH:     specLog.FrozenSTH,
 		}
 
-		if utils.ActiveLog(instance.Spec.Logs) != nil && specLog.Active != nil && *specLog.Active {
+		if specLog.Active != nil && *specLog.Active {
+			logStatus.Active = true
 			logStatus.LogId = instance.Status.TreeID
 			logStatus.PrivateKeyRef = instance.Status.PrivateKeyRef
 			logStatus.PrivateKeyPasswordRef = instance.Status.PrivateKeyPasswordRef
 			logStatus.PublicKeyRef = instance.Status.PublicKeyRef
 			logStatus.PublicKey = instance.Status.PublicKey
 			logStatus.RootCertificates = instance.Status.RootCertificates
+
+			if specLog.Signer != nil {
+				logStatus.SignerType = specLog.Signer.Type
+				if specLog.Signer.PKCS11 != nil {
+					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
+					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
+				}
+			}
 		} else {
 			logStatus.LogId = specLog.LogId
 			if len(specLog.RootCerts) > 0 {
 				logStatus.RootCertificates = specLog.RootCerts
 			}
-			if specLog.Signer != nil && specLog.Signer.File != nil {
-				logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
-				logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+			if specLog.Signer != nil {
+				logStatus.SignerType = specLog.Signer.Type
+				if specLog.Signer.File != nil {
+					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
+					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+				}
+				if specLog.Signer.PKCS11 != nil {
+					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
+					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
+					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
+				}
 			}
 		}
 

@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"errors"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -14,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // pkcs11CTlogInstance returns a CTlog instance in Creating state with PKCS#11
@@ -86,7 +84,7 @@ func TestCanHandle_PKCS11_CondTrue_SameHash(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Pre-compute hash and set annotation + condition.
-	hash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
+	hash := allPKCS11SpecHash(instance)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: hash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    PKCS11Condition,
@@ -185,9 +183,9 @@ func TestHandle_NilPKCS11(t *testing.T) {
 	a := testAction.PrepareAction(c, NewEnsurePKCS11ConfigAction())
 	result := a.Handle(ctx, instance)
 
+	// With PKCS11 config nil, Handle skips validation (CEL admission prevents this state).
 	g.Expect(result).ToNot(BeNil())
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+	g.Expect(result.Err).ToNot(HaveOccurred())
 }
 
 func TestHandle_MissingPin(t *testing.T) {
@@ -322,7 +320,7 @@ func TestHandle_Rotation_FieldsUnchanged(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Set annotation + condition with matching hash -- CanHandle should return false.
-	hash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
+	hash := allPKCS11SpecHash(instance)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: hash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               PKCS11Condition,
@@ -346,7 +344,7 @@ func TestHandle_Rotation_PinSecretRefChanged(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Set annotation + condition with hash from old spec.
-	oldHash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
+	oldHash := allPKCS11SpecHash(instance)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: oldHash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    PKCS11Condition,
