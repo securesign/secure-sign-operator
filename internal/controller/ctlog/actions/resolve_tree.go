@@ -22,15 +22,6 @@ func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 		},
 		func(ctlog *rhtasv1.CTlog, i *int64) {
 			ctlog.Status.TreeID = i
-			// Also update the first log's LogId if present
-			if len(ctlog.Spec.Logs) > 0 {
-				for idx, log := range ctlog.Spec.Logs {
-					if log.Readonly == nil || !*log.Readonly {
-						ctlog.Spec.Logs[idx].LogId = i
-						break
-					}
-				}
-			}
 		},
 		func(ctlog *rhtasv1.CTlog) *rhtasv1.ServiceReference {
 			return &ctlog.Spec.Trillian
