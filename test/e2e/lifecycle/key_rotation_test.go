@@ -146,7 +146,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					Key: "cert",
 				}
 
-				// RootCertificates now moved to Logs[0].Roots in the updated call below
+				// RootCertificates now moved to Logs[0].RootCerts in the updated call below
 
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
@@ -368,14 +368,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 								},
 							},
 						},
-						Roots: []rhtasv1.SecretKeySelector{
+						RootCerts: &rhtasv1.RootCertBinding{Roots: []rhtasv1.SecretKeySelector{
 							{
 								LocalObjectReference: rhtasv1.LocalObjectReference{
 									Name: secretName,
 								},
 								Key: "cert",
 							},
-						},
+						}},
 					},
 					{
 						LogId:    ptr.To(*oldTreeId),

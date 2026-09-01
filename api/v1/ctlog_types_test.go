@@ -175,14 +175,14 @@ var _ = Describe("CTlog", func() {
 										},
 									},
 								},
-								Roots: []SecretKeySelector{
+								RootCerts: &RootCertBinding{Roots: []SecretKeySelector{
 									{
 										Key: "key",
 										LocalObjectReference: LocalObjectReference{
 											Name: "name",
 										},
 									},
-								},
+								}},
 							},
 						},
 						Trillian: ServiceReference{},

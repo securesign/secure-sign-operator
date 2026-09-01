@@ -49,6 +49,13 @@ func readyFulcio() *rhtasv1.Fulcio {
 	}
 }
 
+func rootCertsFromSlice(certs []rhtasv1.SecretKeySelector) *rhtasv1.RootCertBinding {
+	if certs == nil {
+		return nil
+	}
+	return &rhtasv1.RootCertBinding{Roots: certs}
+}
+
 func TestCertCan_Handle(t *testing.T) {
 	t.Parallel()
 
@@ -211,9 +218,9 @@ func TestCertCan_Handle(t *testing.T) {
 				Spec: rhtasv1.CTlogSpec{
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							Prefix: "test-log",
-							Active: ptr.To(true),
-							Roots:  tt.env.certificates,
+							Prefix:    "test-log",
+							Active:    ptr.To(true),
+							RootCerts: rootCertsFromSlice(tt.env.certificates),
 						},
 					},
 				},
@@ -518,9 +525,9 @@ func TestCert_Handle(t *testing.T) {
 				Spec: rhtasv1.CTlogSpec{
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							Prefix: "test-log",
-							Active: ptr.To(true),
-							Roots:  tt.env.certificates,
+							Prefix:    "test-log",
+							Active:    ptr.To(true),
+							RootCerts: rootCertsFromSlice(tt.env.certificates),
 						},
 					},
 				},
