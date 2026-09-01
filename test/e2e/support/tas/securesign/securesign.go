@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
+	"github.com/securesign/operator/test/e2e/support/tas/openbao"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -491,6 +492,89 @@ func WithPKCS11Signer(namespace string) Opts {
 
 		// --- NTP Monitoring ---
 		WithNTPMonitoring()(s)
+	}
+}
+
+// openBaoAuthEnv returns the VAULT_ADDR/VAULT_TOKEN env vars shared by every
+// component authenticating against the in-cluster OpenBao dev server.
+func openBaoAuthEnv(namespace string) *rhtasv1.Auth {
+	return &rhtasv1.Auth{
+		Env: []core.EnvVar{
+			{
+				Name:  "VAULT_ADDR",
+				Value: openbao.Addr(namespace),
+			},
+			{
+				Name:  "VAULT_TOKEN",
+				Value: openbao.RootToken,
+			},
+		},
+	}
+}
+
+// WithKMSOpenBaoSigner configures Rekor to sign with an OpenBao-backed KMS key
+// (transit key "rekor-kms"), authenticating via VAULT_ADDR/VAULT_TOKEN env vars.
+func WithKMSOpenBaoSigner(namespace string) Opts {
+	return func(s *rhtasv1.Securesign) {
+		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
+			Type: rhtasv1.SignerTypeKMS,
+			Kms: &rhtasv1.KMS{
+				KeyResource: "openbao://" + openbao.RekorKeyName,
+			},
+		}
+		s.Spec.Rekor.Auth = openBaoAuthEnv(namespace)
+	}
+}
+
+// WithKMSOpenBaoFulcioSigner configures Fulcio to sign certificates with an
+// OpenBao-backed KMS key (transit key "fulcio-kms"). The CA certificate chain
+// referenced here must already exist (see openbao.CreateKMSCertificate) and its
+// public key must match the fulcio-kms transit key.
+func WithKMSOpenBaoFulcioSigner(namespace string) Opts {
+	return func(s *rhtasv1.Securesign) {
+		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+			Type: rhtasv1.SignerTypeKMS,
+			Kms: &rhtasv1.KMS{
+				KeyResource: "openbao://" + openbao.FulcioKeyName,
+			},
+			CertificateChain: rhtasv1.FulcioCertificateChain{
+				CertificateChainRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: openbao.CertChainSecretName(openbao.FulcioKeyName),
+					},
+					Key: "cert",
+				},
+			},
+		}
+		s.Spec.Fulcio.Auth = openBaoAuthEnv(namespace)
+	}
+}
+
+// WithKMSOpenBaoTSASigner configures TSA to sign timestamp responses with an
+// OpenBao-backed KMS key (transit key "tsa-kms"). TSA's signer type is inferred
+// from which pointer is set (there is no explicit Type field), and CEL requires
+// certificateChain.certificateChainRef whenever kms/file/tink is configured. The
+// cert chain secret must already exist (see openbao.CreateKMSCertificate) with a
+// leaf cert usable for RFC 3161 timestamping and a public key matching tsa-kms.
+func WithKMSOpenBaoTSASigner(namespace string) Opts {
+	return func(s *rhtasv1.Securesign) {
+		if s.Spec.TimestampAuthority == nil {
+			WithTSA()(s)
+		}
+		s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
+			CertificateChain: rhtasv1.CertificateChain{
+				CertificateChainRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: openbao.CertChainSecretName(openbao.TsaKeyName),
+					},
+					Key: "cert",
+				},
+			},
+			Kms: &rhtasv1.KMS{
+				KeyResource: "openbao://" + openbao.TsaKeyName,
+			},
+		}
+		s.Spec.TimestampAuthority.Auth = openBaoAuthEnv(namespace)
 	}
 }
 
