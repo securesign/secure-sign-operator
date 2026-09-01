@@ -197,6 +197,10 @@ type CTlogFile struct {
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 
+	// The password for the private key, if encrypted.
+	//+optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+
 	// The public key matching the private key (if both are present). It is
 	// used only by mirror logs for verifying the source log's signatures, but can
 	// be specified for regular logs as well for the convenience of test tools.
