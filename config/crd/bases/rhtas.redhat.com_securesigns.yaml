@@ -2086,10 +2086,11 @@ spec:
                         rule: '!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef)
                           || has(self.signer.file.privateKeyRef) || (has(self.readonly)
                           && self.readonly == true)'
-                      - message: logId is required for readonly shards
-                        rule: '!has(self.readonly) || self.readonly != true || has(self.logId)'
-                      - message: rootCerts.roots is required for non-active logs —
-                          the active log resolves root certificates from spec.fulcio
+                      - message: logId is required for non-active logs
+                        rule: (has(self.active) && self.active == true) || has(self.logId)
+                      - message: signer is required for non-active logs
+                        rule: (has(self.active) && self.active == true) || has(self.signer)
+                      - message: rootCerts.roots is required for non-active logs
                         rule: (has(self.active) && self.active == true) || (has(self.rootCerts)
                           && has(self.rootCerts.roots) && size(self.rootCerts.roots)
                           > 0)
