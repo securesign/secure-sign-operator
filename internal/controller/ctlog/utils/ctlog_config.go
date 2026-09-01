@@ -171,6 +171,15 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		IsReadonly:     true,
 	}
 
+	if shard.FrozenSTH != nil {
+		cfg.FrozenSth = &configpb.SignedTreeHead{
+			TreeSize:          shard.FrozenSTH.TreeSize,
+			Timestamp:         shard.FrozenSTH.Timestamp,
+			Sha256RootHash:    shard.FrozenSTH.Sha256RootHash,
+			TreeHeadSignature: shard.FrozenSTH.TreeHeadSignature,
+		}
+	}
+
 	// Set certificate validity timestamps if provided (as Unix seconds)
 	if shard.NotAfterStart > 0 {
 		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: shard.NotAfterStart}

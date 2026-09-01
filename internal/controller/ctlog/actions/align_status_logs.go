@@ -29,7 +29,7 @@ func (a alignStatusLogs) CanHandle(_ context.Context, instance *rhtasv1.CTlog) b
 
 func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	desired := buildStatusLogs(instance)
-	if equality.Semantic.DeepDerivative(desired, instance.Status.Logs) {
+	if equality.Semantic.DeepEqual(desired, instance.Status.Logs) {
 		return a.Continue()
 	}
 	instance.Status.Logs = desired
@@ -54,7 +54,9 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			logStatus.RootCertificates = instance.Status.RootCertificates
 		} else {
 			logStatus.LogId = specLog.LogId
-			logStatus.RootCertificates = specLog.Roots
+			if specLog.RootCerts != nil {
+				logStatus.RootCertificates = specLog.RootCerts.Roots
+			}
 			if specLog.Signer != nil && specLog.Signer.File != nil {
 				logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
 				logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef

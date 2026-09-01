@@ -19,7 +19,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -394,10 +393,18 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			}
 		}
 
-		var frozenSTH []byte
+		var frozenSTH *ctlogUtils.FrozenSTH
 		if log.FrozenSTH != nil {
-			// Convert frozen STH to byte representation
-			frozenSTH = []byte(fmt.Sprintf("%d", log.FrozenSTH.TreeSize))
+			frozenSTH = &ctlogUtils.FrozenSTH{
+				Sha256RootHash:    log.FrozenSTH.Sha256RootHash,
+				TreeHeadSignature: log.FrozenSTH.TreeHeadSignature,
+			}
+			if log.FrozenSTH.TreeSize != nil {
+				frozenSTH.TreeSize = *log.FrozenSTH.TreeSize
+			}
+			if log.FrozenSTH.Timestamp != nil {
+				frozenSTH.Timestamp = log.FrozenSTH.Timestamp.Unix()
+			}
 		}
 
 		treeID := int64(0)
@@ -434,10 +441,17 @@ func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhta
 		return err
 	}
 
-	// Check if the secret was generated from the same data sources using annotations
+	// Check if the secret was generated from the same data sources using annotations.
+	// Compare all tracked annotation keys exactly — both additions and removals
+	// of data sources must trigger recreation.
 	expectedAnnotations := i.configMatchingAnnotations(ctx, instance, trillianUrl)
-	if !equality.Semantic.DeepDerivative(expectedAnnotations, secretMeta.GetAnnotations()) {
-		return errSecretInvalid
+	actualAnnotations := secretMeta.GetAnnotations()
+	for _, key := range serverConfigAnnotations {
+		expected, hasExpected := expectedAnnotations[key]
+		actual, hasActual := actualAnnotations[key]
+		if hasExpected != hasActual || expected != actual {
+			return errSecretInvalid
+		}
 	}
 
 	return nil
@@ -486,25 +500,25 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 
 	if len(instance.Spec.Logs) > 0 {
 		h := sha256.New()
-		// Hash all read-only logs for sharding
+		hasShards := false
 		for _, log := range instance.Spec.Logs {
 			if log.Readonly != nil && *log.Readonly {
+				hasShards = true
 				publicKeyRefStr := ""
 				if log.Signer != nil && log.Signer.File != nil && log.Signer.File.PublicKeyRef != nil {
 					publicKeyRefStr = log.Signer.File.PublicKeyRef.Name + "/" + log.Signer.File.PublicKeyRef.Key
 				}
 				frozenSTHRefStr := ""
-				if log.FrozenSTH != nil {
-					frozenSTHRefStr = fmt.Sprintf("%d", log.FrozenSTH.TreeSize)
+				if log.FrozenSTH != nil && log.FrozenSTH.TreeSize != nil {
+					frozenSTHRefStr = fmt.Sprintf("%d", *log.FrozenSTH.TreeSize)
 				}
 				if log.LogId != nil {
 					_, _ = fmt.Fprintf(h, "%d:%s:%s", *log.LogId, publicKeyRefStr, frozenSTHRefStr)
 				}
 			}
 		}
-		hashStr := hex.EncodeToString(h.Sum(nil))
-		if hashStr != hex.EncodeToString(make([]byte, 32)) {
-			annotations[labels.LabelNamespace+"/shardingHash"] = hashStr
+		if hasShards {
+			annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
 		}
 	}
 
