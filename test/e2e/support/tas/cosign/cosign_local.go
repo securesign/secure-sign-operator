@@ -58,6 +58,7 @@ func (c *LocalCosign) Sign(ctx context.Context, targetImageName string) error {
 func (c *LocalCosign) Verify(ctx context.Context, targetImageName string) error {
 	ensureCosignConfig()
 	verifyArgs := []string{"verify",
+		"--use-signed-timestamps=true",
 		"--certificate-identity-regexp", ".*@redhat",
 		"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 		targetImageName}
