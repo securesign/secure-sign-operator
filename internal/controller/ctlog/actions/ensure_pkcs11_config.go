@@ -176,18 +176,3 @@ func allPKCS11SpecHash(instance *rhtasv1.CTlog) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func pkcs11SpecHash(p *rhtasv1.CTlogPKCS11Config) string {
-	if p == nil {
-		return ""
-	}
-	h := sha256.New()
-	fmt.Fprintf(h, "modulePath:%s\n", p.ModulePath)
-	fmt.Fprintf(h, "tokenLabel:%s\n", p.TokenLabel)
-	if p.PinSecretRef != nil {
-		fmt.Fprintf(h, "pinSecretRef:%s/%s\n", p.PinSecretRef.Name, p.PinSecretRef.Key)
-	}
-	if p.PublicKeyRef != nil {
-		fmt.Fprintf(h, "publicKeyRef:%s/%s\n", p.PublicKeyRef.Name, p.PublicKeyRef.Key)
-	}
-	return hex.EncodeToString(h.Sum(nil))
-}

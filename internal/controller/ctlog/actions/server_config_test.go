@@ -152,6 +152,21 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					TreeID:        ptr.To(int64(111111)),
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							LogId:    ptr.To(int64(111111)),
+							Prefix:   "shard-111111",
+							Readonly: ptr.To(true),
+							SignerType: "file",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
+					},
 				},
 				objects: []client.Object{
 					&v1.Secret{
@@ -206,6 +221,21 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					TreeID:        ptr.To(int64(222222)),
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							LogId:    ptr.To(int64(222222)),
+							Prefix:   "shard-222222",
+							Readonly: ptr.To(true),
+							SignerType: "file",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
+					},
 				},
 				objects: []client.Object{
 					&v1.Secret{
@@ -263,6 +293,23 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					TreeID:        ptr.To(int64(333333)),
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							LogId:    ptr.To(int64(333333)),
+							Prefix:   "shard-333333",
+							Readonly: ptr.To(true),
+							SignerType: "file",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+						},
+					},
 				},
 				objects: []client.Object{
 					&v1.Secret{
@@ -355,6 +402,19 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				TreeID:        ptr.To(int64(123456)),
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+				Logs: []rhtasv1.CTlogLogStatus{
+					{
+						Active:       true,
+						LogId:        ptr.To(int64(123456)),
+						Prefix:       "trusted-artifact-signer",
+						SignerType:   "file",
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+						PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+				},
 				Conditions: []metav1.Condition{
 					{
 						Type:               constants.ReadyCondition,
@@ -441,6 +501,19 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
 				})
+				inst.Status.Logs = append(inst.Status.Logs, rhtasv1.CTlogLogStatus{
+					LogId:    ptr.To(int64(444444)),
+					Prefix:   "shard-444444",
+					Readonly: ptr.To(true),
+					SignerType: "file",
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+						Key:                  "public",
+					},
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+				})
 				return env{
 					instance: inst,
 					objects: []client.Object{
@@ -505,6 +578,34 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 							},
 						},
 						RootCerts: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+				)
+				inst.Status.Logs = append(inst.Status.Logs,
+					rhtasv1.CTlogLogStatus{
+						LogId:    ptr.To(int64(555555)),
+						Prefix:   "shard-555555",
+						Readonly: ptr.To(true),
+						SignerType: "file",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
+							Key:                  "public",
+						},
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+					rhtasv1.CTlogLogStatus{
+						LogId:    ptr.To(int64(666666)),
+						Prefix:   "shard-666666",
+						Readonly: ptr.To(true),
+						SignerType: "file",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
+							Key:                  "public",
+						},
+						RootCertificates: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 						},
 					},
@@ -617,6 +718,26 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Status: rhtasv1.CTlogStatus{
 						TreeID: ptr.To(int64(123456)),
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active:         true,
+								LogId:          ptr.To(int64(123456)),
+								Prefix:         "trusted-artifact-signer",
+								SignerType:     rhtasv1.SignerTypePKCS11,
+								PKCS11TokenLabel: "test-token",
+								PinSecretRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
+						},
 						Conditions: []metav1.Condition{
 							{
 								Type:               constants.ReadyCondition,
@@ -695,6 +816,23 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Status: rhtasv1.CTlogStatus{
 						TreeID: ptr.To(int64(123456)),
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active:         true,
+								LogId:          ptr.To(int64(123456)),
+								Prefix:         "trusted-artifact-signer",
+								SignerType:     rhtasv1.SignerTypePKCS11,
+								PKCS11TokenLabel: "test-token",
+								PinSecretRef:   nil,
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
+						},
 						Conditions: []metav1.Condition{
 							{
 								Type:               constants.ReadyCondition,
@@ -761,6 +899,23 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Status: rhtasv1.CTlogStatus{
 						TreeID: ptr.To(int64(123456)),
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active:         true,
+								LogId:          ptr.To(int64(123456)),
+								Prefix:         "trusted-artifact-signer",
+								SignerType:     rhtasv1.SignerTypePKCS11,
+								PKCS11TokenLabel: "test-token",
+								PinSecretRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: nil,
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
+						},
 						Conditions: []metav1.Condition{
 							{
 								Type:               constants.ReadyCondition,
@@ -794,7 +949,6 @@ func TestServerConfig_PKCS11(t *testing.T) {
 		{
 			name: "PKCS#11 mode skips PrivateKeyRef nil check",
 			env: func() env {
-				// In PKCS#11 mode, PrivateKeyRef is not required (keys live on HSM)
 				inst := rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-pkcs11-no-privkey",
@@ -831,7 +985,27 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Status: rhtasv1.CTlogStatus{
 						TreeID:        ptr.To(int64(123456)),
-						PrivateKeyRef: nil, // No private key in PKCS#11 mode
+						PrivateKeyRef: nil,
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active:         true,
+								LogId:          ptr.To(int64(123456)),
+								Prefix:         "trusted-artifact-signer",
+								SignerType:     rhtasv1.SignerTypePKCS11,
+								PKCS11TokenLabel: "test-token",
+								PinSecretRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
+						},
 						Conditions: []metav1.Condition{
 							{
 								Type:               constants.ReadyCondition,
