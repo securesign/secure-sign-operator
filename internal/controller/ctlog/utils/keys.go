@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
@@ -13,6 +14,12 @@ import (
 const (
 	curveType = "p256"
 )
+
+var supportedCurves = map[string]elliptic.Curve{
+	"p256": elliptic.P256(),
+	"p384": elliptic.P384(),
+	"p521": elliptic.P521(),
+}
 
 type KeyConfig struct {
 	PrivateKey     []byte
