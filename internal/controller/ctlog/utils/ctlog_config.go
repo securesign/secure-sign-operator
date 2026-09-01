@@ -155,10 +155,18 @@ func (c *Config) MarshalConfig() ([]byte, error) {
 	return marshalledConfig, nil
 }
 
-func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*configpb.LogConfig, error) {
+func (c *Config) marshalShardLogConfig(shard ShardConfig, defaultRootPems []string) (*configpb.LogConfig, error) {
 	block, _ := pem.Decode(shard.PublicKey)
 	if block == nil {
 		return nil, fmt.Errorf("failed to decode public key for shard %d", shard.TreeID)
+	}
+
+	rootPems := defaultRootPems
+	if len(shard.RootCerts) > 0 {
+		rootPems = make([]string, 0, len(shard.RootCerts))
+		for i := range shard.RootCerts {
+			rootPems = append(rootPems, fmt.Sprintf("%sshard-%d-root-%d", rootsPemFileDir, shard.TreeID, i))
+		}
 	}
 
 	cfg := &configpb.LogConfig{
@@ -168,7 +176,7 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
-		IsReadonly:     true,
+		IsReadonly:     shard.Readonly,
 	}
 
 	if shard.FrozenSTH != nil {
@@ -238,6 +246,11 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	for i, cert := range ctlogConfig.RootCerts {
 		fulcioKey := fmt.Sprintf("fulcio-%d", i)
 		data[fulcioKey] = cert
+	}
+	for _, shard := range ctlogConfig.Shards {
+		for i, cert := range shard.RootCerts {
+			data[fmt.Sprintf("shard-%d-root-%d", shard.TreeID, i)] = cert
+		}
 	}
 	return data, nil
 }

@@ -9,6 +9,8 @@ type ShardConfig struct {
 	NotAfterStart int64  // Unix timestamp: when shard certificates become valid
 	NotAfterLimit int64  // Unix timestamp: when shard certificates expire
 	FrozenSTH     *FrozenSTH
+	Readonly      bool
+	RootCerts     []RootCertificate
 }
 
 type FrozenSTH struct {

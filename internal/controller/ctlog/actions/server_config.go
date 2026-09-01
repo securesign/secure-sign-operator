@@ -370,16 +370,16 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
 func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
-	// Collect read-only logs (shards) from the Logs array
-	readOnlyLogs := make([]rhtasv1.CTLogConfig, 0)
+	// Collect all non-active logs
+	nonActiveLogs := make([]rhtasv1.CTLogConfig, 0)
 	for _, log := range instance.Spec.Logs {
-		if log.Readonly != nil && *log.Readonly {
-			readOnlyLogs = append(readOnlyLogs, log)
+		if log.Active == nil || !*log.Active {
+			nonActiveLogs = append(nonActiveLogs, log)
 		}
 	}
 
-	shards := make([]ctlogUtils.ShardConfig, 0, len(readOnlyLogs))
-	for _, log := range readOnlyLogs {
+	shards := make([]ctlogUtils.ShardConfig, 0, len(nonActiveLogs))
+	for _, log := range nonActiveLogs {
 		var publicKey []byte
 		if log.Signer != nil && log.Signer.File != nil && log.Signer.File.PublicKeyRef != nil {
 			var err error
@@ -417,6 +417,17 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			PublicKey: publicKey,
 			Prefix:    log.Prefix,
 			FrozenSTH: frozenSTH,
+			Readonly:  log.Readonly != nil && *log.Readonly,
+		}
+
+		if log.RootCerts != nil && len(log.RootCerts.Roots) > 0 {
+			for _, selector := range log.RootCerts.Roots {
+				data, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &selector)
+				if err != nil {
+					return nil, fmt.Errorf("shard %s root cert %s/%s: %w", log.Prefix, selector.Name, selector.Key, err)
+				}
+				sc.RootCerts = append(sc.RootCerts, data)
+			}
 		}
 
 		// Set validity timestamps if provided
@@ -500,24 +511,34 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 
 	if len(instance.Spec.Logs) > 0 {
 		h := sha256.New()
-		hasShards := false
+		hasNonActive := false
 		for _, log := range instance.Spec.Logs {
-			if log.Readonly != nil && *log.Readonly {
-				hasShards = true
-				publicKeyRefStr := ""
-				if log.Signer != nil && log.Signer.File != nil && log.Signer.File.PublicKeyRef != nil {
-					publicKeyRefStr = log.Signer.File.PublicKeyRef.Name + "/" + log.Signer.File.PublicKeyRef.Key
-				}
-				frozenSTHRefStr := ""
-				if log.FrozenSTH != nil && log.FrozenSTH.TreeSize != nil {
-					frozenSTHRefStr = fmt.Sprintf("%d", *log.FrozenSTH.TreeSize)
-				}
-				if log.LogId != nil {
-					_, _ = fmt.Fprintf(h, "%d:%s:%s", *log.LogId, publicKeyRefStr, frozenSTHRefStr)
+			if log.Active != nil && *log.Active {
+				continue
+			}
+			hasNonActive = true
+			readonly := log.Readonly != nil && *log.Readonly
+			publicKeyRefStr := ""
+			if log.Signer != nil && log.Signer.File != nil && log.Signer.File.PublicKeyRef != nil {
+				publicKeyRefStr = log.Signer.File.PublicKeyRef.Name + "/" + log.Signer.File.PublicKeyRef.Key
+			}
+			frozenSTHRefStr := ""
+			if log.FrozenSTH != nil && log.FrozenSTH.TreeSize != nil {
+				frozenSTHRefStr = fmt.Sprintf("%d", *log.FrozenSTH.TreeSize)
+			}
+			logId := int64(0)
+			if log.LogId != nil {
+				logId = *log.LogId
+			}
+			rootCertsStr := ""
+			if log.RootCerts != nil {
+				for _, r := range log.RootCerts.Roots {
+					rootCertsStr += r.Name + "/" + r.Key + ","
 				}
 			}
+			_, _ = fmt.Fprintf(h, "%d:%s:%s:%s:%v", logId, publicKeyRefStr, frozenSTHRefStr, rootCertsStr, readonly)
 		}
-		if hasShards {
+		if hasNonActive {
 			annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
 		}
 	}

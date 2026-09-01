@@ -2093,10 +2093,6 @@ spec:
                           && self.readonly == true)'
                       - message: logId is required for readonly shards
                         rule: '!has(self.readonly) || self.readonly != true || has(self.logId)'
-                      - message: signer.file.publicKeyRef is required for readonly
-                          shards
-                        rule: '!has(self.readonly) || self.readonly != true || (has(self.signer)
-                          && has(self.signer.file) && has(self.signer.file.publicKeyRef))'
                     type: array
                     x-kubernetes-list-map-keys:
                     - prefix
