@@ -116,6 +116,8 @@ func CreateCtlogPKCS11Config(
 	tokenLabel, pin string,
 	publicKeyPEM []byte,
 	logPrefix string,
+	shards []ShardConfig,
+	notAfterStart, notAfterLimit int64,
 ) (map[string][]byte, error) {
 	rootPems := make([]string, 0, len(rootCerts))
 	for i := range rootCerts {
@@ -127,7 +129,16 @@ func CreateCtlogPKCS11Config(
 		return nil, fmt.Errorf("failed to decode public key PEM")
 	}
 
-	logConfig := configpb.LogConfig{
+	configs := make([]*configpb.LogConfig, 0, 1+len(shards))
+	for _, shard := range shards {
+		shardCfg, err := marshalShardLogConfig(shard, rootPems)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shard config for treeID %d: %w", shard.TreeID, err)
+		}
+		configs = append(configs, shardCfg)
+	}
+
+	activeLog := configpb.LogConfig{
 		LogId:        treeID,
 		Prefix:       logPrefix,
 		RootsPemFile: rootPems,
@@ -140,11 +151,16 @@ func CreateCtlogPKCS11Config(
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
 	}
+	if notAfterStart > 0 {
+		activeLog.NotAfterStart = &timestamppb.Timestamp{Seconds: notAfterStart}
+	}
+	if notAfterLimit > 0 {
+		activeLog.NotAfterLimit = &timestamppb.Timestamp{Seconds: notAfterLimit}
+	}
+	configs = append(configs, &activeLog)
 
 	marshalledConfig, err := prototext.Marshal(&configpb.LogMultiConfig{
-		LogConfigs: &configpb.LogConfigSet{
-			Config: []*configpb.LogConfig{&logConfig},
-		},
+		LogConfigs: &configpb.LogConfigSet{Config: configs},
 		Backends: &configpb.LogBackendSet{
 			Backend: []*configpb.LogBackend{{
 				Name:        "trillian",
@@ -161,6 +177,14 @@ func CreateCtlogPKCS11Config(
 	}
 	for i, cert := range rootCerts {
 		data[fmt.Sprintf("fulcio-%d", i)] = cert
+	}
+	for _, shard := range shards {
+		if len(shard.PrivateKey) > 0 {
+			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
+		}
+		for i, cert := range shard.RootCerts {
+			data[fmt.Sprintf("shard-%d-root-%d", shard.TreeID, i)] = cert
+		}
 	}
 	return data, nil
 }

@@ -28,6 +28,8 @@ func TestCreateCtlogPKCS11Config_Valid(t *testing.T) {
 		"testpin",
 		[]byte(testPublicKeyPEM),
 		"trusted-artifact-signer",
+		nil,
+		0, 0,
 	)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(data).To(HaveKey(ConfigKey))
@@ -71,6 +73,8 @@ func TestCreateCtlogPKCS11Config_InvalidPEM(t *testing.T) {
 		"pin",
 		[]byte("not a PEM block"),
 		"prefix",
+		nil,
+		0, 0,
 	)
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("decode public key PEM"))
@@ -92,6 +96,8 @@ func TestCreateCtlogPKCS11Config_MultipleRootCerts(t *testing.T) {
 		"pin",
 		[]byte(testPublicKeyPEM),
 		"prefix",
+		nil,
+		0, 0,
 	)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(data).To(HaveKey("fulcio-0"))
