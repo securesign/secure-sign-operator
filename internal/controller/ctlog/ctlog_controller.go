@@ -147,6 +147,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		actions.NewRolloutCheckAction(),
 		actions.NewResolvePubKeyAction(),
+		actions.NewAlignStatusLogsAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.CTlog](),
 	}
