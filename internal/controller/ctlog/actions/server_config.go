@@ -300,6 +300,15 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.CTlog, conf
 }
 
 func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhtasv1.CTlog, trillianUrl string) error {
+	// Cert rotation updates the root cert secret content but keeps the same
+	// secret reference, so the logsHash annotation won't detect the change.
+	// handleFulcioCert signals this by setting ConfigCondition to False with
+	// FulcioReason — honor that signal and force recreation.
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+	if c != nil && c.Status == metav1.ConditionFalse && c.Reason == FulcioReason {
+		return errSecretInvalid
+	}
+
 	secretMeta, err := kubernetes.GetSecretMetadata(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

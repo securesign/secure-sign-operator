@@ -276,18 +276,18 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			cfg := &configpb.LogMultiConfig{}
 			Expect(prototext.Unmarshal(configSecret.Data["config"], cfg)).To(Succeed())
 
-			// Verify we have two log configs (frozen + active)
+			// Verify we have two log configs (active + frozen, matching spec order)
 			Expect(cfg.LogConfigs.Config).To(HaveLen(2))
 
-			// Verify frozen shard has the old tree ID
-			frozenCfg := cfg.LogConfigs.Config[0]
-			Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
-			Expect(frozenCfg.IsReadonly).To(BeTrue())
-
-			// Verify active shard has the new tree ID
-			activeCfg := cfg.LogConfigs.Config[1]
+			// Verify active shard has the new tree ID (first in spec)
+			activeCfg := cfg.LogConfigs.Config[0]
 			Expect(activeCfg.LogId).To(Equal(*c.Status.TreeID))
 			Expect(activeCfg.IsReadonly).To(BeFalse())
+
+			// Verify frozen shard has the old tree ID (second in spec)
+			frozenCfg := cfg.LogConfigs.Config[1]
+			Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
+			Expect(frozenCfg.IsReadonly).To(BeTrue())
 		})
 	})
 })

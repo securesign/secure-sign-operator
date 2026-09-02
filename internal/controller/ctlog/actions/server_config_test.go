@@ -543,6 +543,37 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 			},
 		},
 		{
+			name: "fulcio cert rotation forces recreation even if annotations match",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
+				meta.SetStatusCondition(&inst.Status.Conditions, metav1.Condition{
+					Type:    ConfigCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  FulcioReason,
+					Message: "Fulcio certificate changed",
+				})
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						newKeySecret("default"),
+						newConfigSecret("old-config", "default", defaultAnnotations()),
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
+					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+
+					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
+					g.Expect(c).ShouldNot(BeNil())
+					g.Expect(c.Status).To(Equal(metav1.ConditionTrue))
+				},
+			},
+		},
+		{
 			name: "sharding with multiple shards and private keys",
 			env: func() env {
 				inst := newBaseInstance()
