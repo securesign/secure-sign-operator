@@ -34,7 +34,7 @@ var _ = Describe("CTlog", func() {
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
-			id := "1234567890123456789"
+			var id int64 = 1234567890123456789
 			fetched.Spec.Logs[0].LogId = &id
 			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 		})
@@ -145,7 +145,7 @@ var _ = Describe("CTlog", func() {
 
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
-				tree := "1269875"
+				tree := int64(1269875)
 				t := true
 				ctlogInstance := CTlog{
 					ObjectMeta: metav1.ObjectMeta{

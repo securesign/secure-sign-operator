@@ -184,15 +184,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			oldTreeId := rekor.Get(ctx, cli, namespace.Name, s.Name).Status.TreeID
 			Expect(oldTreeId).ToNot(BeNil())
 
-			oldTreeIdStr := strconv.FormatInt(*oldTreeId, 10)
-			drainingPod := updateTree(namespace.Name, oldTreeIdStr, "DRAINING")
+			drainingPod := updateTree(namespace.Name, oldTreeId, "DRAINING")
 			Expect(cli.Create(ctx, drainingPod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(drainingPod), drainingPod)).To(Succeed())
 				return drainingPod.Status.Phase == v1.PodSucceeded
 			}).Should(BeTrue())
 
-			freezePod := updateTree(namespace.Name, oldTreeIdStr, "FROZEN")
+			freezePod := updateTree(namespace.Name, oldTreeId, "FROZEN")
 			Expect(cli.Create(ctx, freezePod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(freezePod), freezePod)).To(Succeed())
@@ -273,14 +272,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			oldConfig, err := ctlog.GetConfigSecret(ctx, cli, s.Namespace, c.Status.ServerConfigRef.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			drainingPod := updateTree(namespace.Name, *oldTreeId, "DRAINING")
+			drainingPod := updateTree(namespace.Name, oldTreeId, "DRAINING")
 			Expect(cli.Create(ctx, drainingPod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(drainingPod), drainingPod)).To(Succeed())
 				return drainingPod.Status.Phase == v1.PodSucceeded
 			}).Should(BeTrue())
 
-			freezePod := updateTree(namespace.Name, *oldTreeId, "FROZEN")
+			freezePod := updateTree(namespace.Name, oldTreeId, "FROZEN")
 			Expect(cli.Create(ctx, freezePod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(freezePod), freezePod)).To(Succeed())
@@ -296,8 +295,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			createTreeLog, err := testKubernetes.GetPodLogs(ctx, createPod.Name, "createtree", namespace.Name)
 			Expect(err).ToNot(HaveOccurred())
 			lines := strings.Split(strings.TrimSpace(createTreeLog), "\n")
-			newTreeIdStr := strings.TrimSpace(lines[len(lines)-1])
-			newTreeId, err := strconv.ParseInt(newTreeIdStr, 10, 64)
+			newTreeId, err := strconv.ParseInt(lines[len(lines)-1], 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 
 			secretName := "new-ctlog"
@@ -350,7 +348,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 				// Update CTlog spec to use new Logs array structure with active and frozen shards
 				f.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
 					{
-						LogId:  ptr.To(newTreeIdStr),
+						LogId:  ptr.To(newTreeId),
 						Prefix: "trusted-artifact-signer",
 						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
@@ -616,10 +614,10 @@ func tufToolParams(component, targetName, url string, workdir string, expire boo
 	return args
 }
 
-func updateTree(namespace string, treeId string, state string) *v1.Pod {
+func updateTree(namespace string, treeId *int64, state string) *v1.Pod {
 	args := []string{
 		"--admin_server", fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace),
-		"--tree_id", treeId,
+		"--tree_id", strconv.FormatInt(*treeId, 10),
 		"--tree_state", state,
 	}
 	if testKubernetes.IsRemoteClusterOpenshift() {

@@ -41,7 +41,7 @@ var _ = Describe("Conversion webhook", func() {
 					PodRequirements: rhtasv1.PodRequirements{Replicas: ptr.To[int32](1)},
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							LogId:  ptr.To("12345"),
+							LogId:  ptr.To[int64](12345),
 							Prefix: "trusted-artifact-signer",
 							Active: ptr.To(true),
 						},
@@ -78,7 +78,7 @@ var _ = Describe("Conversion webhook", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "ctlog-v1alpha1-test", Namespace: testNs}, v1obj)).To(Succeed())
 			Expect(v1obj.Spec.Logs).ToNot(BeEmpty())
 			Expect(v1obj.Spec.Logs[0].LogId).ToNot(BeNil())
-			Expect(*v1obj.Spec.Logs[0].LogId).To(Equal("67890"))
+			Expect(*v1obj.Spec.Logs[0].LogId).To(Equal(int64(67890)))
 		})
 	})
 
