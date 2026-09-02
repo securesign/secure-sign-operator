@@ -1,0 +1,111 @@
+apiVersion: rhtas.redhat.com/v1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-sample
+spec:
+  fulcio:
+    ingress:
+      enabled: true
+    config:
+      oidcIssuers:
+        - clientID: "trusted-artifact-signer"
+          issuerURL: "https://your-oidc-issuer-url"
+          issuer: "https://your-oidc-issuer-url"
+          type: "email"
+    signer:
+      type: pkcs11
+      pkcs11:
+        configRef:
+          name: fulcio-pkcs11-config
+          key: crypto11.conf
+        keyID: 99
+      certificateChain:
+        certificateChainRef:
+          name: fulcio-root-ca
+          key: cert.pem
+    auth:
+      env:
+        - name: SOFTHSM2_CONF
+          value: /etc/softhsm/softhsm2.conf
+    initContainers:
+      - name: hsm-lib-export
+        image: quay.io/securesign/softhsm-init:1.0-test
+        command: ["cp", "/usr/lib64/pkcs11/libsofthsm2.so", "/var/run/hsm-lib/"]
+        volumeMounts:
+          - name: hsm-lib
+            mountPath: /var/run/hsm-lib
+    volumes:
+      - name: softhsm-config
+        configMap:
+          name: softhsm-config
+      - name: hsm-tokens
+        persistentVolumeClaim:
+          claimName: hsm-tokens-pvc
+    volumeMounts:
+      - name: softhsm-config
+        mountPath: /etc/softhsm
+        readOnly: true
+  ctlog:
+    logs:
+      - prefix: trusted-artifact-signer
+        active: true
+        signer:
+          type: pkcs11
+          pkcs11:
+            modulePath: /usr/lib64/pkcs11/libsofthsm2.so
+            tokenLabel: PKCS11CA
+            pinSecretRef:
+              name: hsm-credentials
+              key: pin
+            publicKeyRef:
+              name: ctlog-public-key
+              key: public.pem
+        rootCerts:
+          - name: fulcio-root-ca
+            key: cert.pem
+    auth:
+      env:
+        - name: SOFTHSM2_CONF
+          value: /etc/softhsm/softhsm2.conf
+    initContainers:
+      - name: hsm-lib-export
+        image: quay.io/securesign/softhsm-init:1.0-test
+        command: ["cp", "/usr/lib64/pkcs11/libsofthsm2.so", "/var/run/hsm-lib/"]
+        volumeMounts:
+          - name: hsm-lib
+            mountPath: /var/run/hsm-lib
+    volumes:
+      - name: softhsm-config
+        configMap:
+          name: softhsm-config
+      - name: hsm-tokens
+        persistentVolumeClaim:
+          claimName: ctlog-hsm-tokens-pvc
+    volumeMounts:
+      - name: softhsm-config
+        mountPath: /etc/softhsm
+        readOnly: true
+  rekor:
+    ingress:
+      enabled: true
+  tuf:
+    ingress:
+      enabled: true
+  tsa:
+    ingress:
+      enabled: true
+    signer:
+      certificateChain:
+        rootCA:
+          organizationName: Red Hat
+          commonName: tsa-root
+        intermediateCA:
+          - organizationName: Red Hat
+            commonName: tsa-intermediate
+        leafCA:
+          organizationName: Red Hat
+          commonName: tsa-leaf
