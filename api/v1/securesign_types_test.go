@@ -65,6 +65,69 @@ var _ = Describe("Securesign", func() {
 		})
 	})
 
+	// The Securesign umbrella does not cascade-default nested component signer
+	// types (see securesign_defaults.go). These cases pin down the embedded
+	// TimestampAuthority signer behaviour when `type` is left empty: the default
+	// (file) case must be accepted without defaulting, while kms/tink still
+	// require an explicit type, consistent with the other embedded components.
+	Context("embedded TSA signer type", func() {
+		minimalTSAChain := func() CertificateChain {
+			return CertificateChain{
+				RootCA: &TsaCertificateAuthority{
+					CommonName:        "root_test.com",
+					OrganizationName:  "root_test",
+					OrganizationEmail: "root_test@test.com",
+				},
+				IntermediateCA: []*TsaCertificateAuthority{{
+					CommonName:        "intermediate_test.com",
+					OrganizationName:  "intermediate_test",
+					OrganizationEmail: "intermediate_test@test.com",
+				}},
+				LeafCA: &TsaCertificateAuthority{
+					CommonName:        "leaf_test.com",
+					OrganizationName:  "leaf_test",
+					OrganizationEmail: "leaf_test@test.com",
+				},
+			}
+		}
+
+		It("accepts embedded TSA with empty signer type (default file)", func() {
+			obj := generateMinimalSecuresign("ss-tsa-empty-type")
+			obj.Spec.TimestampAuthority = &TimestampAuthoritySpec{
+				Signer: TimestampAuthoritySigner{
+					CertificateChain: minimalTSAChain(),
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+			// The umbrella does not default the nested type; it stays empty and
+			// is treated as file by the controller (GetSignerType).
+			fetched := &Securesign{}
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), fetched)).To(Succeed())
+			Expect(fetched.Spec.TimestampAuthority.Signer.Type).To(BeEmpty())
+		})
+
+		It("rejects embedded TSA kms signer without explicit type", func() {
+			obj := generateMinimalSecuresign("ss-tsa-kms-no-type")
+			obj.Spec.TimestampAuthority = &TimestampAuthoritySpec{
+				Signer: TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+					},
+				},
+			}
+			Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+			Expect(k8sClient.Create(context.Background(), obj)).
+				To(MatchError(ContainSubstring("kms field is only allowed when type is kms")))
+		})
+	})
+
 	Context("replicas vs accessModes validation", func() {
 		It("rejects tuf with replicas>1 and ReadWriteOnce", func() {
 			obj := generateMinimalSecuresign("ss-tuf-rwx")
