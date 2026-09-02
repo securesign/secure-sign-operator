@@ -551,17 +551,19 @@ func WithKMSOpenBaoFulcioSigner(namespace string) Opts {
 }
 
 // WithKMSOpenBaoTSASigner configures TSA to sign timestamp responses with an
-// OpenBao-backed KMS key (transit key "tsa-kms"). TSA's signer type is inferred
-// from which pointer is set (there is no explicit Type field), and CEL requires
-// certificateChain.certificateChainRef whenever kms/file/tink is configured. The
-// cert chain secret must already exist (see openbao.CreateKMSCertificate) with a
-// leaf cert usable for RFC 3161 timestamping and a public key matching tsa-kms.
+// OpenBao-backed KMS key (transit key "tsa-kms"). Securesign does not cascade
+// component defaulting to nested signers, so Type must be set explicitly here;
+// CEL requires certificateChain.certificateChainRef whenever kms/file/tink is
+// configured. The cert chain secret must already exist (see
+// openbao.CreateKMSCertificate) with a leaf cert usable for RFC 3161
+// timestamping and a public key matching tsa-kms.
 func WithKMSOpenBaoTSASigner(namespace string) Opts {
 	return func(s *rhtasv1.Securesign) {
 		if s.Spec.TimestampAuthority == nil {
 			WithTSA()(s)
 		}
 		s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
+			Type: rhtasv1.SignerTypeKMS,
 			CertificateChain: rhtasv1.CertificateChain{
 				CertificateChainRef: &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{

@@ -171,7 +171,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 
 		signerType := tsaUtils.GetSignerType(&instance.Spec.Signer)
 		switch signerType {
-		case tsaUtils.KmsType:
+		case rhtasv1.SignerTypeKMS:
 			appArgs = append(appArgs,
 				"--timestamp-signer=kms",
 				fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.Kms.KeyResource),
@@ -180,7 +180,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			// file and tink: args and resources handled by OptionalToggle below
 		}
 
-		if err := ensure.OptionalToggle(signerType == tsaUtils.FileType, ensure.Toggleable[*core.PodSpec]{
+		if err := ensure.OptionalToggle(signerType == rhtasv1.SignerTypeFile, ensure.Toggleable[*core.PodSpec]{
 			Ensure: func(spec *core.PodSpec) error {
 				appArgs = append(appArgs,
 					"--timestamp-signer=file",
@@ -230,7 +230,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			return err
 		}
 
-		if err := ensure.OptionalToggle(signerType == tsaUtils.TinkType, ensure.Toggleable[*core.PodSpec]{
+		if err := ensure.OptionalToggle(signerType == rhtasv1.SignerTypeTink, ensure.Toggleable[*core.PodSpec]{
 			Ensure: func(spec *core.PodSpec) error {
 				appArgs = append(appArgs,
 					"--timestamp-signer=tink",

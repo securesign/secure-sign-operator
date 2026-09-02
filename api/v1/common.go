@@ -12,6 +12,7 @@ const (
 	SignerTypeKMS    = "kms"
 	SignerTypeSecret = "secret"
 	SignerTypeMemory = "memory"
+	SignerTypeTink   = "tink"
 )
 
 type Ingress struct {

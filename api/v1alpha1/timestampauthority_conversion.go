@@ -151,7 +151,25 @@ func Convert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *rhtasv1.Tink, s apiconversi
 }
 
 func Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in *TimestampAuthoritySigner, out *rhtasv1.TimestampAuthoritySigner, s apiconversion.Scope) error {
-	return autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in, out, s)
+	if err := autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in, out, s); err != nil {
+		return err
+	}
+	switch {
+	case in.Kms != nil:
+		out.Type = rhtasv1.SignerTypeKMS
+	case in.Tink != nil:
+		out.Type = rhtasv1.SignerTypeTink
+	default:
+		out.Type = rhtasv1.SignerTypeFile
+	}
+	return nil
+}
+
+// Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner converts the v1
+// signer to v1alpha1. Type has no v1alpha1 equivalent and is intentionally dropped; it is
+// reconstructible from which of File/Kms/Tink is set (see the reverse conversion above).
+func Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in *rhtasv1.TimestampAuthoritySigner, out *TimestampAuthoritySigner, s apiconversion.Scope) error {
+	return autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in, out, s)
 }
 
 // mergeAuths merges the given auth objects into a single auth object and keep only unique values.

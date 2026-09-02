@@ -2100,16 +2100,34 @@ spec:
                     - message: keyResource must be a valid Tink KMS URI (gcp-kms://,
                         aws-kms://, or hcvault://)
                       rule: self.keyResource.matches('^(gcp-kms|aws-kms|hcvault)://.+$')
+                  type:
+                    description: Type of the signer backend
+                    enum:
+                    - file
+                    - kms
+                    - tink
+                    type: string
                 required:
                 - certificateChain
                 type: object
                 x-kubernetes-validations:
-                - message: external signer (file/kms/tink) and certificateChainRef
-                    must be configured together
-                  rule: (has(self.file) || has(self.kms) || has(self.tink)) == has(self.certificateChain.certificateChainRef)
                 - message: only one signer should be configured at any time
                   rule: '[has(self.file), has(self.kms), has(self.tink)].filter(x,
                     x).size() <= 1'
+                - message: external signer (file/kms/tink) and certificateChainRef
+                    must be configured together
+                  rule: (has(self.file) || has(self.kms) || has(self.tink)) == has(self.certificateChain.certificateChainRef)
+                - message: kms signer requires the kms field
+                  rule: '!has(self.type) || self.type != ''kms'' || has(self.kms)'
+                - message: tink signer requires the tink field
+                  rule: '!has(self.type) || self.type != ''tink'' || has(self.tink)'
+                - message: kms field is only allowed when type is kms
+                  rule: (has(self.type) && self.type == 'kms') || !has(self.kms)
+                - message: tink field is only allowed when type is tink
+                  rule: (has(self.type) && self.type == 'tink') || !has(self.tink)
+                - message: file signer must not set kms or tink
+                  rule: '!has(self.type) || self.type != ''file'' || (!has(self.kms)
+                    && !has(self.tink))'
               tolerations:
                 items:
                   description: |-

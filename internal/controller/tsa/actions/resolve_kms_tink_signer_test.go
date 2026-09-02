@@ -19,6 +19,7 @@ func TestKMSTinkSigner_KMSWithCertChainRef(t *testing.T) {
 	ctx := t.Context()
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		Type: rhtasv1.SignerTypeKMS,
 		CertificateChain: rhtasv1.CertificateChain{
 			CertificateChainRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "kms-cert-secret"},
@@ -56,6 +57,7 @@ func TestKMSTinkSigner_TinkWithCertChainRef(t *testing.T) {
 	ctx := t.Context()
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		Type: rhtasv1.SignerTypeTink,
 		CertificateChain: rhtasv1.CertificateChain{
 			CertificateChainRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-cert-secret"},
@@ -100,6 +102,7 @@ func TestKMSTinkSigner_TinkWithoutKeysetRef(t *testing.T) {
 	ctx := t.Context()
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		Type: rhtasv1.SignerTypeTink,
 		CertificateChain: rhtasv1.CertificateChain{
 			CertificateChainRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-cert-secret"},
@@ -141,6 +144,7 @@ func TestKMSTinkSigner_MissingCertChainSecret(t *testing.T) {
 	ctx := t.Context()
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		Type: rhtasv1.SignerTypeKMS,
 		CertificateChain: rhtasv1.CertificateChain{
 			CertificateChainRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "missing-secret"},

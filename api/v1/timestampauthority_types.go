@@ -50,9 +50,18 @@ type TimestampAuthoritySpec struct {
 }
 
 // TimestampAuthoritySigner defines the desired state of the Timestamp Authority Signer
-// +kubebuilder:validation:XValidation:rule="(has(self.file) || has(self.kms) || has(self.tink)) == has(self.certificateChain.certificateChainRef)",message="external signer (file/kms/tink) and certificateChainRef must be configured together"
 // +kubebuilder:validation:XValidation:rule="[has(self.file), has(self.kms), has(self.tink)].filter(x, x).size() <= 1",message="only one signer should be configured at any time"
+// +kubebuilder:validation:XValidation:rule="(has(self.file) || has(self.kms) || has(self.tink)) == has(self.certificateChain.certificateChainRef)",message="external signer (file/kms/tink) and certificateChainRef must be configured together"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.kms)",message="kms signer requires the kms field"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'tink' || has(self.tink)",message="tink signer requires the tink field"
+// +kubebuilder:validation:XValidation:rule="(has(self.type) && self.type == 'kms') || !has(self.kms)",message="kms field is only allowed when type is kms"
+// +kubebuilder:validation:XValidation:rule="(has(self.type) && self.type == 'tink') || !has(self.tink)",message="tink field is only allowed when type is tink"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || (!has(self.kms) && !has(self.tink))",message="file signer must not set kms or tink"
 type TimestampAuthoritySigner struct {
+	//Type of the signer backend
+	//+kubebuilder:validation:Enum=file;kms;tink
+	//+optional
+	Type string `json:"type,omitempty"`
 	//Configuration for the Certificate Chain
 	//+required
 	CertificateChain CertificateChain `json:"certificateChain"`
