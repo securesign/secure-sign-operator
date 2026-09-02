@@ -1153,7 +1153,7 @@ spec:
               fulcio:
                 description: |-
                   Fulcio service reference for resolving the active log's root certificate.
-                  Non-active logs must provide root certificates explicitly via rootCerts.
+                  Non-active logs must provide root certificates explicitly via rootCerts.roots.
                 properties:
                   ref:
                     description: In-cluster reference to a component CR.
@@ -1852,13 +1852,12 @@ spec:
                       x-kubernetes-map-type: atomic
                     logId:
                       description: |-
-                        LogId is the Trillian tree ID as a numeric string. Using a string
-                        avoids int64 precision loss in Kubernetes JSON serialization.
-                        For the active log, the operator will generate one if not set.
-                        For frozen/readonly shards, this must be the existing tree ID
-                        from the original active log.
-                      pattern: ^[1-9][0-9]*$
-                      type: string
+                        LogId is the Trillian tree ID. For the active log, the operator will
+                        generate one if not set. For frozen/readonly shards, this must be the
+                        existing tree ID from the original active log.
+                      format: int64
+                      minimum: 1
+                      type: integer
                     mirror:
                       description: Mirror indicates if this is a mirror log (read-only,
                         no signing).
@@ -3313,8 +3312,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     logId:
-                      description: LogId is the Trillian tree ID as a numeric string.
-                      type: string
+                      description: LogId is the Trillian tree ID.
+                      format: int64
+                      type: integer
                     notAfterLimit:
                       description: NotAfterLimit is the timestamp when this log's
                         certificates expire.
@@ -3591,9 +3591,10 @@ spec:
                   rule: (!has(self.certificateRef) || has(self.privateKeyRef))
               treeID:
                 description: |-
-                  The ID of a Trillian tree that stores the log data, as a numeric string.
+                  The ID of a Trillian tree that stores the log data.
                   Deprecated: Use logs[0].LogId instead
-                type: string
+                format: int64
+                type: integer
               url:
                 description: |-
                   Url is the CTlog endpoint URL including the log prefix path,

@@ -41,7 +41,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 	var s *rhtasv1.Securesign
 	var fipsEnabled bool
 	var runningTimestamp time.Time
-	var newTreeId string
+	var newTreeId int64
 
 	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
 		fipsEnabled = enabled
@@ -76,7 +76,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 	})
 
 	Describe("Configure CTlog sharding", func() {
-		var oldTreeId *string
+		var oldTreeId *int64
 		var oldConfig *v1.Secret
 		var oldPublicKey []byte
 
@@ -122,13 +122,12 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			createTreeLog, err := testKubernetes.GetPodLogs(ctx, createPod.Name, "createtree", namespace.Name)
 			Expect(err).ToNot(HaveOccurred())
 			lines := strings.Split(strings.TrimSpace(createTreeLog), "\n")
-			newTreeId = strings.TrimSpace(lines[len(lines)-1])
-			_, err = strconv.ParseInt(newTreeId, 10, 64)
+			newTreeId, err = strconv.ParseInt(lines[len(lines)-1], 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Configure sharding with new tree", func(ctx SpecContext) {
-			Expect(newTreeId).NotTo(BeEmpty())
+			Expect(newTreeId).NotTo(BeZero())
 
 			secretName := "ctlog-sharding-config"
 			newCtlogSecret := ctlog.CreateSecret(namespace.Name, secretName)
@@ -160,9 +159,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			frozen.IsReadonly = true
 
 			// Configure the active shard
-			newTreeIdInt, err := strconv.ParseInt(newTreeId, 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			active.LogId = newTreeIdInt
+			active.LogId = newTreeId
 			active.Prefix = "trusted-artifact-signer"
 			password := ""
 			if pwd, ok := newCtlogSecret.Data["password"]; ok {
@@ -283,21 +280,21 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 
 			// Verify frozen shard has the old tree ID
 			frozenCfg := cfg.LogConfigs.Config[0]
-			Expect(strconv.FormatInt(frozenCfg.LogId, 10)).To(Equal(*oldTreeId))
+			Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
 			Expect(frozenCfg.IsReadonly).To(BeTrue())
 
 			// Verify active shard has the new tree ID
 			activeCfg := cfg.LogConfigs.Config[1]
-			Expect(strconv.FormatInt(activeCfg.LogId, 10)).To(Equal(*c.Status.TreeID))
+			Expect(activeCfg.LogId).To(Equal(*c.Status.TreeID))
 			Expect(activeCfg.IsReadonly).To(BeFalse())
 		})
 	})
 })
 
-func updateTree(namespace string, treeId *string, state string) *v1.Pod {
+func updateTree(namespace string, treeId *int64, state string) *v1.Pod {
 	args := []string{
 		"--admin_server", fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace),
-		"--tree_id", *treeId,
+		"--tree_id", strconv.FormatInt(*treeId, 10),
 		"--tree_state", state,
 	}
 	if testKubernetes.IsRemoteClusterOpenshift() {

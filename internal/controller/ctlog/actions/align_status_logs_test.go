@@ -57,7 +57,7 @@ func TestAlignStatusLogs_ActiveLog(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
-			TreeID: ptr.To("12345"),
+			TreeID: ptr.To(int64(12345)),
 			PrivateKeyRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
 				Key:                  "private",
@@ -86,7 +86,7 @@ func TestAlignStatusLogs_ActiveLog(t *testing.T) {
 	g.Expect(result).To(Equal(testAction.Return()))
 	g.Expect(instance.Status.Logs).To(HaveLen(1))
 	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To("12345")))
+	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
 	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
 	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("keys"))
 	g.Expect(instance.Status.Logs[0].PublicKey).To(ContainSubstring("PUBLIC KEY"))
@@ -110,7 +110,7 @@ func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
 				{
 					Prefix:   "shard-2024",
 					Readonly: ptr.To(true),
-					LogId:    ptr.To("99999"),
+					LogId:    ptr.To(int64(99999)),
 					Signer: &rhtasv1.CTlogSigner{
 						Type: "file",
 						File: &rhtasv1.CTlogFile{
@@ -131,7 +131,7 @@ func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
-			TreeID: ptr.To("12345"),
+			TreeID: ptr.To(int64(12345)),
 			PrivateKeyRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
 				Key:                  "private",
@@ -162,13 +162,13 @@ func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
 
 	// Active log
 	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To("12345")))
+	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
 	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
 	g.Expect(instance.Status.Logs[0].Readonly).To(BeNil())
 
 	// Readonly shard
 	g.Expect(instance.Status.Logs[1].Prefix).To(Equal("shard-2024"))
-	g.Expect(instance.Status.Logs[1].LogId).To(Equal(ptr.To("99999")))
+	g.Expect(instance.Status.Logs[1].LogId).To(Equal(ptr.To(int64(99999))))
 	g.Expect(instance.Status.Logs[1].PrivateKeyRef.Name).To(Equal("shard-keys"))
 	g.Expect(instance.Status.Logs[1].PublicKeyRef.Name).To(Equal("shard-keys"))
 	g.Expect(instance.Status.Logs[1].RootCertificates).To(HaveLen(1))
@@ -191,11 +191,11 @@ func TestAlignStatusLogs_NoChangeSkips(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
-			TreeID: ptr.To("12345"),
+			TreeID: ptr.To(int64(12345)),
 			Logs: []rhtasv1.CTlogLogStatus{
 				{
 					Prefix: "trusted-artifact-signer",
-					LogId:  ptr.To("12345"),
+					LogId:  ptr.To(int64(12345)),
 					Active: true,
 				},
 			},

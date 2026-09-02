@@ -162,7 +162,7 @@ func (in *CTLogConfig) DeepCopyInto(out *CTLogConfig) {
 	*out = *in
 	if in.LogId != nil {
 		in, out := &in.LogId, &out.LogId
-		*out = new(string)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.RootCerts != nil {
@@ -353,7 +353,7 @@ func (in *CTlogLogStatus) DeepCopyInto(out *CTlogLogStatus) {
 	*out = *in
 	if in.LogId != nil {
 		in, out := &in.LogId, &out.LogId
-		*out = new(string)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.PrivateKeyRef != nil {
@@ -543,7 +543,7 @@ func (in *CTlogStatus) DeepCopyInto(out *CTlogStatus) {
 	}
 	if in.TreeID != nil {
 		in, out := &in.TreeID, &out.TreeID
-		*out = new(string)
+		*out = new(int64)
 		**out = **in
 	}
 	in.TLS.DeepCopyInto(&out.TLS)
