@@ -93,7 +93,7 @@ var _ = Describe("CTlog update test", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				treeID := int64(1)
+				treeID := "1"
 				instance := &rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,

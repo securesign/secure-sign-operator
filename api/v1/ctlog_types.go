@@ -46,7 +46,7 @@ type CTlogSpec struct {
 	Trillian ServiceReference `json:"trillian,omitempty"`
 
 	// Fulcio service reference for resolving the active log's root certificate.
-	// Non-active logs must provide root certificates explicitly via rootCerts.roots.
+	// Non-active logs must provide root certificates explicitly via rootCerts.
 	Fulcio ServiceReference `json:"fulcio,omitempty"`
 
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
@@ -99,12 +99,14 @@ type CTlogPKCS11Config struct {
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.signer)",message="signer is required for non-active logs"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && size(self.rootCerts) > 0)",message="rootCerts is required for non-active logs"
 type CTLogConfig struct {
-	// LogId is the Trillian tree ID. For the active log, the operator will
-	// generate one if not set. For frozen/readonly shards, this must be the
-	// existing tree ID from the original active log.
+	// LogId is the Trillian tree ID as a numeric string. Using a string
+	// avoids int64 precision loss in Kubernetes JSON serialization.
+	// For the active log, the operator will generate one if not set.
+	// For frozen/readonly shards, this must be the existing tree ID
+	// from the original active log.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
-	LogId *int64 `json:"logId,omitempty"`
+	// +kubebuilder:validation:Pattern="^[1-9][0-9]*$"
+	LogId *string `json:"logId,omitempty"`
 
 	// Prefix is the name of the log. The prefix cannot be empty and can
 	// contain "/" path separator characters to define global override handler prefix.
@@ -201,8 +203,8 @@ type CTlogFile struct {
 // CTlogLogStatus contains status information for a single log.
 // +structType=atomic
 type CTlogLogStatus struct {
-	// LogId is the Trillian tree ID.
-	LogId *int64 `json:"logId,omitempty"`
+	// LogId is the Trillian tree ID as a numeric string.
+	LogId *string `json:"logId,omitempty"`
 	// Prefix is the log's URL prefix.
 	// +kubebuilder:validation:Required
 	Prefix string `json:"prefix,omitempty"`
@@ -262,9 +264,9 @@ type CTlogStatus struct {
 	// Deprecated: Use logs[0].PublicKey instead
 	// +optional
 	PublicKey string `json:"publicKey,omitempty"`
-	// The ID of a Trillian tree that stores the log data.
+	// The ID of a Trillian tree that stores the log data, as a numeric string.
 	// Deprecated: Use logs[0].LogId instead
-	TreeID *int64 `json:"treeID,omitempty"`
+	TreeID *string `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`

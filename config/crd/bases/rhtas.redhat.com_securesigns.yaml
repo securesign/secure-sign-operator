@@ -1175,7 +1175,7 @@ spec:
                   fulcio:
                     description: |-
                       Fulcio service reference for resolving the active log's root certificate.
-                      Non-active logs must provide root certificates explicitly via rootCerts.roots.
+                      Non-active logs must provide root certificates explicitly via rootCerts.
                     properties:
                       ref:
                         description: In-cluster reference to a component CR.
@@ -1882,12 +1882,13 @@ spec:
                           x-kubernetes-map-type: atomic
                         logId:
                           description: |-
-                            LogId is the Trillian tree ID. For the active log, the operator will
-                            generate one if not set. For frozen/readonly shards, this must be the
-                            existing tree ID from the original active log.
-                          format: int64
-                          minimum: 1
-                          type: integer
+                            LogId is the Trillian tree ID as a numeric string. Using a string
+                            avoids int64 precision loss in Kubernetes JSON serialization.
+                            For the active log, the operator will generate one if not set.
+                            For frozen/readonly shards, this must be the existing tree ID
+                            from the original active log.
+                          pattern: ^[1-9][0-9]*$
+                          type: string
                         mirror:
                           description: Mirror indicates if this is a mirror log (read-only,
                             no signing).

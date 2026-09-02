@@ -175,4 +175,3 @@ func allPKCS11SpecHash(instance *rhtasv1.CTlog) string {
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
-
