@@ -65,6 +65,7 @@ func TestTSASigner_KMSDisabled(t *testing.T) {
 	g := NewWithT(t)
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		Type: rhtasv1.SignerTypeKMS,
 		CertificateChain: rhtasv1.CertificateChain{
 			CertificateChainRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "kms-secret"},
@@ -85,6 +86,7 @@ func TestTSASigner_TinkDisabled(t *testing.T) {
 	g := NewWithT(t)
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		Type: rhtasv1.SignerTypeTink,
 		CertificateChain: rhtasv1.CertificateChain{
 			CertificateChainRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-secret"},

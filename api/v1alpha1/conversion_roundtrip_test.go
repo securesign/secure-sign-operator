@@ -232,12 +232,15 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(&s.CertificateChain)
 			switch c.Intn(3) {
 			case 0:
+				s.Type = rhtasv1.SignerTypeFile
 				s.File = &rhtasv1.File{}
 				c.FillNoCustom(s.File)
 			case 1:
+				s.Type = rhtasv1.SignerTypeKMS
 				s.Kms = &rhtasv1.KMS{}
 				c.FillNoCustom(s.Kms)
 			case 2:
+				s.Type = rhtasv1.SignerTypeTink
 				s.Tink = &rhtasv1.Tink{}
 				c.FillNoCustom(s.Tink)
 			}

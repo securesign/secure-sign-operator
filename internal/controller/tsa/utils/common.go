@@ -4,22 +4,18 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-const (
-	FileType = "file"
-	KmsType  = "kms"
-	TinkType = "tink"
-)
-
 func IsFileType(instance *rhtasv1.TimestampAuthority) bool {
-	return GetSignerType(&instance.Spec.Signer) == FileType
+	return GetSignerType(&instance.Spec.Signer) == rhtasv1.SignerTypeFile
 }
 
+// GetSignerType returns the configured signer type, defaulting to file when unset.
+// This mirrors Fulcio/CTlog/Rekor, which treat an empty type as the default backend
+// (file). The type is guaranteed to be populated in practice by the defaulter and by
+// the v1alpha1->v1 conversion, and CEL validation rejects a sub-struct that does not
+// match the type, so empty type never coincides with a kms/tink sub-struct.
 func GetSignerType(signer *rhtasv1.TimestampAuthoritySigner) string {
-	if signer.Kms != nil {
-		return KmsType
+	if signer.Type != "" {
+		return signer.Type
 	}
-	if signer.Tink != nil {
-		return TinkType
-	}
-	return FileType
+	return rhtasv1.SignerTypeFile
 }

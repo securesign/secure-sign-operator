@@ -240,6 +240,7 @@ var _ = Describe("TSA", func() {
 			It("valid file signer with certificateChainRef", func() {
 				validObject := generateMinimalTSA("valid-file-signer")
 				validObject.Spec.Signer = TimestampAuthoritySigner{
+					Type: SignerTypeFile,
 					CertificateChain: CertificateChain{
 						CertificateChainRef: &SecretKeySelector{
 							Key:                  "chain",
@@ -275,6 +276,7 @@ var _ = Describe("TSA", func() {
 			It("valid KMS signer with certificateChainRef", func() {
 				validObject := generateMinimalTSA("valid-kms-signer")
 				validObject.Spec.Signer = TimestampAuthoritySigner{
+					Type: SignerTypeKMS,
 					CertificateChain: CertificateChain{
 						CertificateChainRef: &SecretKeySelector{
 							Key:                  "chain",
@@ -291,6 +293,7 @@ var _ = Describe("TSA", func() {
 			It("valid Tink signer with certificateChainRef", func() {
 				validObject := generateMinimalTSA("valid-tink-signer")
 				validObject.Spec.Signer = TimestampAuthoritySigner{
+					Type: SignerTypeTink,
 					CertificateChain: CertificateChain{
 						CertificateChainRef: &SecretKeySelector{
 							Key:                  "chain",
@@ -311,6 +314,7 @@ var _ = Describe("TSA", func() {
 			It("invalid KMS URI", func() {
 				invalidObject := generateMinimalTSA("invalid-kms-uri")
 				invalidObject.Spec.Signer = TimestampAuthoritySigner{
+					Type: SignerTypeKMS,
 					CertificateChain: CertificateChain{
 						CertificateChainRef: &SecretKeySelector{
 							Key:                  "chain",
@@ -329,6 +333,7 @@ var _ = Describe("TSA", func() {
 			It("invalid Tink URI", func() {
 				invalidObject := generateMinimalTSA("invalid-tink-uri")
 				invalidObject.Spec.Signer = TimestampAuthoritySigner{
+					Type: SignerTypeTink,
 					CertificateChain: CertificateChain{
 						CertificateChainRef: &SecretKeySelector{
 							Key:                  "chain",
@@ -346,6 +351,152 @@ var _ = Describe("TSA", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("keyResource must be a valid Tink KMS URI")))
+			})
+
+			Context("signer type discriminator", func() {
+				It("default type with no signer fields succeeds", func() {
+					validObject := generateMinimalTSA("tsa-type-default")
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+					fetched := &TimestampAuthority{}
+					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), fetched)).To(Succeed())
+					Expect(fetched.Spec.Signer.Type).To(Equal(SignerTypeFile))
+				})
+
+				It("explicit file type with file field succeeds", func() {
+					validObject := generateMinimalTSA("tsa-type-file-explicit")
+					validObject.Spec.Signer.Type = SignerTypeFile
+					validObject.Spec.Signer.CertificateChain = CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					}
+					validObject.Spec.Signer.File = &File{
+						PrivateKeyRef: &SecretKeySelector{
+							Key:                  "private",
+							LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+						},
+					}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("type kms without kms field is rejected", func() {
+					invalidObject := generateMinimalTSA("tsa-type-kms-no-kms")
+					invalidObject.Spec.Signer = TimestampAuthoritySigner{
+						Type: SignerTypeKMS,
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								Key:                  "chain",
+								LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+							},
+						},
+					}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("kms signer requires the kms field")))
+				})
+
+				It("type tink without tink field is rejected", func() {
+					invalidObject := generateMinimalTSA("tsa-type-tink-no-tink")
+					invalidObject.Spec.Signer = TimestampAuthoritySigner{
+						Type: SignerTypeTink,
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								Key:                  "chain",
+								LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+							},
+						},
+					}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("tink signer requires the tink field")))
+				})
+
+				It("type kms with file field set is rejected", func() {
+					invalidObject := generateMinimalTSA("tsa-type-kms-with-file")
+					invalidObject.Spec.Signer = TimestampAuthoritySigner{
+						Type: SignerTypeKMS,
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								Key:                  "chain",
+								LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+							},
+						},
+						Kms: &KMS{
+							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+						},
+						File: &File{
+							PrivateKeyRef: &SecretKeySelector{
+								Key:                  "private",
+								LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+							},
+						},
+					}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("only one signer should be configured at any time")))
+				})
+
+				It("default type with kms field set is rejected", func() {
+					invalidObject := generateMinimalTSA("tsa-type-default-with-kms")
+					invalidObject.Spec.Signer.Type = ""
+					invalidObject.Spec.Signer.CertificateChain = CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					}
+					invalidObject.Spec.Signer.Kms = &KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+					}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("kms field is only allowed when type is kms")))
+				})
+
+				It("file type with tink field set is rejected", func() {
+					invalidObject := generateMinimalTSA("tsa-type-file-with-tink")
+					invalidObject.Spec.Signer.Type = SignerTypeFile
+					invalidObject.Spec.Signer.CertificateChain = CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					}
+					invalidObject.Spec.Signer.Tink = &Tink{
+						KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+						KeysetRef: &SecretKeySelector{
+							Key:                  "keyset",
+							LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
+						},
+					}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("file signer must not set kms or tink")))
+				})
+
+				It("update file signer to KMS", func() {
+					created := generateMinimalTSA("tsa-type-file-to-kms")
+					Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+					fetched := &TimestampAuthority{}
+					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+
+					fetched.Spec.Signer = TimestampAuthoritySigner{
+						Type: SignerTypeKMS,
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								Key:                  "chain",
+								LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+							},
+						},
+						Kms: &KMS{
+							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+						},
+					}
+					Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+				})
 			})
 
 			When("replicas", func() {

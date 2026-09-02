@@ -151,6 +151,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
 							Signer: rhtasv1.TimestampAuthoritySigner{
+								Type: rhtasv1.SignerTypeFile,
 								CertificateChain: rhtasv1.CertificateChain{
 									RootCA: &rhtasv1.TsaCertificateAuthority{
 										OrganizationName: "Red Hat",
@@ -937,6 +938,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 			hub: &rhtasv1.TimestampAuthority{
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "ns"},
 				Spec: rhtasv1.TimestampAuthoritySpec{
+					Signer:        rhtasv1.TimestampAuthoritySigner{Type: rhtasv1.SignerTypeFile},
 					Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false)},
 					Monitoring:    rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					NTPMonitoring: rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
@@ -1004,6 +1006,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
 				Spec: rhtasv1.TimestampAuthoritySpec{
 					Signer: rhtasv1.TimestampAuthoritySigner{
+						Type: rhtasv1.SignerTypeKMS,
 						CertificateChain: rhtasv1.CertificateChain{
 							CertificateChainRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
@@ -1057,6 +1060,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa-tink", Namespace: "default"},
 				Spec: rhtasv1.TimestampAuthoritySpec{
 					Signer: rhtasv1.TimestampAuthoritySigner{
+						Type: rhtasv1.SignerTypeTink,
 						CertificateChain: rhtasv1.CertificateChain{
 							CertificateChainRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
@@ -1118,6 +1122,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa-no-auth", Namespace: "default"},
 				Spec: rhtasv1.TimestampAuthoritySpec{
 					Signer: rhtasv1.TimestampAuthoritySigner{
+						Type: rhtasv1.SignerTypeKMS,
 						CertificateChain: rhtasv1.CertificateChain{
 							CertificateChainRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
@@ -1184,6 +1189,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "tsa-auth-only", Namespace: "default"},
 			Spec: rhtasv1.TimestampAuthoritySpec{
 				Signer: rhtasv1.TimestampAuthoritySigner{
+					Type: rhtasv1.SignerTypeFile,
 					CertificateChain: rhtasv1.CertificateChain{
 						CertificateChainRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
