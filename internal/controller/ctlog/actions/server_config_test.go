@@ -130,7 +130,7 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							LogId:    ptr.To(int64(111111)),
+							LogId:    ptr.To("111111"),
 							Prefix:   "shard-111111",
 							Readonly: ptr.To(true),
 							Signer: &rhtasv1.CTlogSigner{
@@ -149,14 +149,14 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					TreeID:        ptr.To(int64(111111)),
+					TreeID:        ptr.To("111111"),
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LogId:    ptr.To(int64(111111)),
-							Prefix:   "shard-111111",
-							Readonly: ptr.To(true),
+							LogId:      ptr.To("111111"),
+							Prefix:     "shard-111111",
+							Readonly:   ptr.To(true),
 							SignerType: "file",
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
@@ -199,7 +199,7 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							LogId:    ptr.To(int64(222222)),
+							LogId:    ptr.To("222222"),
 							Prefix:   "shard-222222",
 							Readonly: ptr.To(true),
 							Signer: &rhtasv1.CTlogSigner{
@@ -218,14 +218,14 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					TreeID:        ptr.To(int64(222222)),
+					TreeID:        ptr.To("222222"),
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LogId:    ptr.To(int64(222222)),
-							Prefix:   "shard-222222",
-							Readonly: ptr.To(true),
+							LogId:      ptr.To("222222"),
+							Prefix:     "shard-222222",
+							Readonly:   ptr.To(true),
 							SignerType: "file",
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
@@ -269,7 +269,7 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							LogId:    ptr.To(int64(333333)),
+							LogId:    ptr.To("333333"),
 							Prefix:   "shard-333333",
 							Readonly: ptr.To(true),
 							Signer: &rhtasv1.CTlogSigner{
@@ -290,14 +290,14 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					TreeID:        ptr.To(int64(333333)),
+					TreeID:        ptr.To("333333"),
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LogId:    ptr.To(int64(333333)),
-							Prefix:   "shard-333333",
-							Readonly: ptr.To(true),
+							LogId:      ptr.To("333333"),
+							Prefix:     "shard-333333",
+							Readonly:   ptr.To(true),
 							SignerType: "file",
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
@@ -388,7 +388,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:80"},
 				Logs: []rhtasv1.CTLogConfig{
 					{
-						LogId:  ptr.To(int64(123456)),
+						LogId:  ptr.To("123456"),
 						Prefix: "trusted-artifact-signer",
 						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{Type: "file"},
@@ -399,15 +399,15 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				},
 			},
 			Status: rhtasv1.CTlogStatus{
-				TreeID:        ptr.To(int64(123456)),
+				TreeID:        ptr.To("123456"),
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				Logs: []rhtasv1.CTlogLogStatus{
 					{
-						Active:       true,
-						LogId:        ptr.To(int64(123456)),
-						Prefix:       "trusted-artifact-signer",
-						SignerType:   "file",
+						Active:        true,
+						LogId:         ptr.To("123456"),
+						Prefix:        "trusted-artifact-signer",
+						SignerType:    "file",
 						PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 						PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 						RootCertificates: []rhtasv1.SecretKeySelector{
@@ -485,7 +485,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				inst.Generation = 2
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
 				inst.Spec.Logs = append(inst.Spec.Logs, rhtasv1.CTLogConfig{
-					LogId:    ptr.To(int64(444444)),
+					LogId:    ptr.To("444444"),
 					Prefix:   "shard-444444",
 					Readonly: ptr.To(true),
 					Signer: &rhtasv1.CTlogSigner{
@@ -502,9 +502,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					},
 				})
 				inst.Status.Logs = append(inst.Status.Logs, rhtasv1.CTlogLogStatus{
-					LogId:    ptr.To(int64(444444)),
-					Prefix:   "shard-444444",
-					Readonly: ptr.To(true),
+					LogId:      ptr.To("444444"),
+					Prefix:     "shard-444444",
+					Readonly:   ptr.To(true),
 					SignerType: "file",
 					PublicKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
@@ -548,7 +548,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
 				inst.Spec.Logs = append(inst.Spec.Logs,
 					rhtasv1.CTLogConfig{
-						LogId:    ptr.To(int64(555555)),
+						LogId:    ptr.To("555555"),
 						Prefix:   "shard-555555",
 						Readonly: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
@@ -565,7 +565,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						},
 					},
 					rhtasv1.CTLogConfig{
-						LogId:    ptr.To(int64(666666)),
+						LogId:    ptr.To("666666"),
 						Prefix:   "shard-666666",
 						Readonly: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
@@ -584,9 +584,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				)
 				inst.Status.Logs = append(inst.Status.Logs,
 					rhtasv1.CTlogLogStatus{
-						LogId:    ptr.To(int64(555555)),
-						Prefix:   "shard-555555",
-						Readonly: ptr.To(true),
+						LogId:      ptr.To("555555"),
+						Prefix:     "shard-555555",
+						Readonly:   ptr.To(true),
 						SignerType: "file",
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
@@ -597,9 +597,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						},
 					},
 					rhtasv1.CTlogLogStatus{
-						LogId:    ptr.To(int64(666666)),
-						Prefix:   "shard-666666",
-						Readonly: ptr.To(true),
+						LogId:      ptr.To("666666"),
+						Prefix:     "shard-666666",
+						Readonly:   ptr.To(true),
 						SignerType: "file",
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
@@ -692,7 +692,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Logs: []rhtasv1.CTLogConfig{
 							{
-								LogId:  ptr.To(int64(123456)),
+								LogId:  ptr.To("123456"),
 								Prefix: "trusted-artifact-signer",
 								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{
@@ -717,13 +717,13 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID: ptr.To(int64(123456)),
+						TreeID: ptr.To("123456"),
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:         true,
-								LogId:          ptr.To(int64(123456)),
-								Prefix:         "trusted-artifact-signer",
-								SignerType:     rhtasv1.SignerTypePKCS11,
+								Active:           true,
+								LogId:            ptr.To("123456"),
+								Prefix:           "trusted-artifact-signer",
+								SignerType:       rhtasv1.SignerTypePKCS11,
 								PKCS11TokenLabel: "test-token",
 								PinSecretRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
@@ -793,7 +793,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Logs: []rhtasv1.CTLogConfig{
 							{
-								LogId:  ptr.To(int64(123456)),
+								LogId:  ptr.To("123456"),
 								Prefix: "trusted-artifact-signer",
 								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{
@@ -815,15 +815,15 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID: ptr.To(int64(123456)),
+						TreeID: ptr.To("123456"),
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:         true,
-								LogId:          ptr.To(int64(123456)),
-								Prefix:         "trusted-artifact-signer",
-								SignerType:     rhtasv1.SignerTypePKCS11,
+								Active:           true,
+								LogId:            ptr.To("123456"),
+								Prefix:           "trusted-artifact-signer",
+								SignerType:       rhtasv1.SignerTypePKCS11,
 								PKCS11TokenLabel: "test-token",
-								PinSecretRef:   nil,
+								PinSecretRef:     nil,
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
@@ -876,7 +876,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Logs: []rhtasv1.CTLogConfig{
 							{
-								LogId:  ptr.To(int64(123456)),
+								LogId:  ptr.To("123456"),
 								Prefix: "trusted-artifact-signer",
 								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{
@@ -898,13 +898,13 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID: ptr.To(int64(123456)),
+						TreeID: ptr.To("123456"),
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:         true,
-								LogId:          ptr.To(int64(123456)),
-								Prefix:         "trusted-artifact-signer",
-								SignerType:     rhtasv1.SignerTypePKCS11,
+								Active:           true,
+								LogId:            ptr.To("123456"),
+								Prefix:           "trusted-artifact-signer",
+								SignerType:       rhtasv1.SignerTypePKCS11,
 								PKCS11TokenLabel: "test-token",
 								PinSecretRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
@@ -959,7 +959,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Logs: []rhtasv1.CTLogConfig{
 							{
-								LogId:  ptr.To(int64(123456)),
+								LogId:  ptr.To("123456"),
 								Prefix: "trusted-artifact-signer",
 								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{
@@ -984,14 +984,14 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID:        ptr.To(int64(123456)),
+						TreeID:        ptr.To("123456"),
 						PrivateKeyRef: nil,
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:         true,
-								LogId:          ptr.To(int64(123456)),
-								Prefix:         "trusted-artifact-signer",
-								SignerType:     rhtasv1.SignerTypePKCS11,
+								Active:           true,
+								LogId:            ptr.To("123456"),
+								Prefix:           "trusted-artifact-signer",
+								SignerType:       rhtasv1.SignerTypePKCS11,
 								PKCS11TokenLabel: "test-token",
 								PinSecretRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
@@ -1082,7 +1082,7 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 				Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				Logs: []rhtasv1.CTLogConfig{
 					{
-						LogId:  ptr.To(int64(123456)),
+						LogId:  ptr.To("123456"),
 						Prefix: "trusted-artifact-signer",
 						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{Type: "file"},
@@ -1093,7 +1093,7 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 				},
 			},
 			Status: rhtasv1.CTlogStatus{
-				TreeID:        ptr.To(int64(123456)),
+				TreeID:        ptr.To("123456"),
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				Conditions: []metav1.Condition{

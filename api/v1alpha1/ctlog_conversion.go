@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"strconv"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
@@ -12,11 +14,28 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out
 	if err := autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in, out, s); err != nil {
 		return err
 	}
+	// v1 TreeID is *string, v1alpha1 is *int64
+	if in.TreeID != nil {
+		if v, err := strconv.ParseInt(*in.TreeID, 10, 64); err == nil {
+			out.TreeID = &v
+		}
+	}
 	if out.Url != "" {
 		var err error
 		if out.Url, _, err = splitURLPath(out.Url); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv1.CTlogStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
+		return err
+	}
+	// v1alpha1 TreeID is *int64, v1 is *string
+	if in.TreeID != nil {
+		out.TreeID = ptr.To(strconv.FormatInt(*in.TreeID, 10))
 	}
 	return nil
 }
@@ -30,7 +49,9 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 	for _, log := range in.Logs {
 		if log.Prefix == "trusted-artifact-signer" {
 			if log.LogId != nil {
-				out.TreeID = log.LogId
+				if v, err := strconv.ParseInt(*log.LogId, 10, 64); err == nil {
+					out.TreeID = &v
+				}
 			}
 			if log.Signer != nil && log.Signer.File != nil {
 				if log.Signer.File.PrivateKeyRef != nil {
@@ -85,7 +106,7 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	}
 	log := &out.Logs[idx]
 	if in.TreeID != nil {
-		log.LogId = in.TreeID
+		log.LogId = ptr.To(strconv.FormatInt(*in.TreeID, 10))
 	}
 	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
 		if log.Signer == nil {

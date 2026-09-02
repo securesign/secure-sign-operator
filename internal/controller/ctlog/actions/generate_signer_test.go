@@ -35,7 +35,7 @@ func ctlogInstance() *rhtasv1.CTlog {
 		Spec: rhtasv1.CTlogSpec{
 			Logs: []rhtasv1.CTLogConfig{
 				{
-					LogId:  ptr.To(int64(123456)),
+					LogId:  ptr.To("123456"),
 					Prefix: "test-log",
 					Active: ptr.To(true),
 					Signer: &rhtasv1.CTlogSigner{Type: "file"},

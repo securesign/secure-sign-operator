@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -177,7 +178,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		notAfterStart := int64(0)
 		notAfterLimit := int64(0)
 		logPrefix := ""
-		treeID := instance.Status.TreeID
+		treeIDStr := instance.Status.TreeID
 		if active != nil {
 			if active.NotAfterStart != nil {
 				notAfterStart = active.NotAfterStart.Unix()
@@ -186,9 +187,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 				notAfterLimit = active.NotAfterLimit.Unix()
 			}
 			logPrefix = active.Prefix
-			treeID = active.LogId
+			treeIDStr = active.LogId
 		}
-		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *treeID, rootCerts, certConfig, logPrefix, shards, notAfterStart, notAfterLimit)
+		treeIDVal, parseErr := strconv.ParseInt(*treeIDStr, 10, 64)
+		if parseErr != nil {
+			return i.Error(ctx, fmt.Errorf("invalid tree ID %q: %w", *treeIDStr, parseErr), instance)
+		}
+		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, treeIDVal, rootCerts, certConfig, logPrefix, shards, notAfterStart, notAfterLimit)
 	}
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
@@ -319,9 +324,14 @@ func (i serverConfig) buildPKCS11Config(
 		notAfterLimit = active.NotAfterLimit.Unix()
 	}
 
+	activeTreeID, err := strconv.ParseInt(*active.LogId, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid active log tree ID %q: %w", *active.LogId, err)
+	}
+
 	return ctlogUtils.CreateCtlogPKCS11Config(
 		trillianUrl,
-		*active.LogId,
+		activeTreeID,
 		rootCerts,
 		active.PKCS11TokenLabel,
 		string(pin),
@@ -431,7 +441,7 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 
 		treeID := int64(0)
 		if log.LogId != nil {
-			treeID = *log.LogId
+			treeID, _ = strconv.ParseInt(*log.LogId, 10, 64)
 		}
 
 		sc := ctlogUtils.ShardConfig{
@@ -497,7 +507,7 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	}
 
 	if instance.Status.TreeID != nil {
-		annotations[labels.LabelNamespace+"/treeID"] = fmt.Sprintf("%d", *instance.Status.TreeID)
+		annotations[labels.LabelNamespace+"/treeID"] = *instance.Status.TreeID
 	}
 
 	if certs, err := i.handleRootCertificates(ctx, instance); err == nil {
@@ -561,15 +571,15 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 			if log.FrozenSTH != nil && log.FrozenSTH.TreeSize != nil {
 				frozenSTHRefStr = fmt.Sprintf("%d", *log.FrozenSTH.TreeSize)
 			}
-			logId := int64(0)
+			logIdStr := ""
 			if log.LogId != nil {
-				logId = *log.LogId
+				logIdStr = *log.LogId
 			}
 			rootCertsStr := ""
 			for _, r := range log.RootCertificates {
 				rootCertsStr += r.Name + "/" + r.Key + ","
 			}
-			_, _ = fmt.Fprintf(h, "%d:%s:%s:%s:%s:%s:%s:%v", logId, publicKeyRefStr, privateKeyRefStr, pinRefStr, tokenLabelStr, frozenSTHRefStr, rootCertsStr, readonly)
+			_, _ = fmt.Fprintf(h, "%s:%s:%s:%s:%s:%s:%s:%v", logIdStr, publicKeyRefStr, privateKeyRefStr, pinRefStr, tokenLabelStr, frozenSTHRefStr, rootCertsStr, readonly)
 		}
 		if hasNonActive {
 			annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))

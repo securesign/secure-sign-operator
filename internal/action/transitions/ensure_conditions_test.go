@@ -147,7 +147,7 @@ func TestEnsureConditions_Handle(t *testing.T) {
 					Logs: []rhtasv1.CTLogConfig{
 						{
 							Prefix: "log",
-							LogId:  func() *int64 { v := int64(123); return &v }(),
+							LogId:  func() *string { v := "123"; return &v }(),
 						},
 					},
 				},
