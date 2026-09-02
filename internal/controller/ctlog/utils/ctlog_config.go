@@ -16,59 +16,47 @@ import (
 const (
 	// ConfigKey is the key in the map holding the marshalled CTLog config.
 	ConfigKey = "config"
-	// PrivateKey is the key in the map holding the encrypted PEM private key
-	// for CTLog.
-	PrivateKey = "private"
-	// PublicKey is the key in the map holding the PEM public key for CTLog.
-	PublicKey = "public"
-	// Password is private key password
-	Password = "password"
 
 	// This is hardcoded since this is where we mount the certs in the
 	// container.
 	rootsPemFileDir = "/ctfe-keys/"
-	// This file contains the private key for the CTLog
-	privateKeyFile = "/ctfe-keys/private"
 )
 
-func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig, logPrefix string, shards []ShardConfig, notAfterStart, notAfterLimit int64) (map[string][]byte, error) {
-	rootPems := make([]string, 0, len(rootCerts))
-	for i := range rootCerts {
-		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
+// CreateConfig builds a CTLog protobuf MultiConfig and the accompanying secret
+// data map from the resolved status log entries. Every entry is serialized
+// uniformly — the Active flag plays no role here.
+func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, error) {
+	if len(logs) == 0 {
+		return nil, fmt.Errorf("no log entries to serialize")
 	}
 
-	block, _ := pem.Decode(keyConfig.PublicKey)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode public key PEM")
-	}
+	data := make(map[string][]byte)
 
-	configs := make([]*configpb.LogConfig, 0, 1+len(shards))
-	for _, shard := range shards {
-		shardCfg, err := marshalShardLogConfig(shard, rootPems)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create shard config for treeID %d: %w", shard.TreeID, err)
+	// Collect per-log root cert files and private key files into the data map.
+	// Track the first non-empty set of root cert paths as the default for logs
+	// that don't carry their own (inherited from the upstream resolution stage).
+	var defaultRootPemPaths []string
+	for _, log := range logs {
+		for j, cert := range log.RootCerts {
+			key := fmt.Sprintf("log-%d-root-%d", log.TreeID, j)
+			data[key] = cert
 		}
-		configs = append(configs, shardCfg)
+		if defaultRootPemPaths == nil && len(log.RootCerts) > 0 {
+			defaultRootPemPaths = rootPemPaths(log.TreeID, len(log.RootCerts))
+		}
+		if len(log.PrivateKey) > 0 {
+			data[fmt.Sprintf("log-%d-private", log.TreeID)] = log.PrivateKey
+		}
 	}
 
-	activeLog := configpb.LogConfig{
-		LogId:        treeID,
-		Prefix:       logPrefix,
-		RootsPemFile: rootPems,
-		PrivateKey: mustMarshalAny(&keyspb.PEMKeyFile{
-			Path:     privateKeyFile,
-			Password: string(keyConfig.PrivateKeyPass)}),
-		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
-		LogBackendName: "trillian",
-		ExtKeyUsages:   []string{"CodeSigning"},
+	configs := make([]*configpb.LogConfig, 0, len(logs))
+	for _, log := range logs {
+		cfg, err := marshalLogConfig(log, defaultRootPemPaths)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create config for log %d (%s): %w", log.TreeID, log.Prefix, err)
+		}
+		configs = append(configs, cfg)
 	}
-	if notAfterStart > 0 {
-		activeLog.NotAfterStart = &timestamppb.Timestamp{Seconds: notAfterStart}
-	}
-	if notAfterLimit > 0 {
-		activeLog.NotAfterLimit = &timestamppb.Timestamp{Seconds: notAfterLimit}
-	}
-	configs = append(configs, &activeLog)
 
 	marshalledConfig, err := prototext.Marshal(&configpb.LogMultiConfig{
 		LogConfigs: &configpb.LogConfigSet{Config: configs},
@@ -83,168 +71,71 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 		return nil, fmt.Errorf("failed to marshal ctlog config: %w", err)
 	}
 
-	data := map[string][]byte{
-		ConfigKey:  marshalledConfig,
-		PrivateKey: keyConfig.PrivateKey,
-		PublicKey:  keyConfig.PublicKey,
-	}
-	if len(keyConfig.PrivateKeyPass) > 0 {
-		data[Password] = keyConfig.PrivateKeyPass
-	}
-	for i, cert := range rootCerts {
-		data[fmt.Sprintf("fulcio-%d", i)] = cert
-	}
-	for _, shard := range shards {
-		if len(shard.PrivateKey) > 0 {
-			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
-		}
-		for i, cert := range shard.RootCerts {
-			data[fmt.Sprintf("shard-%d-root-%d", shard.TreeID, i)] = cert
-		}
-	}
+	data[ConfigKey] = marshalledConfig
 	return data, nil
 }
 
-// CreateCtlogPKCS11Config creates a CTLog protobuf configuration for PKCS#11 mode.
-// Instead of PEMKeyFile, the PrivateKey field is an anypb.Any wrapping keyspb.PKCS11Config.
-// The returned map contains only the protobuf config and root certificates;
-// private key material lives on the HSM and is not included.
-func CreateCtlogPKCS11Config(
-	trillianUrl string,
-	treeID int64,
-	rootCerts []RootCertificate,
-	tokenLabel, pin string,
-	publicKeyPEM []byte,
-	logPrefix string,
-	shards []ShardConfig,
-	notAfterStart, notAfterLimit int64,
-) (map[string][]byte, error) {
-	rootPems := make([]string, 0, len(rootCerts))
-	for i := range rootCerts {
-		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
-	}
-
-	block, _ := pem.Decode(publicKeyPEM)
+func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogConfig, error) {
+	block, _ := pem.Decode(log.PublicKey)
 	if block == nil {
-		return nil, fmt.Errorf("failed to decode public key PEM")
-	}
-
-	configs := make([]*configpb.LogConfig, 0, 1+len(shards))
-	for _, shard := range shards {
-		shardCfg, err := marshalShardLogConfig(shard, rootPems)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create shard config for treeID %d: %w", shard.TreeID, err)
-		}
-		configs = append(configs, shardCfg)
-	}
-
-	activeLog := configpb.LogConfig{
-		LogId:        treeID,
-		Prefix:       logPrefix,
-		RootsPemFile: rootPems,
-		PrivateKey: mustMarshalAny(&keyspb.PKCS11Config{
-			TokenLabel: tokenLabel,
-			Pin:        pin,
-			PublicKey:  string(publicKeyPEM),
-		}),
-		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
-		LogBackendName: "trillian",
-		ExtKeyUsages:   []string{"CodeSigning"},
-	}
-	if notAfterStart > 0 {
-		activeLog.NotAfterStart = &timestamppb.Timestamp{Seconds: notAfterStart}
-	}
-	if notAfterLimit > 0 {
-		activeLog.NotAfterLimit = &timestamppb.Timestamp{Seconds: notAfterLimit}
-	}
-	configs = append(configs, &activeLog)
-
-	marshalledConfig, err := prototext.Marshal(&configpb.LogMultiConfig{
-		LogConfigs: &configpb.LogConfigSet{Config: configs},
-		Backends: &configpb.LogBackendSet{
-			Backend: []*configpb.LogBackend{{
-				Name:        "trillian",
-				BackendSpec: trillianUrl,
-			}},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal PKCS#11 ctlog config: %w", err)
-	}
-
-	data := map[string][]byte{
-		ConfigKey: marshalledConfig,
-	}
-	for i, cert := range rootCerts {
-		data[fmt.Sprintf("fulcio-%d", i)] = cert
-	}
-	for _, shard := range shards {
-		if len(shard.PrivateKey) > 0 {
-			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
-		}
-		for i, cert := range shard.RootCerts {
-			data[fmt.Sprintf("shard-%d-root-%d", shard.TreeID, i)] = cert
-		}
-	}
-	return data, nil
-}
-
-func marshalShardLogConfig(shard ShardConfig, defaultRootPems []string) (*configpb.LogConfig, error) {
-	block, _ := pem.Decode(shard.PublicKey)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode public key for shard %d", shard.TreeID)
+		return nil, fmt.Errorf("failed to decode public key for log %d", log.TreeID)
 	}
 
 	rootPems := defaultRootPems
-	if len(shard.RootCerts) > 0 {
-		rootPems = make([]string, 0, len(shard.RootCerts))
-		for i := range shard.RootCerts {
-			rootPems = append(rootPems, fmt.Sprintf("%sshard-%d-root-%d", rootsPemFileDir, shard.TreeID, i))
-		}
+	if len(log.RootCerts) > 0 {
+		rootPems = rootPemPaths(log.TreeID, len(log.RootCerts))
 	}
 
 	var privateKey *anypb.Any
-	if shard.PKCS11 != nil {
+	if log.PKCS11 != nil {
 		privateKey = mustMarshalAny(&keyspb.PKCS11Config{
-			TokenLabel: shard.PKCS11.TokenLabel,
-			Pin:        shard.PKCS11.Pin,
-			PublicKey:  string(shard.PublicKey),
+			TokenLabel: log.PKCS11.TokenLabel,
+			Pin:        log.PKCS11.Pin,
+			PublicKey:  string(log.PublicKey),
 		})
 	} else {
-		shardPrivateKeyFile := fmt.Sprintf("/ctfe-keys/shard-%d-private", shard.TreeID)
 		privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
-			Path: shardPrivateKeyFile,
+			Path:     fmt.Sprintf("%slog-%d-private", rootsPemFileDir, log.TreeID),
+			Password: string(log.PrivateKeyPassword),
 		})
 	}
 
 	cfg := &configpb.LogConfig{
-		LogId:          shard.TreeID,
-		Prefix:         shard.Prefix,
+		LogId:          log.TreeID,
+		Prefix:         log.Prefix,
 		RootsPemFile:   rootPems,
 		PrivateKey:     privateKey,
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
-		IsReadonly:     shard.Readonly,
+		IsReadonly:     log.Readonly,
 	}
 
-	if shard.FrozenSTH != nil {
+	if log.FrozenSTH != nil {
 		cfg.FrozenSth = &configpb.SignedTreeHead{
-			TreeSize:          shard.FrozenSTH.TreeSize,
-			Timestamp:         shard.FrozenSTH.Timestamp,
-			Sha256RootHash:    shard.FrozenSTH.Sha256RootHash,
-			TreeHeadSignature: shard.FrozenSTH.TreeHeadSignature,
+			TreeSize:          log.FrozenSTH.TreeSize,
+			Timestamp:         log.FrozenSTH.Timestamp,
+			Sha256RootHash:    log.FrozenSTH.Sha256RootHash,
+			TreeHeadSignature: log.FrozenSTH.TreeHeadSignature,
 		}
 	}
 
-	if shard.NotAfterStart > 0 {
-		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: shard.NotAfterStart}
+	if log.NotAfterStart > 0 {
+		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: log.NotAfterStart}
 	}
-	if shard.NotAfterLimit > 0 {
-		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: shard.NotAfterLimit}
+	if log.NotAfterLimit > 0 {
+		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: log.NotAfterLimit}
 	}
 
 	return cfg, nil
+}
+
+func rootPemPaths(treeID int64, count int) []string {
+	paths := make([]string, count)
+	for i := range count {
+		paths[i] = fmt.Sprintf("%slog-%d-root-%d", rootsPemFileDir, treeID, i)
+	}
+	return paths
 }
 
 func mustMarshalAny(pb proto.Message) *anypb.Any {

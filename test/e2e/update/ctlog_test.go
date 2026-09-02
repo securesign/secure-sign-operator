@@ -205,12 +205,10 @@ var _ = Describe("CTlog update", Ordered, func() {
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("keys")),
 				WithTransform(func(v v1.Volume) string { return v.Secret.SecretName }, Equal(ctl.Status.ServerConfigRef.Name)))))
 
-			existing := &v1.Secret{}
-			expected := &v1.Secret{}
-			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: ctl.Status.ServerConfigRef.Name}, existing)).To(Succeed())
-			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: "my-ctlog-secret"}, expected)).To(Succeed())
-
-			Expect(existing.Data["public"]).To(Equal(expected.Data["public"]))
+			Expect(ctl.Status.Logs).ToNot(BeEmpty())
+			Expect(ctl.Status.Logs[0].PublicKeyRef).ToNot(BeNil())
+			Expect(ctl.Status.Logs[0].PublicKeyRef.Name).To(Equal("my-ctlog-secret"))
+			Expect(ctl.Status.Logs[0].PublicKeyRef.Key).To(Equal("public"))
 		})
 
 		It("verify by cosign", func(ctx SpecContext) {

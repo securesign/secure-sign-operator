@@ -257,9 +257,9 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(c).ToNot(BeNil())
 
-			configSecret, err := ctlog.GetConfigSecret(ctx, cli, s.Namespace, c.Status.ServerConfigRef.Name)
+			var err error
+			oldCtlogPub, err = kubernetes.GetSecretData(ctx, cli, s.Namespace, c.Status.PublicKeyRef)
 			Expect(err).ToNot(HaveOccurred())
-			oldCtlogPub = configSecret.Data["public"]
 			Expect(oldCtlogPub).ToNot(BeEmpty())
 		})
 
@@ -336,9 +336,9 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			configdata, err := prototext.Marshal(cfg)
 			Expect(err).ToNot(HaveOccurred())
 			newCtlConfig.Data["config"] = configdata
-			newCtlConfig.Data["fulcio-0"] = oldConfig.Data["fulcio-0"]
-			newCtlConfig.Data["private-0"] = oldConfig.Data["private"]
-			newCtlConfig.Data["public-0"] = oldConfig.Data["public"]
+			newCtlConfig.Data["fulcio-0"] = oldConfig.Data[fmt.Sprintf("log-%d-root-0", *oldTreeId)]
+			newCtlConfig.Data["private-0"] = oldConfig.Data[fmt.Sprintf("log-%d-private", *oldTreeId)]
+			newCtlConfig.Data["public-0"] = oldCtlogPub
 
 			Expect(cli.Create(ctx, newCtlConfig)).To(Succeed())
 

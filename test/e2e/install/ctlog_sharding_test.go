@@ -91,7 +91,8 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldConfig).ToNot(BeNil())
 
-			oldPublicKey = oldConfig.Data["public"]
+			oldPublicKey, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, c.Status.PublicKeyRef)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(oldPublicKey).ToNot(BeEmpty())
 		})
 
@@ -177,8 +178,8 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			configdata, err := prototext.Marshal(cfg)
 			Expect(err).ToNot(HaveOccurred())
 			newCtlogSecret.Data["config"] = configdata
-			newCtlogSecret.Data["fulcio"] = oldConfig.Data["fulcio"]
-			newCtlogSecret.Data["public-0"] = oldConfig.Data["public"]
+			newCtlogSecret.Data["fulcio"] = oldConfig.Data[fmt.Sprintf("log-%d-root-0", *oldTreeId)]
+			newCtlogSecret.Data["public-0"] = oldPublicKey
 
 			Expect(cli.Create(ctx, newCtlogSecret)).To(Succeed())
 
