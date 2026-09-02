@@ -180,6 +180,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			newCtlogSecret.Data["config"] = configdata
 			newCtlogSecret.Data["fulcio"] = oldConfig.Data[fmt.Sprintf("log-%d-root-0", *oldTreeId)]
 			newCtlogSecret.Data["public-0"] = oldPublicKey
+			newCtlogSecret.Data["private-0"] = oldConfig.Data[fmt.Sprintf("log-%d-private", *oldTreeId)]
 
 			Expect(cli.Create(ctx, newCtlogSecret)).To(Succeed())
 
@@ -219,6 +220,12 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 						Signer: &rhtasv1.CTlogSigner{
 							Type: "file",
 							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "private-0",
+								},
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{
 										Name: secretName,

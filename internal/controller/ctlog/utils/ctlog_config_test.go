@@ -163,6 +163,53 @@ func TestCreateConfig_MultipleLogs(t *testing.T) {
 	g.Expect(multiConfig.LogConfigs.Config[1].RootsPemFile).To(ConsistOf("/ctfe-keys/log-111-root-0"))
 }
 
+func TestCreateConfig_ReadonlyShardWithPrivateKey(t *testing.T) {
+	g := NewWithT(t)
+
+	rootCert := []byte("-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n")
+	activePrivateKey := []byte("-----BEGIN EC PRIVATE KEY-----\nactive\n-----END EC PRIVATE KEY-----\n")
+	frozenPrivateKey := []byte("-----BEGIN EC PRIVATE KEY-----\nfrozen\n-----END EC PRIVATE KEY-----\n")
+	data, err := CreateConfig(
+		"trillian:8091",
+		[]ShardConfig{
+			{
+				TreeID:     111,
+				Prefix:     "active",
+				PublicKey:  []byte(testPublicKeyPEM),
+				PrivateKey: activePrivateKey,
+				RootCerts:  []RootCertificate{rootCert},
+			},
+			{
+				TreeID:     222,
+				Prefix:     "frozen",
+				PublicKey:  []byte(testPublicKeyPEM),
+				PrivateKey: frozenPrivateKey,
+				Readonly:   true,
+				RootCerts:  []RootCertificate{rootCert},
+			},
+		},
+	)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	g.Expect(data).To(HaveKey("log-111-private"))
+	g.Expect(data).To(HaveKey("log-222-private"))
+	g.Expect(data["log-222-private"]).To(Equal(frozenPrivateKey))
+
+	var multiConfig configpb.LogMultiConfig
+	g.Expect(prototext.Unmarshal(data[ConfigKey], &multiConfig)).To(Succeed())
+	g.Expect(multiConfig.LogConfigs.Config).To(HaveLen(2))
+
+	activeCfg := multiConfig.LogConfigs.Config[0]
+	g.Expect(activeCfg.LogId).To(Equal(int64(111)))
+	g.Expect(activeCfg.IsReadonly).To(BeFalse())
+	g.Expect(activeCfg.PrivateKey).ToNot(BeNil())
+
+	frozenCfg := multiConfig.LogConfigs.Config[1]
+	g.Expect(frozenCfg.LogId).To(Equal(int64(222)))
+	g.Expect(frozenCfg.IsReadonly).To(BeTrue())
+	g.Expect(frozenCfg.PrivateKey).ToNot(BeNil())
+}
+
 func TestCreateConfig_NoLogs(t *testing.T) {
 	g := NewWithT(t)
 	_, err := CreateConfig("trillian:8091", nil)
