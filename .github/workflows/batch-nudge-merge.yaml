@@ -53,7 +53,7 @@ jobs:
 
       - name: Combine Konflux Nudge PRs for ${{ matrix.base_branch }}
         if: steps.filter.outputs.skip != 'true'
-        uses: github/combine-prs@v5.2.0
+        uses: github/combine-prs@2909f404763c3177a456e052bdb7f2e85d3a7cb3 # v5.2.0
         with:
           branch_regex: ${{ steps.filter.outputs.branch_regex }}
           select_label: konflux-nudge
