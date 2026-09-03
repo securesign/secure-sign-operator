@@ -53,17 +53,17 @@ func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) 
 		return false
 	case state.FromReason(c.Reason) < state.Creating:
 		return false
-	case len(instance.Status.RootCertificates) == 0:
+	case len(instance.Status.RootCertificates) == 0: //nolint:staticcheck
 		return true
 	case activeLog == nil || len(activeLog.RootCerts) == 0:
 		return true
 	default:
-		return !equality.Semantic.DeepDerivative(activeLog.RootCerts, instance.Status.RootCertificates)
+		return !equality.Semantic.DeepDerivative(activeLog.RootCerts, instance.Status.RootCertificates) //nolint:staticcheck
 	}
 }
 
 func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	previouslyResolved := len(instance.Status.RootCertificates) > 0
+	previouslyResolved := len(instance.Status.RootCertificates) > 0 //nolint:staticcheck
 
 	if !previouslyResolved && state.FromInstance(instance, constants.ReadyCondition) != state.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -99,7 +99,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 
 		if previouslyResolved {
-			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &instance.Status.RootCertificates[0])
+			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &instance.Status.RootCertificates[0]) //nolint:staticcheck
 			if readErr == nil && bytes.Equal(existing, signingCert) {
 				return g.Continue()
 			}
@@ -131,9 +131,9 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		} else {
 			g.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "FulcioCertDiscovered", "Discovered", "Fulcio root certificate resolved from Fulcio CR status")
 		}
-		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks}
+		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks} //nolint:staticcheck
 	} else {
-		instance.Status.RootCertificates = activeLog.RootCerts
+		instance.Status.RootCertificates = activeLog.RootCerts //nolint:staticcheck
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

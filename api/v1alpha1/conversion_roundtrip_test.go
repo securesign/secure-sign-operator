@@ -299,8 +299,8 @@ func normalizeEmptyContainers(s *rhtasv1.CTlog) {
 	if len(s.Status.Logs) == 0 {
 		s.Status.Logs = nil
 	}
-	if len(s.Status.RootCertificates) == 0 {
-		s.Status.RootCertificates = nil
+	if len(s.Status.RootCertificates) == 0 { //nolint:staticcheck // backward-compat field
+		s.Status.RootCertificates = nil //nolint:staticcheck // backward-compat field
 	}
 	if len(s.Status.Conditions) == 0 {
 		s.Status.Conditions = nil
@@ -315,14 +315,14 @@ func normalizeEmptyContainers(s *rhtasv1.CTlog) {
 	if len(s.Spec.ImagePullSecrets) == 0 {
 		s.Spec.ImagePullSecrets = nil
 	}
-	if len(s.Spec.PodExtensions.InitContainers) == 0 {
-		s.Spec.PodExtensions.InitContainers = nil
+	if len(s.Spec.InitContainers) == 0 {
+		s.Spec.InitContainers = nil
 	}
-	if len(s.Spec.PodExtensions.Volumes) == 0 {
-		s.Spec.PodExtensions.Volumes = nil
+	if len(s.Spec.Volumes) == 0 {
+		s.Spec.Volumes = nil
 	}
-	if len(s.Spec.PodExtensions.VolumeMounts) == 0 {
-		s.Spec.PodExtensions.VolumeMounts = nil
+	if len(s.Spec.PodExtensions.VolumeMounts) == 0 { //nolint:staticcheck // QF1008: embedded field access kept explicit for clarity
+		s.Spec.PodExtensions.VolumeMounts = nil //nolint:staticcheck
 	}
 }
 

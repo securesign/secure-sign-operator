@@ -346,41 +346,41 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillia
 		}
 		readonly := log.Readonly != nil && *log.Readonly
 
-		fmt.Fprintf(h, "log:%d:%s:%v:%s\n", logId, log.Prefix, readonly, log.SignerType)
+		_, _ = fmt.Fprintf(h, "log:%d:%s:%v:%s\n", logId, log.Prefix, readonly, log.SignerType)
 
 		if log.PublicKeyRef != nil {
-			fmt.Fprintf(h, "publicKeyRef:%s/%s\n", log.PublicKeyRef.Name, log.PublicKeyRef.Key)
+			_, _ = fmt.Fprintf(h, "publicKeyRef:%s/%s\n", log.PublicKeyRef.Name, log.PublicKeyRef.Key)
 		}
 		if log.PrivateKeyRef != nil {
-			fmt.Fprintf(h, "privateKeyRef:%s/%s\n", log.PrivateKeyRef.Name, log.PrivateKeyRef.Key)
+			_, _ = fmt.Fprintf(h, "privateKeyRef:%s/%s\n", log.PrivateKeyRef.Name, log.PrivateKeyRef.Key)
 		}
 		if log.PrivateKeyPasswordRef != nil {
-			fmt.Fprintf(h, "privateKeyPasswordRef:%s/%s\n", log.PrivateKeyPasswordRef.Name, log.PrivateKeyPasswordRef.Key)
+			_, _ = fmt.Fprintf(h, "privateKeyPasswordRef:%s/%s\n", log.PrivateKeyPasswordRef.Name, log.PrivateKeyPasswordRef.Key)
 		}
 		if log.PinSecretRef != nil {
-			fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.PinSecretRef.Name, log.PinSecretRef.Key)
+			_, _ = fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.PinSecretRef.Name, log.PinSecretRef.Key)
 		}
 		if log.PKCS11TokenLabel != "" {
-			fmt.Fprintf(h, "tokenLabel:%s\n", log.PKCS11TokenLabel)
+			_, _ = fmt.Fprintf(h, "tokenLabel:%s\n", log.PKCS11TokenLabel)
 		}
 
 		for _, r := range log.RootCertificates {
-			fmt.Fprintf(h, "rootCert:%s/%s\n", r.Name, r.Key)
+			_, _ = fmt.Fprintf(h, "rootCert:%s/%s\n", r.Name, r.Key)
 		}
 
 		if log.NotAfterStart != nil {
-			fmt.Fprintf(h, "notAfterStart:%d\n", log.NotAfterStart.Unix())
+			_, _ = fmt.Fprintf(h, "notAfterStart:%d\n", log.NotAfterStart.Unix())
 		}
 		if log.NotAfterLimit != nil {
-			fmt.Fprintf(h, "notAfterLimit:%d\n", log.NotAfterLimit.Unix())
+			_, _ = fmt.Fprintf(h, "notAfterLimit:%d\n", log.NotAfterLimit.Unix())
 		}
 
 		if log.FrozenSTH != nil {
 			if log.FrozenSTH.TreeSize != nil {
-				fmt.Fprintf(h, "frozenTreeSize:%d\n", *log.FrozenSTH.TreeSize)
+				_, _ = fmt.Fprintf(h, "frozenTreeSize:%d\n", *log.FrozenSTH.TreeSize)
 			}
 			if log.FrozenSTH.Timestamp != nil {
-				fmt.Fprintf(h, "frozenTimestamp:%d\n", log.FrozenSTH.Timestamp.Unix())
+				_, _ = fmt.Fprintf(h, "frozenTimestamp:%d\n", log.FrozenSTH.Timestamp.Unix())
 			}
 		}
 	}

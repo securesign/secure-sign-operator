@@ -49,12 +49,12 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 
 		if specLog.Active != nil && *specLog.Active {
 			logStatus.Active = true
-			logStatus.LogId = instance.Status.TreeID
-			logStatus.PrivateKeyRef = instance.Status.PrivateKeyRef
-			logStatus.PrivateKeyPasswordRef = instance.Status.PrivateKeyPasswordRef
-			logStatus.PublicKeyRef = instance.Status.PublicKeyRef
-			logStatus.PublicKey = instance.Status.PublicKey
-			logStatus.RootCertificates = instance.Status.RootCertificates
+			logStatus.LogId = instance.Status.TreeID                                //nolint:staticcheck
+			logStatus.PrivateKeyRef = instance.Status.PrivateKeyRef                 //nolint:staticcheck
+			logStatus.PrivateKeyPasswordRef = instance.Status.PrivateKeyPasswordRef //nolint:staticcheck
+			logStatus.PublicKeyRef = instance.Status.PublicKeyRef                   //nolint:staticcheck
+			logStatus.PublicKey = instance.Status.PublicKey                         //nolint:staticcheck
+			logStatus.RootCertificates = instance.Status.RootCertificates           //nolint:staticcheck
 
 			if specLog.Signer != nil {
 				logStatus.SignerType = specLog.Signer.Type

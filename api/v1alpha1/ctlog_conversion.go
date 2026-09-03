@@ -8,6 +8,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+const v1alpha1Prefix = "trusted-artifact-signer"
+
 func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out *CTlogStatus, s apiconversion.Scope) error {
 	if err := autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in, out, s); err != nil {
 		return err
@@ -28,7 +30,7 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 	// Extract signer config, LogId, and RootCertificates from log with "trusted-artifact-signer" prefix
 	// v1alpha1 hardcodes this prefix, so we look for it in the v1 Logs array
 	for _, log := range in.Logs {
-		if log.Prefix == "trusted-artifact-signer" {
+		if log.Prefix == v1alpha1Prefix {
 			if log.LogId != nil {
 				out.TreeID = log.LogId
 			}
@@ -67,7 +69,6 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	}
 	// v1alpha1 always uses the hardcoded "trusted-artifact-signer" prefix.
 	// Find the matching log by prefix, or append a new entry if not found.
-	const v1alpha1Prefix = "trusted-artifact-signer"
 	idx := -1
 	for i := range out.Logs {
 		if out.Logs[i].Prefix == v1alpha1Prefix {

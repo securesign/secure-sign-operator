@@ -126,11 +126,11 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			Expect(v1Obj.Status.TreeID).ToNot(BeNil())
 			Expect(v1Obj.Status.TreeID).To(Equal(v1alpha1Obj.Status.TreeID))
 
-			Expect(v1Obj.Status.PrivateKeyRef).ToNot(BeNil())
-			Expect(v1Obj.Status.PrivateKeyRef.Name).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Name))
-			Expect(v1Obj.Status.PrivateKeyRef.Key).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Key))
+			Expect(v1Obj.Status.PrivateKeyRef).ToNot(BeNil())                                        //nolint:staticcheck
+			Expect(v1Obj.Status.PrivateKeyRef.Name).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Name)) //nolint:staticcheck
+			Expect(v1Obj.Status.PrivateKeyRef.Key).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Key))   //nolint:staticcheck
 
-			Expect(v1Obj.Status.RootCertificates).To(HaveLen(len(v1alpha1Obj.Status.RootCertificates)))
+			Expect(v1Obj.Status.RootCertificates).To(HaveLen(len(v1alpha1Obj.Status.RootCertificates))) //nolint:staticcheck
 		})
 	})
 

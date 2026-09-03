@@ -94,7 +94,15 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldConfig).ToNot(BeNil())
 
-			oldPublicKey, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, c.Status.PublicKeyRef)
+			var activePublicKeyRef *rhtasv1.SecretKeySelector
+			for _, log := range c.Status.Logs {
+				if log.Active {
+					activePublicKeyRef = log.PublicKeyRef
+					break
+				}
+			}
+			Expect(activePublicKeyRef).ToNot(BeNil())
+			oldPublicKey, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, activePublicKeyRef)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldPublicKey).ToNot(BeEmpty())
 		})

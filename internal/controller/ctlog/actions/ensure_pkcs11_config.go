@@ -72,7 +72,7 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 		}
 
 		if log.Active != nil && *log.Active {
-			instance.Status.PublicKeyRef = p.PublicKeyRef.DeepCopy()
+			instance.Status.PublicKeyRef = p.PublicKeyRef.DeepCopy() //nolint:staticcheck // populates deprecated top-level field for backward compat
 		}
 	}
 
@@ -163,14 +163,14 @@ func allPKCS11SpecHash(instance *rhtasv1.CTlog) string {
 		if log.Signer == nil || log.Signer.PKCS11 == nil {
 			continue
 		}
-		fmt.Fprintf(h, "prefix:%s\n", log.Prefix)
-		fmt.Fprintf(h, "modulePath:%s\n", log.Signer.PKCS11.ModulePath)
-		fmt.Fprintf(h, "tokenLabel:%s\n", log.Signer.PKCS11.TokenLabel)
+		_, _ = fmt.Fprintf(h, "prefix:%s\n", log.Prefix)
+		_, _ = fmt.Fprintf(h, "modulePath:%s\n", log.Signer.PKCS11.ModulePath)
+		_, _ = fmt.Fprintf(h, "tokenLabel:%s\n", log.Signer.PKCS11.TokenLabel)
 		if log.Signer.PKCS11.PinSecretRef != nil {
-			fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.Signer.PKCS11.PinSecretRef.Name, log.Signer.PKCS11.PinSecretRef.Key)
+			_, _ = fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.Signer.PKCS11.PinSecretRef.Name, log.Signer.PKCS11.PinSecretRef.Key)
 		}
 		if log.Signer.PKCS11.PublicKeyRef != nil {
-			fmt.Fprintf(h, "publicKeyRef:%s/%s\n", log.Signer.PKCS11.PublicKeyRef.Name, log.Signer.PKCS11.PublicKeyRef.Key)
+			_, _ = fmt.Fprintf(h, "publicKeyRef:%s/%s\n", log.Signer.PKCS11.PublicKeyRef.Name, log.Signer.PKCS11.PublicKeyRef.Key)
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil))

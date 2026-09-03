@@ -258,7 +258,15 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(c).ToNot(BeNil())
 
 			var err error
-			oldCtlogPub, err = kubernetes.GetSecretData(ctx, cli, s.Namespace, c.Status.PublicKeyRef)
+			var activePublicKeyRef *rhtasv1.SecretKeySelector
+			for _, log := range c.Status.Logs {
+				if log.Active {
+					activePublicKeyRef = log.PublicKeyRef
+					break
+				}
+			}
+			Expect(activePublicKeyRef).ToNot(BeNil())
+			oldCtlogPub, err = kubernetes.GetSecretData(ctx, cli, s.Namespace, activePublicKeyRef)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldCtlogPub).ToNot(BeEmpty())
 		})

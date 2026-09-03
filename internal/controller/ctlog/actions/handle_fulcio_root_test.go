@@ -265,9 +265,9 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(ctx context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).To(HaveLen(1))
-					g.Expect(status.RootCertificates[0].Name).To(Equal(fmt.Sprintf(fulcioRootSecretFormat, "instance")))
-					g.Expect(status.RootCertificates[0].Key).To(Equal(fulcioRootCertKey))
+					g.Expect(status.RootCertificates).To(HaveLen(1))                                                     //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Name).To(Equal(fmt.Sprintf(fulcioRootSecretFormat, "instance"))) //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Key).To(Equal(fulcioRootCertKey))                                //nolint:staticcheck
 
 					secret := &v1.Secret{}
 					g.Expect(cli.Get(ctx, client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
@@ -292,7 +292,7 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).To(BeEmpty())
+					g.Expect(status.RootCertificates).To(BeEmpty()) //nolint:staticcheck
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeFalse())
 				},
@@ -339,11 +339,11 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).Should(HaveLen(2))
-					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[0].Name).Should(Equal("secret"))
-					g.Expect(status.RootCertificates[1].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[1].Name).Should(Equal("secret-2"))
+					g.Expect(status.RootCertificates).Should(HaveLen(2))                //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))       //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Name).Should(Equal("secret"))   //nolint:staticcheck
+					g.Expect(status.RootCertificates[1].Key).Should(Equal("key"))       //nolint:staticcheck
+					g.Expect(status.RootCertificates[1].Name).Should(Equal("secret-2")) //nolint:staticcheck
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 				},
@@ -379,9 +379,9 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).Should(HaveLen(1))
-					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
+					g.Expect(status.RootCertificates).Should(HaveLen(1))                 //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))        //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret")) //nolint:staticcheck
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 				},
@@ -423,9 +423,9 @@ func TestCert_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
-					g.Expect(status.RootCertificates).Should(HaveLen(1))
-					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
+					g.Expect(status.RootCertificates).Should(HaveLen(1))                 //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))        //nolint:staticcheck
+					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret")) //nolint:staticcheck
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 
