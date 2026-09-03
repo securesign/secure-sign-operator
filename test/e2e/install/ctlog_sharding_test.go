@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/annotations"
 	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -23,6 +24,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -295,6 +297,39 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			frozenCfg := cfg.LogConfigs.Config[1]
 			Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
 			Expect(frozenCfg.IsReadonly).To(BeTrue())
+		})
+
+		It("Acknowledge trust material drift", func(ctx SpecContext) {
+			Eventually(func(g Gomega) error {
+				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(c).ToNot(BeNil())
+				if c.Annotations == nil {
+					c.Annotations = map[string]string{}
+				}
+				c.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return cli.Update(ctx, c)
+			}).Should(Succeed())
+		})
+
+		It("CTlog reaches Ready after trust material refresh", func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(c).ToNot(BeNil())
+				return c.Status.TreeID != nil && *c.Status.TreeID == newTreeId
+			}, time.Duration(5)*time.Minute).Should(BeTrue())
+		})
+
+		It("Refresh TUF repository with new CTlog public key", func(ctx SpecContext) {
+			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
+		})
+
+		It("All components are running after sharding", func(ctx SpecContext) {
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
+		})
+
+		It("Cosign sign and verify with sharded CTlog", func(ctx SpecContext) {
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, support.PrepareImage(ctx), s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 		})
 	})
 })
