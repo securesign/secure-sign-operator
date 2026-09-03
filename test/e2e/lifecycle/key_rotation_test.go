@@ -384,6 +384,12 @@ var _ = Describe("Key rotation test", Ordered, func() {
 						Signer: &rhtasv1.CTlogSigner{
 							Type: "file",
 							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "private-0",
+								},
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{
 										Name: secretName,

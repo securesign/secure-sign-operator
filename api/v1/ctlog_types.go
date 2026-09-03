@@ -94,7 +94,7 @@ type CTlogPKCS11Config struct {
 
 // CTLogConfig defines the configuration for a certificate transparency log (active or frozen).
 // +structType=atomic
-// +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef) || (has(self.readonly) && self.readonly == true)",message="privateKeyRef cannot be empty for non-readonly logs when publicKeyRef is set"
+// +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef)",message="privateKeyRef is required when publicKeyRef is set (CTFE validates key consistency for all logs, including readonly)"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.logId)",message="logId is required for non-active logs"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.signer)",message="signer is required for non-active logs"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && size(self.rootCerts) > 0)",message="rootCerts is required for non-active logs"

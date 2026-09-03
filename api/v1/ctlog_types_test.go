@@ -111,7 +111,7 @@ var _ = Describe("CTlog", func() {
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
+					To(MatchError(ContainSubstring("privateKeyRef is required")))
 			})
 
 			When("replicas", func() {

@@ -2076,11 +2076,11 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                       x-kubernetes-validations:
-                      - message: privateKeyRef cannot be empty for non-readonly logs
-                          when publicKeyRef is set
+                      - message: privateKeyRef is required when publicKeyRef is set
+                          (CTFE validates key consistency for all logs, including
+                          readonly)
                         rule: '!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef)
-                          || has(self.signer.file.privateKeyRef) || (has(self.readonly)
-                          && self.readonly == true)'
+                          || has(self.signer.file.privateKeyRef)'
                       - message: logId is required for non-active logs
                         rule: (has(self.active) && self.active == true) || has(self.logId)
                       - message: signer is required for non-active logs
