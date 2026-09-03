@@ -12,6 +12,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
@@ -33,6 +34,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+// createTreeRetryBaseDelay is the base retry delay; attempt N waits base*N.
+const createTreeRetryBaseDelay = 20 * time.Second
+
+// createTreeMaxAttempts bounds failed-Job retries before the failure is terminal.
+const createTreeMaxAttempts = 3
 
 func NewResolveTreeAction[T tlsAwareObject](component string, wrapper func(T) *wrapper[T]) action.Action[T] {
 	return &resolveTree[T]{
@@ -215,6 +222,17 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		}
 	}
 
+	// Wait out the retry backoff before recreating a failed Job. A generation
+	// change (spec edit) resets attempts and skips the gate.
+	if readAttempts(configMap, instance.GetGeneration()) > 0 {
+		if nextRetry, ok := readNextRetry(configMap); ok {
+			if remaining := time.Until(nextRetry); remaining > 0 {
+				i.Logger.V(1).Info("waiting before recreating failed createtree job", "remaining", remaining.String())
+				return i.RequeueAfter(remaining)
+			}
+		}
+	}
+
 	trillianService := wrapped.GetTrillianService()
 
 	trillHost, trillPort, err := serviceresolver.ResolveInternalGrpcService(ctx, i.Client, *trillianService, instance.GetNamespace(), &rhtasv1.Trillian{})
@@ -332,16 +350,160 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 	}
 
 	if job.IsFailed(*j) {
+		// Tree was already created and written: adopt it instead of orphaning it.
+		if result, ok := configMap.Data[configMapResultField]; ok && result != "" {
+			i.Logger.V(1).Info("createtree job failed but result is present; adopting existing tree")
+			return i.Continue()
+		}
+
+		attempts := readAttempts(configMap, instance.GetGeneration()) + 1
+
+		if attempts >= createTreeMaxAttempts {
+			// Keep the failed Job for debugging and go terminal so alerting fires.
+			if err = i.recordAttempts(ctx, configMap, instance.GetGeneration(), attempts); err != nil {
+				return i.Error(ctx, fmt.Errorf("could not record createtree attempts: %w", err), instance)
+			}
+			i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "CreateTreeJobFailed", "GaveUp",
+				"createtree job %s failed %d times; giving up. Fix the underlying cause and edit the resource to retry", j.GetName(), attempts)
+			return i.Error(ctx, reconcile.TerminalError(ErrJobFailed), instance, metav1.Condition{
+				Type:    JobCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Failure.String(),
+				Message: ErrJobFailed.Error(),
+			})
+		}
+
+		// Delete the failed Job, drop its owner reference so handleJob recreates
+		// it, and requeue with linear backoff.
+		backoff := createTreeRetryBaseDelay * time.Duration(attempts)
+		nextRetry := time.Now().Add(backoff)
+		if err = i.cleanupFailedJob(ctx, j, configMap, instance.GetGeneration(), attempts, nextRetry); err != nil {
+			return i.Error(ctx, fmt.Errorf("could not clean up failed createtree job: %w", err), instance)
+		}
+
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "CreateTreeJobFailed", "Retrying",
+			"createtree job %s failed; retrying tree initialization (attempt %d/%d)", j.GetName(), attempts, createTreeMaxAttempts)
+
 		instance.SetCondition(metav1.Condition{
 			Type:    JobCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  state.Failure.String(),
-			Message: ErrJobFailed.Error(),
+			Reason:  state.Creating.String(),
+			Message: fmt.Sprintf("createtree job failed; retrying tree initialization (attempt %d/%d)", attempts, createTreeMaxAttempts),
 		})
-		return i.Error(ctx, reconcile.TerminalError(ErrJobFailed), instance)
+		if _, err = i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(backoff)
 	}
 
 	return i.Continue()
+}
+
+// readAttempts returns the failed-attempt count recorded for the given generation.
+func readAttempts(configMap *corev1.ConfigMap, generation int64) int {
+	anns := configMap.GetAnnotations()
+	if anns == nil {
+		return 0
+	}
+	if anns[annotations.CreateTreeAttemptsGeneration] != strconv.FormatInt(generation, 10) {
+		return 0
+	}
+	attempts, err := strconv.Atoi(anns[annotations.CreateTreeAttempts])
+	if err != nil {
+		return 0
+	}
+	return attempts
+}
+
+// readNextRetry returns the scheduled next-retry time recorded on the ConfigMap.
+func readNextRetry(configMap *corev1.ConfigMap) (time.Time, bool) {
+	anns := configMap.GetAnnotations()
+	if anns == nil {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, anns[annotations.CreateTreeNextRetry])
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// recordAttempts persists the attempt count and generation on the ConfigMap.
+func (i resolveTree[T]) recordAttempts(ctx context.Context, configMap *corev1.ConfigMap, generation int64, attempts int) error {
+	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, configMap,
+		setAttemptsAnnotations(generation, attempts),
+	); err != nil {
+		return fmt.Errorf("could not update %s ConfigMap: %w", configMap.GetName(), err)
+	}
+	return nil
+}
+
+// setAttemptsAnnotations records the attempt count and generation annotations.
+func setAttemptsAnnotations(generation int64, attempts int) func(*corev1.ConfigMap) error {
+	return func(object *corev1.ConfigMap) error {
+		anns := object.GetAnnotations()
+		if anns == nil {
+			anns = map[string]string{}
+		}
+		anns[annotations.CreateTreeAttempts] = strconv.Itoa(attempts)
+		anns[annotations.CreateTreeAttemptsGeneration] = strconv.FormatInt(generation, 10)
+		object.SetAnnotations(anns)
+		return nil
+	}
+}
+
+// setNextRetryAnnotation records the earliest time the Job may be recreated.
+func setNextRetryAnnotation(nextRetry time.Time) func(*corev1.ConfigMap) error {
+	return func(object *corev1.ConfigMap) error {
+		anns := object.GetAnnotations()
+		if anns == nil {
+			anns = map[string]string{}
+		}
+		anns[annotations.CreateTreeNextRetry] = nextRetry.UTC().Format(time.RFC3339)
+		object.SetAnnotations(anns)
+		return nil
+	}
+}
+
+// clearRetryAnnotations removes the retry bookkeeping annotations.
+func clearRetryAnnotations(object *corev1.ConfigMap) error {
+	anns := object.GetAnnotations()
+	if anns == nil {
+		return nil
+	}
+	delete(anns, annotations.CreateTreeAttempts)
+	delete(anns, annotations.CreateTreeAttemptsGeneration)
+	delete(anns, annotations.CreateTreeNextRetry)
+	object.SetAnnotations(anns)
+	return nil
+}
+
+// cleanupFailedJob drops the Job owner reference (so handleJob recreates the
+// Job), records the attempt count and next-retry time, and deletes the Job.
+func (i resolveTree[T]) cleanupFailedJob(ctx context.Context, j *batchv1.Job, configMap *corev1.ConfigMap, generation int64, attempts int, nextRetry time.Time) error {
+	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, configMap,
+		func(object *corev1.ConfigMap) error {
+			refs := object.GetOwnerReferences()
+			filtered := make([]metav1.OwnerReference, 0, len(refs))
+			for _, ref := range refs {
+				if ref.Kind != "Job" { //nolint:goconst
+					filtered = append(filtered, ref)
+				}
+			}
+			object.SetOwnerReferences(filtered)
+			return nil
+		},
+		setAttemptsAnnotations(generation, attempts),
+		setNextRetryAnnotation(nextRetry),
+	); err != nil {
+		return fmt.Errorf("could not remove Job owner reference from %s ConfigMap: %w", configMap.GetName(), err)
+	}
+
+	propagation := metav1.DeletePropagationBackground
+	if err := i.Client.Delete(ctx, j, &client.DeleteOptions{PropagationPolicy: &propagation}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("could not delete failed Job %s: %w", j.GetName(), err)
+	}
+	return nil
 }
 
 func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) *action.Result {
@@ -360,6 +522,11 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 		treeID, err := strconv.ParseInt(result, 10, 64)
 		if err != nil {
 			return i.Error(ctx, reconcile.TerminalError(err), instance)
+		}
+
+		// Tree resolved: clear any retry bookkeeping left by earlier failures.
+		if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, configMap, clearRetryAnnotations); err != nil {
+			return i.Error(ctx, fmt.Errorf("could not clear retry annotations on %s ConfigMap: %w", configMap.GetName(), err), instance)
 		}
 
 		wrapped.SetStatusTreeID(&treeID)
