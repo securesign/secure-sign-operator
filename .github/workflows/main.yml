@@ -28,15 +28,15 @@ jobs:
       id-token: write
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -44,7 +44,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: coverage.out
           flags: unit
@@ -74,10 +74,10 @@ jobs:
       packages: write
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -85,7 +85,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -107,10 +107,10 @@ jobs:
     needs: build-bundle
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -118,7 +118,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -126,7 +126,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -134,14 +134,14 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install OPM
-        uses: redhat-actions/openshift-tools-installer@v1
+        uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1.13.1
         with:
           source: "github"
           github_pat: ${{ github.token }}
           opm: 1.61.0
 
       - name: Checkout FBC source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: "securesign/fbc"
           ref: main
@@ -171,13 +171,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout tufcli source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: "securesign/tufcli"
           path: tufcli
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -185,7 +185,7 @@ jobs:
         run: cd tufcli && CGO_ENABLED=0 go build -o /tmp/tufcli .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: tufcli
           path: /tmp/tufcli
@@ -203,22 +203,22 @@ jobs:
     - build-tufcli
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Download tufcli
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tufcli
           path: /tmp/tufcli
       - run: echo "/tmp/tufcli" >> $GITHUB_PATH
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -226,7 +226,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -234,7 +234,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to quay.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.QUAY_USER }}
           password: ${{ secrets.QUAY_PASSWORD }}
@@ -293,7 +293,7 @@ jobs:
           DOCKER_CONFIG: /tmp
 
       - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-kind
@@ -317,15 +317,15 @@ jobs:
       - build-fbc
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -333,7 +333,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -341,7 +341,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to quay.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.QUAY_USER }}
           password: ${{ secrets.QUAY_PASSWORD }}
@@ -395,7 +395,7 @@ jobs:
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-upgrade
@@ -412,15 +412,15 @@ jobs:
     - build-operator
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -428,7 +428,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -436,7 +436,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to quay.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.QUAY_USER }}
           password: ${{ secrets.QUAY_PASSWORD }}
@@ -498,7 +498,7 @@ jobs:
           make generate && go test -p 1 ./test/e2e/... -tags=ha -timeout 20m
 
       - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-ha-install
@@ -525,15 +525,15 @@ jobs:
       - build-operator
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -541,7 +541,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1.6
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -577,7 +577,7 @@ jobs:
         run: make install && go test ./test/e2e/... -tags=custom_install -p 1 -timeout 20m
 
       - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-custom-install
@@ -602,20 +602,20 @@ jobs:
       TEST_NAMESPACE: test
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Checkout test source repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: "securesign/sigstore-e2e"
           path: e2e
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -623,7 +623,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1.6
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -631,7 +631,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to quay.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.QUAY_USER }}
           password: ${{ secrets.QUAY_PASSWORD }}
@@ -724,10 +724,10 @@ jobs:
       packages: write
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -758,10 +758,10 @@ jobs:
       - build-tufcli
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -771,14 +771,14 @@ jobs:
           mv "$(go env GOPATH)/bin/cli" "$(go env GOPATH)/bin/coverport"
 
       - name: Download tufcli
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tufcli
           path: /tmp/tufcli
       - run: echo "/tmp/tufcli" >> $GITHUB_PATH
 
       - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -786,7 +786,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -794,7 +794,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to quay.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           username: ${{ secrets.QUAY_USER }}
           password: ${{ secrets.QUAY_PASSWORD }}
@@ -869,7 +869,7 @@ jobs:
 
       - name: Upload E2E coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           directory: ./e2e-coverage-data
           flags: e2e
@@ -877,7 +877,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-kind-coverage
