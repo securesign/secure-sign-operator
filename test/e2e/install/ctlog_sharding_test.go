@@ -18,6 +18,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -315,7 +316,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			Eventually(func(g Gomega) bool {
 				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(c).ToNot(BeNil())
-				return c.Status.TreeID != nil && *c.Status.TreeID == newTreeId
+				return c.Status.TreeID != nil && *c.Status.TreeID == newTreeId && condition.IsReady(c)
 			}, time.Duration(5)*time.Minute).Should(BeTrue())
 		})
 
