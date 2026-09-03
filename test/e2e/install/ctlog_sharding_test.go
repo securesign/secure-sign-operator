@@ -271,8 +271,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				if c == nil {
 					return false
 				}
-				// Check that ctlog has the new tree ID
-				return c.Status.TreeID != nil && *c.Status.TreeID != *oldTreeId
+				return c.Status.TreeID != nil && *c.Status.TreeID != *oldTreeId && condition.IsReady(c)
 			}, time.Duration(5)*time.Minute).Should(BeTrue())
 		})
 
@@ -318,6 +317,34 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				g.Expect(c).ToNot(BeNil())
 				return c.Status.TreeID != nil && *c.Status.TreeID == newTreeId && condition.IsReady(c)
 			}, time.Duration(5)*time.Minute).Should(BeTrue())
+		})
+
+		It("Update TUF with new CTlog public key", func(ctx SpecContext) {
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Tuf.Ctlog = []rhtasv1.TrustRootBinding{
+					{
+						SecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "ctlog-sharding-config",
+							},
+							Key: "public",
+						},
+					},
+				}
+				return cli.Update(ctx, s)
+			}).Should(Succeed())
+			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
+				return t.Status.Keys
+			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKeyStatus) string {
+				for _, k := range keys {
+					if k.Name == rhtasv1.TufKeyCTFE {
+						return k.SecretRef.Name
+					}
+				}
+				return ""
+			}, Equal("ctlog-sharding-config"))))
 		})
 
 		It("Refresh TUF repository with new CTlog public key", func(ctx SpecContext) {
