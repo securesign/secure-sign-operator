@@ -67,9 +67,7 @@ func TestEnsureRoleRules(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			rules := []rbacv1.PolicyRule{
 				{
@@ -154,9 +152,7 @@ func TestEnsureClusterRoleRules(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			rules := []rbacv1.PolicyRule{
 				{

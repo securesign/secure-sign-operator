@@ -765,11 +765,11 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 		WithObjects(instance).
 		WithStatusSubresource(instance).
 		WithInterceptorFuncs(interceptor.Funcs{
-			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 				if _, ok := obj.(*corev1.ServiceAccount); ok {
 					return injectedErr
 				}
-				return c.Create(ctx, obj, opts...)
+				return c.Patch(ctx, obj, patch, opts...)
 			},
 		}).
 		Build()

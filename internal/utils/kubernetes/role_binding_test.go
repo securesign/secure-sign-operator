@@ -64,9 +64,7 @@ func TestEnsureRoleBinding(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			role := rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
@@ -141,9 +139,7 @@ func TestEnsureClusterRoleBinding(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			role := rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,

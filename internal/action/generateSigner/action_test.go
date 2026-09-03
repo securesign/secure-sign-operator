@@ -341,11 +341,11 @@ func TestHandle(t *testing.T) {
 						}
 						return c.Get(ctx, key, obj, opts...)
 					},
-					Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 						if _, ok := obj.(*corev1.Secret); ok {
 							return apierrors.NewForbidden(schema.GroupResource{Resource: "secrets"}, obj.GetName(), fmt.Errorf("quota exceeded"))
 						}
-						return c.Create(ctx, obj, opts...)
+						return c.Patch(ctx, obj, patch, opts...)
 					},
 				},
 			},

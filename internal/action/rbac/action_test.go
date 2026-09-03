@@ -359,13 +359,15 @@ func testServiceAccount(t *testing.T) {
 			desc: "empty imagePullSecrets clears SA",
 			pre: pre{
 				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
-					g.Expect(c.Create(ctx, &corev1.ServiceAccount{
+					sa := &corev1.ServiceAccount{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnObject.Name,
 							Namespace: nnObject.Namespace,
 						},
 						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "old-secret"}},
-					})).To(Succeed())
+					}
+					sa.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ServiceAccount"))
+					g.Expect(c.Patch(ctx, sa, client.Apply, client.FieldOwner(testAction.TestFieldManager), client.ForceOwnership)).To(Succeed())
 				},
 				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
 					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
@@ -747,11 +749,11 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 		{
 			name: "ServiceAccount creation failure is retryable",
 			intercept: interceptor.Funcs{
-				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 					if _, ok := obj.(*corev1.ServiceAccount); ok {
 						return injectedErr
 					}
-					return c.Create(ctx, obj, opts...)
+					return c.Patch(ctx, obj, patch, opts...)
 				},
 			},
 			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
@@ -762,11 +764,11 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 		{
 			name: "Role creation failure is retryable",
 			intercept: interceptor.Funcs{
-				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 					if _, ok := obj.(*rbacv1.Role); ok {
 						return injectedErr
 					}
-					return c.Create(ctx, obj, opts...)
+					return c.Patch(ctx, obj, patch, opts...)
 				},
 			},
 			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
@@ -777,11 +779,11 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 		{
 			name: "RoleBinding creation failure is retryable",
 			intercept: interceptor.Funcs{
-				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 					if _, ok := obj.(*rbacv1.RoleBinding); ok {
 						return injectedErr
 					}
-					return c.Create(ctx, obj, opts...)
+					return c.Patch(ctx, obj, patch, opts...)
 				},
 			},
 			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {

@@ -145,9 +145,7 @@ func TestEnsurePVCSpec(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 			result, err := CreateOrUpdate(ctx, c,
 				&v1.PersistentVolumeClaim{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsurePVCSpec(pvc))

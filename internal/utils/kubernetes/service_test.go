@@ -61,9 +61,7 @@ func TestService(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			ports := []v1.ServicePort{{Name: "http", Port: 80}}
 			l := map[string]string{"testLabel": "testValue"}
@@ -117,9 +115,7 @@ func TestHeadlessService(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			ports := []v1.ServicePort{{Name: "grpc", Port: 8091}}
 			l := map[string]string{"app": "logserver"}

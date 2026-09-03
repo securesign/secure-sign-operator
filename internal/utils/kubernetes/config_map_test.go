@@ -101,9 +101,7 @@ func TestEnsureImmutableConfigMap(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithObjects(tt.objects...).
-				Build()
+			c := testAction.FakeClientWithObjects(tt.objects...)
 
 			result, err := CreateOrUpdate(ctx, c,
 				&v1.ConfigMap{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},

@@ -558,7 +558,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 				conditions:  []metav1.Condition{readyCond(metav1.ConditionFalse, ""), trustMaterialCond(metav1.ConditionFalse, ReasonDrifted, "")},
 				resolve:     resolvesTo(validPEM),
 				intercept: interceptor.Funcs{
-					Update: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.UpdateOption) error {
+					Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
 						return apierrors.NewInternalError(fmt.Errorf("etcd timeout"))
 					},
 				},
@@ -584,11 +584,10 @@ func TestResolvePubKey_Drift(t *testing.T) {
 
 			instance := newDriftTestRekor(tt.env.publicKey, tt.env.annotations, tt.env.conditions...)
 
-			builder := testAction.FakeClientBuilder().WithObjects(instance).WithStatusSubresource(instance)
+			c := testAction.FakeClientWithObjects(instance)
 			if tt.env.intercept.Update != nil || tt.env.intercept.SubResourceUpdate != nil || tt.env.intercept.Patch != nil {
-				builder = builder.WithInterceptorFuncs(tt.env.intercept)
+				c = interceptor.NewClient(c, tt.env.intercept)
 			}
-			c := builder.Build()
 
 			resolver := &testResolver{resolve: tt.env.resolve}
 			a, rec := prepareActionWithRecorder(c, resolver)

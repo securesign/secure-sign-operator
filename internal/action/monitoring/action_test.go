@@ -336,7 +336,7 @@ func TestHandle(t *testing.T) {
 			env: env{
 				enabled: true,
 				intercept: interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+					Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
 						return fmt.Errorf("quota exceeded")
 					},
 				},
@@ -354,7 +354,7 @@ func TestHandle(t *testing.T) {
 				enabled:       true,
 				conditionType: testCondition,
 				intercept: interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+					Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
 						return fmt.Errorf("quota exceeded")
 					},
 				},
@@ -429,7 +429,7 @@ func TestHandle(t *testing.T) {
 			env: env{
 				enabled: true,
 				intercept: interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+					Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
 						return fmt.Errorf("fail")
 					},
 				},
