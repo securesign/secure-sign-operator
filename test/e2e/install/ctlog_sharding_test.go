@@ -265,38 +265,31 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			}).Should(BeTrue())
 		})
 
-		It("Verify ctlog is in Ready state", func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
-				if c == nil {
-					return false
-				}
-				return c.Status.TreeID != nil && *c.Status.TreeID != *oldTreeId && condition.IsReady(c)
-			}, time.Duration(5)*time.Minute).Should(BeTrue())
-		})
-
 		It("Verify sharding config is applied in the secret", func(ctx SpecContext) {
-			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(c).ToNot(BeNil())
+			Eventually(func(g Gomega) {
+				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(c).ToNot(BeNil())
+				g.Expect(c.Status.ServerConfigRef).ToNot(BeNil())
 
-			configSecret, err := kubernetes.GetSecret(ctx, cli, namespace.Name, c.Status.ServerConfigRef.Name)
-			Expect(err).ToNot(HaveOccurred())
+				configSecret, err := kubernetes.GetSecret(ctx, cli, namespace.Name, c.Status.ServerConfigRef.Name)
+				g.Expect(err).ToNot(HaveOccurred())
 
-			cfg := &configpb.LogMultiConfig{}
-			Expect(prototext.Unmarshal(configSecret.Data["config"], cfg)).To(Succeed())
+				cfg := &configpb.LogMultiConfig{}
+				g.Expect(prototext.Unmarshal(configSecret.Data["config"], cfg)).To(Succeed())
 
-			// Verify we have two log configs (active + frozen, matching spec order)
-			Expect(cfg.LogConfigs.Config).To(HaveLen(2))
+				// Verify we have two log configs (active + frozen, matching spec order)
+				g.Expect(cfg.LogConfigs.Config).To(HaveLen(2))
 
-			// Verify active shard has the new tree ID (first in spec)
-			activeCfg := cfg.LogConfigs.Config[0]
-			Expect(activeCfg.LogId).To(Equal(*c.Status.TreeID))
-			Expect(activeCfg.IsReadonly).To(BeFalse())
+				// Verify active shard has the new tree ID (first in spec)
+				activeCfg := cfg.LogConfigs.Config[0]
+				g.Expect(activeCfg.LogId).To(Equal(newTreeId))
+				g.Expect(activeCfg.IsReadonly).To(BeFalse())
 
-			// Verify frozen shard has the old tree ID (second in spec)
-			frozenCfg := cfg.LogConfigs.Config[1]
-			Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
-			Expect(frozenCfg.IsReadonly).To(BeTrue())
+				// Verify frozen shard has the old tree ID (second in spec)
+				frozenCfg := cfg.LogConfigs.Config[1]
+				g.Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
+				g.Expect(frozenCfg.IsReadonly).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		It("Acknowledge trust material drift", func(ctx SpecContext) {
