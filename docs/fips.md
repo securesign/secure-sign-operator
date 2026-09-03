@@ -6,6 +6,8 @@ Red Hat Trusted Artifact Signer (RHTAS) is Red Hat Designed for FIPS. When deplo
 
 On non-FIPS clusters, these restrictions do not apply and all cryptographic algorithms are available.
 
+> **Note:** Some internal cluster communication between operator-managed components may not use TLS and may be transmitted unencrypted. External client traffic is protected via TLS at the Ingress or Route level.
+
 ## Supported Key Types and Algorithms
 
 When FIPS mode is active, RHTAS accepts the following key types:
