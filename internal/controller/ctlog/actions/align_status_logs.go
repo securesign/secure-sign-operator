@@ -70,14 +70,25 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 		}
 		if specLog.Signer != nil {
 			logStatus.SignerType = specLog.Signer.Type
+			// Only override key refs if explicitly provided in spec
 			if specLog.Signer.File != nil {
-				logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
-				logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+				if specLog.Signer.File.PrivateKeyRef != nil {
+					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
+				}
+				if specLog.Signer.File.PublicKeyRef != nil {
+					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+				}
 			}
 			if specLog.Signer.PKCS11 != nil {
-				logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
-				logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
-				logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
+				if specLog.Signer.PKCS11.PublicKeyRef != nil {
+					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
+				}
+				if specLog.Signer.PKCS11.PinSecretRef != nil {
+					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
+				}
+				if specLog.Signer.PKCS11.TokenLabel != "" {
+					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
+				}
 			}
 		}
 

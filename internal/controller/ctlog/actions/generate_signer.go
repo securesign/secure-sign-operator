@@ -80,14 +80,7 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 		return
 	}
 
-	// Find the active log's Status.Logs entry
-	var activeLogStatus *rhtasv1.CTlogLogStatus
-	for idx := range instance.Status.Logs {
-		if instance.Status.Logs[idx].Prefix == activeLog.Prefix {
-			activeLogStatus = &instance.Status.Logs[idx]
-			break
-		}
-	}
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
 	if activeLogStatus == nil {
 		return
 	}
