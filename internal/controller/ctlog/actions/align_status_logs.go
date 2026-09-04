@@ -66,6 +66,7 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				logStatus.RootCertificates = specLog.RootCerts
 			}
 			if specLog.Signer != nil {
+				logStatus.SignerType = specLog.Signer.Type
 				if specLog.Signer.File != nil {
 					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
 					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
@@ -73,6 +74,12 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				if specLog.Signer.PKCS11 != nil {
 					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
 				}
+			}
+		}
+
+		if specLog.Active != nil && *specLog.Active {
+			if specLog.Signer != nil {
+				logStatus.SignerType = specLog.Signer.Type
 			}
 		}
 
