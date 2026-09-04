@@ -47,6 +47,12 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "test-log",
+					Active: true,
+				},
+			},
 			Conditions: []metav1.Condition{
 				{
 					Type:   constants.ReadyCondition,

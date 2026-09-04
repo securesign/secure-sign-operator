@@ -50,6 +50,7 @@ func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog
 }
 
 func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
+
 	for logIdx, log := range instance.Spec.Logs {
 		if log.Signer == nil || log.Signer.Type != rhtasv1.SignerTypePKCS11 || log.Signer.PKCS11 == nil {
 			continue
