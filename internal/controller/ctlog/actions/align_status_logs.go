@@ -54,32 +54,35 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			logStatus.PrivateKeyRef = existing.PrivateKeyRef
 			logStatus.PublicKeyRef = existing.PublicKeyRef
 			logStatus.RootCertificates = existing.RootCertificates
+			logStatus.SignerType = existing.SignerType
 		}
 
 		if specLog.Active != nil && *specLog.Active {
 			logStatus.Active = true
-		} else {
-			if specLog.LogId != nil {
-				logStatus.LogId = specLog.LogId
-			}
-			if len(specLog.RootCerts) > 0 {
-				logStatus.RootCertificates = specLog.RootCerts
-			}
-			if specLog.Signer != nil {
-				logStatus.SignerType = specLog.Signer.Type
-				if specLog.Signer.File != nil {
-					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
-					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
-				}
-				if specLog.Signer.PKCS11 != nil {
-					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
-				}
-			}
 		}
 
-		if specLog.Active != nil && *specLog.Active {
-			if specLog.Signer != nil {
-				logStatus.SignerType = specLog.Signer.Type
+		// Apply spec overrides for all logs (active and non-active).
+		// User-configured spec values always take priority over status.
+		if specLog.LogId != nil {
+			logStatus.LogId = specLog.LogId
+		}
+		if len(specLog.RootCerts) > 0 {
+			logStatus.RootCertificates = specLog.RootCerts
+		}
+		if specLog.Signer != nil {
+			logStatus.SignerType = specLog.Signer.Type
+			if specLog.Signer.File != nil {
+				if specLog.Signer.File.PrivateKeyRef != nil {
+					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
+				}
+				if specLog.Signer.File.PublicKeyRef != nil {
+					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+				}
+			}
+			if specLog.Signer.PKCS11 != nil {
+				if specLog.Signer.PKCS11.PublicKeyRef != nil {
+					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
+				}
 			}
 		}
 

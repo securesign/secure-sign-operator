@@ -208,6 +208,8 @@ type CTlogLogStatus struct {
 	Prefix string `json:"prefix,omitempty"`
 	// Active indicates this is the currently active log.
 	Active bool `json:"active,omitempty"`
+	// SignerType is the signer type configured for this log (file or pkcs11).
+	SignerType string `json:"signerType,omitempty"`
 	// PrivateKeyRef points to the secret containing the private key.
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// PublicKeyRef points to the secret containing the public key.

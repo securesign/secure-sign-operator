@@ -20,7 +20,7 @@ func TestCreateConfig_PKCS11(t *testing.T) {
 	g := NewWithT(t)
 
 	rootCert := []byte("-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n")
-	data, err := CreateConfig(
+	data, _, err := CreateConfig(
 		"trillian-logserver.default.svc:8091",
 		[]ShardConfig{
 			{
@@ -65,7 +65,7 @@ func TestCreateConfig_PKCS11(t *testing.T) {
 func TestCreateConfig_InvalidPEM(t *testing.T) {
 	g := NewWithT(t)
 
-	_, err := CreateConfig(
+	_, _, err := CreateConfig(
 		"trillian:8091",
 		[]ShardConfig{
 			{
@@ -91,7 +91,7 @@ func TestCreateConfig_MultipleRootCerts(t *testing.T) {
 		[]byte("cert-1"),
 		[]byte("cert-2"),
 	}
-	data, err := CreateConfig(
+	data, _, err := CreateConfig(
 		"trillian:8091",
 		[]ShardConfig{
 			{
@@ -123,7 +123,7 @@ func TestCreateConfig_MultipleLogs(t *testing.T) {
 	g := NewWithT(t)
 
 	rootCert := []byte("-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n")
-	data, err := CreateConfig(
+	data, _, err := CreateConfig(
 		"trillian:8091",
 		[]ShardConfig{
 			{
@@ -169,7 +169,7 @@ func TestCreateConfig_ReadonlyShardWithPrivateKey(t *testing.T) {
 	rootCert := []byte("-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n")
 	activePrivateKey := []byte("-----BEGIN EC PRIVATE KEY-----\nactive\n-----END EC PRIVATE KEY-----\n")
 	frozenPrivateKey := []byte("-----BEGIN EC PRIVATE KEY-----\nfrozen\n-----END EC PRIVATE KEY-----\n")
-	data, err := CreateConfig(
+	data, _, err := CreateConfig(
 		"trillian:8091",
 		[]ShardConfig{
 			{
@@ -212,7 +212,7 @@ func TestCreateConfig_ReadonlyShardWithPrivateKey(t *testing.T) {
 
 func TestCreateConfig_NoLogs(t *testing.T) {
 	g := NewWithT(t)
-	_, err := CreateConfig("trillian:8091", nil)
+	_, _, err := CreateConfig("trillian:8091", nil)
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("no log entries"))
 }

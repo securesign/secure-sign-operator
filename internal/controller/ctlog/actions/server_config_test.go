@@ -797,13 +797,35 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Spec: rhtasv1.CTlogSpec{
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{
+									Type: rhtasv1.SignerTypePKCS11,
+									PKCS11: &rhtasv1.CTlogPKCS11Config{
+										TokenLabel: "test-token",
+										ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+										PublicKeyRef: &rhtasv1.SecretKeySelector{
+											LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+											Key:                  "public",
+										},
+									},
+								},
+								RootCerts: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
+						},
 					},
 					Status: rhtasv1.CTlogStatus{
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active: true,
-								LogId:  ptr.To(int64(123456)),
-								Prefix: "trusted-artifact-signer",
+								Active:     true,
+								SignerType: rhtasv1.SignerTypePKCS11,
+								LogId:      ptr.To(int64(123456)),
+								Prefix:     "trusted-artifact-signer",
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
