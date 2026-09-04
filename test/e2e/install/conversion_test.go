@@ -123,14 +123,19 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			v1alpha1Obj := &v1alpha1.CTlog{}
 			Expect(cli.Get(ctx, nsName(namespace.Name, s.Name), v1alpha1Obj)).To(Succeed())
 
-			Expect(v1Obj.Status.TreeID).ToNot(BeNil())
-			Expect(v1Obj.Status.TreeID).To(Equal(v1alpha1Obj.Status.TreeID))
+			// v1 stores state in Status.Logs; v1alpha1 still uses deprecated fields for backward compat
+			// Verify that v1 Status.Logs contains the same data as v1alpha1 deprecated fields
+			Expect(v1Obj.Status.Logs).To(HaveLen(1))
+			v1ActiveLog := v1Obj.Status.Logs[0]
 
-			Expect(v1Obj.Status.PrivateKeyRef).ToNot(BeNil())                                        //nolint:staticcheck
-			Expect(v1Obj.Status.PrivateKeyRef.Name).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Name)) //nolint:staticcheck
-			Expect(v1Obj.Status.PrivateKeyRef.Key).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Key))   //nolint:staticcheck
+			Expect(v1ActiveLog.LogId).ToNot(BeNil())
+			Expect(v1ActiveLog.LogId).To(Equal(v1alpha1Obj.Status.TreeID))
 
-			Expect(v1Obj.Status.RootCertificates).To(HaveLen(len(v1alpha1Obj.Status.RootCertificates))) //nolint:staticcheck
+			Expect(v1ActiveLog.PrivateKeyRef).ToNot(BeNil())
+			Expect(v1ActiveLog.PrivateKeyRef.Name).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Name)) //nolint:staticcheck
+			Expect(v1ActiveLog.PrivateKeyRef.Key).To(Equal(v1alpha1Obj.Status.PrivateKeyRef.Key))   //nolint:staticcheck
+
+			Expect(v1ActiveLog.RootCertificates).To(HaveLen(len(v1alpha1Obj.Status.RootCertificates))) //nolint:staticcheck
 		})
 	})
 
