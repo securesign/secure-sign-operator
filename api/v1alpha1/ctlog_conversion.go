@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"net/url"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
@@ -14,7 +16,43 @@ func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv
 	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
 		return err
 	}
-	// v1alpha1 deprecated fields are converted to v1 Status.Logs by ConvertFrom
+	// v1alpha1 deprecated fields (TreeID, PrivateKeyRef, PublicKeyRef, RootCertificates) need to be
+	// converted to v1 Status.Logs. Find or create a log with the standard v1alpha1 prefix.
+	idx := -1
+	for i := range out.Logs {
+		if out.Logs[i].Prefix == v1alpha1Prefix {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		out.Logs = append(out.Logs, rhtasv1.CTlogLogStatus{Prefix: v1alpha1Prefix})
+		idx = len(out.Logs) - 1
+	}
+	log := &out.Logs[idx]
+	if in.TreeID != nil {
+		log.LogId = in.TreeID
+	}
+	if in.PrivateKeyRef != nil {
+		log.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, log.PrivateKeyRef, s); err != nil {
+			return err
+		}
+	}
+	if in.PublicKeyRef != nil {
+		log.PublicKeyRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PublicKeyRef, log.PublicKeyRef, s); err != nil {
+			return err
+		}
+	}
+	if len(in.RootCertificates) > 0 {
+		log.RootCertificates = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
+		for i, root := range in.RootCertificates {
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &log.RootCertificates[i], s); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -179,9 +217,27 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	dst.Spec.Auth = restored.Spec.Auth
 	dst.Spec.Ingress = restored.Spec.Ingress
-	// All Status fields (Conditions, ServerConfigRef, Tls, Url) are shared between v1 and v1alpha1
-	// and are properly converted by autoConvert_v1alpha1_CTlog_To_v1_CTlog above.
-	// Do not restore Status from storage.
+	// Restore v1-only Status fields from storage (Status.Logs doesn't exist in v1alpha1)
+	dst.Status.Logs = restored.Status.Logs
+	// Shared Status fields (Conditions, ServerConfigRef, Tls, Url) are properly converted by
+	// autoConvert_v1alpha1_CTlog_To_v1_CTlog above. Do not restore them from storage.
+	// However, reconstruct Status.Url to include the active log prefix (which v1alpha1 strips)
+	if dst.Status.Url != "" && len(dst.Spec.Logs) > 0 {
+		// Find the active log, or use the first one if none are explicitly marked active
+		activeLog := dst.Spec.Logs[0]
+		for _, log := range dst.Spec.Logs {
+			if log.Active != nil && *log.Active {
+				activeLog = log
+				break
+			}
+		}
+		u, err := url.Parse(dst.Status.Url)
+		if err != nil {
+			return err
+		}
+		u.Path = "/" + activeLog.Prefix
+		dst.Status.Url = u.String()
+	}
 	return nil
 }
 

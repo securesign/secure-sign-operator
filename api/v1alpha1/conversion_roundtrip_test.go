@@ -346,6 +346,7 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.PrivateKeyPasswordRef = nil
+			s.Status.PrivateKeyPasswordRef = nil
 			// ServerConfigRef is deprecated in favor of spec.logs; it has no roundtrip path.
 			s.Spec.ServerConfigRef = nil
 		},
