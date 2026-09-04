@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
 
@@ -25,9 +26,10 @@ const (
 // CreateConfig builds a CTLog protobuf MultiConfig and the accompanying secret
 // data map from the resolved status log entries. Every entry is serialized
 // uniformly — the Active flag plays no role here.
-func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, error) {
+func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, [32]byte, error) {
+	var hash [32]byte
 	if len(logs) == 0 {
-		return nil, fmt.Errorf("no log entries to serialize")
+		return nil, hash, fmt.Errorf("no log entries to serialize")
 	}
 
 	data := make(map[string][]byte)
@@ -53,7 +55,7 @@ func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, er
 	for _, log := range logs {
 		cfg, err := marshalLogConfig(log, defaultRootPemPaths)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create config for log %d (%s): %w", log.TreeID, log.Prefix, err)
+			return nil, hash, fmt.Errorf("failed to create config for log %d (%s): %w", log.TreeID, log.Prefix, err)
 		}
 		configs = append(configs, cfg)
 	}
@@ -68,11 +70,12 @@ func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, er
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal ctlog config: %w", err)
+		return nil, hash, fmt.Errorf("failed to marshal ctlog config: %w", err)
 	}
 
 	data[ConfigKey] = marshalledConfig
-	return data, nil
+	hash = sha256.Sum256(marshalledConfig)
+	return data, hash, nil
 }
 
 func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogConfig, error) {

@@ -208,32 +208,15 @@ type CTlogLogStatus struct {
 	Prefix string `json:"prefix,omitempty"`
 	// Active indicates this is the currently active log.
 	Active bool `json:"active,omitempty"`
-	// SignerType is the signer backend type (file or pkcs11).
-	SignerType string `json:"signerType,omitempty"`
 	// PrivateKeyRef points to the secret containing the private key.
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// PublicKeyRef points to the secret containing the public key.
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
 	// PublicKey is the PEM-encoded public key.
 	PublicKey string `json:"publicKey,omitempty"`
-	// PinSecretRef points to the secret containing the HSM PIN (PKCS11 signer).
-	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
-	// PKCS11TokenLabel is the HSM slot token label (PKCS11 signer).
-	PKCS11TokenLabel string `json:"pkcs11TokenLabel,omitempty"`
 	// RootCertificates are the resolved root certificates.
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
-	// Readonly indicates if this is a frozen shard.
-	Readonly *bool `json:"readonly,omitempty"`
-	// NotAfterStart is the timestamp when this log's certificates become valid.
-	// +optional
-	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
-	// NotAfterLimit is the timestamp when this log's certificates expire.
-	// +optional
-	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
-	// FrozenSTH is the frozen SignedTreeHead for a read-only shard.
-	// +optional
-	FrozenSTH *CTLogFrozenSTH `json:"frozenSTH,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

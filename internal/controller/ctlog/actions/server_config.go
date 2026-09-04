@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -117,7 +117,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		})
 	}
 
-	cfg, err := ctlogUtils.CreateConfig(trillianUrl, logs)
+	cfg, hash, err := ctlogUtils.CreateConfig(trillianUrl, logs)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
@@ -135,7 +135,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		},
 	}
 
-	configAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
+	configAnnotations := i.configMatchingAnnotations(trillianUrl, hash)
 
 	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
@@ -183,6 +183,7 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 	logs := make([]ctlogUtils.ShardConfig, 0, len(instance.Status.Logs))
 
 	for _, log := range instance.Status.Logs {
+		specLog := ctlogUtils.GetLog(log.Prefix, instance.Spec.Logs)
 		if log.LogId == nil {
 			return nil, fmt.Errorf("log %q has no LogId", log.Prefix)
 		}
@@ -190,7 +191,7 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 		sc := ctlogUtils.ShardConfig{
 			TreeID:   *log.LogId,
 			Prefix:   log.Prefix,
-			Readonly: log.Readonly != nil && *log.Readonly,
+			Readonly: ptr.Deref(specLog.Readonly, false),
 		}
 
 		// Root certificates
@@ -211,25 +212,30 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 			sc.PublicKey = publicKey
 		}
 
-		if log.SignerType == rhtasv1.SignerTypePKCS11 {
-			if log.PinSecretRef == nil {
+		switch specLog.Signer.Type {
+		case rhtasv1.SignerTypePKCS11:
+			pkcsConfig := specLog.Signer.PKCS11
+			if pkcsConfig == nil {
+				return nil, fmt.Errorf("log %q: configuration for PKCS#11 has not been set", log.Prefix)
+			}
+			if pkcsConfig.PinSecretRef == nil {
 				return nil, fmt.Errorf("log %q: pinSecretRef is required for PKCS#11 signer", log.Prefix)
 			}
 			if log.PublicKeyRef == nil {
 				return nil, fmt.Errorf("log %q: publicKeyRef is required for PKCS#11 signer", log.Prefix)
 			}
-			pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PinSecretRef)
+			pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, pkcsConfig.PinSecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("log %q pkcs11 pinSecretRef: %w", log.Prefix, err)
 			}
 			if len(pin) == 0 {
-				return nil, fmt.Errorf("log %q: PIN secret %s/%s is empty", log.Prefix, log.PinSecretRef.Name, log.PinSecretRef.Key)
+				return nil, fmt.Errorf("log %q: PIN secret %s/%s is empty", log.Prefix, pkcsConfig.PinSecretRef.Name, pkcsConfig.PinSecretRef.Key)
 			}
 			sc.PKCS11 = &ctlogUtils.PKCS11ShardConfig{
-				TokenLabel: log.PKCS11TokenLabel,
+				TokenLabel: pkcsConfig.TokenLabel,
 				Pin:        string(pin),
 			}
-		} else {
+		case rhtasv1.SignerTypeFile:
 			if log.PrivateKeyRef != nil {
 				privateKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PrivateKeyRef)
 				if err != nil {
@@ -237,26 +243,28 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 				}
 				sc.PrivateKey = privateKey
 			}
+		default:
+			return nil, fmt.Errorf("log %q: signer type %q is not supported", log.Prefix, specLog.Signer.Type)
 		}
 
-		if log.FrozenSTH != nil {
+		if specLog.FrozenSTH != nil {
 			sc.FrozenSTH = &ctlogUtils.FrozenSTH{
-				Sha256RootHash:    log.FrozenSTH.Sha256RootHash,
-				TreeHeadSignature: log.FrozenSTH.TreeHeadSignature,
+				Sha256RootHash:    specLog.FrozenSTH.Sha256RootHash,
+				TreeHeadSignature: specLog.FrozenSTH.TreeHeadSignature,
 			}
-			if log.FrozenSTH.TreeSize != nil {
-				sc.FrozenSTH.TreeSize = *log.FrozenSTH.TreeSize
+			if specLog.FrozenSTH.TreeSize != nil {
+				sc.FrozenSTH.TreeSize = *specLog.FrozenSTH.TreeSize
 			}
-			if log.FrozenSTH.Timestamp != nil {
-				sc.FrozenSTH.Timestamp = log.FrozenSTH.Timestamp.Unix()
+			if specLog.FrozenSTH.Timestamp != nil {
+				sc.FrozenSTH.Timestamp = specLog.FrozenSTH.Timestamp.Unix()
 			}
 		}
 
-		if log.NotAfterStart != nil {
-			sc.NotAfterStart = log.NotAfterStart.Unix()
+		if specLog.NotAfterStart != nil {
+			sc.NotAfterStart = specLog.NotAfterStart.Unix()
 		}
-		if log.NotAfterLimit != nil {
-			sc.NotAfterLimit = log.NotAfterLimit.Unix()
+		if specLog.NotAfterLimit != nil {
+			sc.NotAfterLimit = specLog.NotAfterLimit.Unix()
 		}
 
 		logs = append(logs, sc)
@@ -310,7 +318,9 @@ func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhta
 		return err
 	}
 
-	expectedAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
+	logs, err := i.resolveAllLogs(ctx, instance)
+	_, hash, err := ctlogUtils.CreateConfig(trillianUrl, logs)
+	expectedAnnotations := i.configMatchingAnnotations(trillianUrl, hash)
 	actualAnnotations := secretMeta.GetAnnotations()
 	for _, key := range serverConfigAnnotations {
 		expected, hasExpected := expectedAnnotations[key]
@@ -326,55 +336,11 @@ func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhta
 // configMatchingAnnotations generates annotations that identify the data
 // sources used to generate the server config secret. All status.logs entries
 // are hashed uniformly — no active/inactive distinction.
-func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillianUrl string) map[string]string {
+func (i serverConfig) configMatchingAnnotations(trillianUrl string, configHash [32]byte) map[string]string {
 	ann := map[string]string{
 		labels.LabelNamespace + "/trillianUrl": trillianUrl,
 	}
-
-	h := sha256.New()
-	for _, log := range instance.Status.Logs {
-		logId := int64(0)
-		if log.LogId != nil {
-			logId = *log.LogId
-		}
-		readonly := log.Readonly != nil && *log.Readonly
-
-		_, _ = fmt.Fprintf(h, "log:%d:%s:%v:%s\n", logId, log.Prefix, readonly, log.SignerType)
-
-		if log.PublicKeyRef != nil {
-			_, _ = fmt.Fprintf(h, "publicKeyRef:%s/%s\n", log.PublicKeyRef.Name, log.PublicKeyRef.Key)
-		}
-		if log.PrivateKeyRef != nil {
-			_, _ = fmt.Fprintf(h, "privateKeyRef:%s/%s\n", log.PrivateKeyRef.Name, log.PrivateKeyRef.Key)
-		}
-		if log.PinSecretRef != nil {
-			_, _ = fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.PinSecretRef.Name, log.PinSecretRef.Key)
-		}
-		if log.PKCS11TokenLabel != "" {
-			_, _ = fmt.Fprintf(h, "tokenLabel:%s\n", log.PKCS11TokenLabel)
-		}
-
-		for _, r := range log.RootCertificates {
-			_, _ = fmt.Fprintf(h, "rootCert:%s/%s\n", r.Name, r.Key)
-		}
-
-		if log.NotAfterStart != nil {
-			_, _ = fmt.Fprintf(h, "notAfterStart:%d\n", log.NotAfterStart.Unix())
-		}
-		if log.NotAfterLimit != nil {
-			_, _ = fmt.Fprintf(h, "notAfterLimit:%d\n", log.NotAfterLimit.Unix())
-		}
-
-		if log.FrozenSTH != nil {
-			if log.FrozenSTH.TreeSize != nil {
-				_, _ = fmt.Fprintf(h, "frozenTreeSize:%d\n", *log.FrozenSTH.TreeSize)
-			}
-			if log.FrozenSTH.Timestamp != nil {
-				_, _ = fmt.Fprintf(h, "frozenTimestamp:%d\n", log.FrozenSTH.Timestamp.Unix())
-			}
-		}
-	}
-	ann[labels.LabelNamespace+"/logsHash"] = hex.EncodeToString(h.Sum(nil))
+	ann[labels.LabelNamespace+"/logsHash"] = hex.EncodeToString(configHash[:])
 
 	return ann
 }

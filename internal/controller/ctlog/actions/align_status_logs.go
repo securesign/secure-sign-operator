@@ -44,11 +44,7 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 
 	for _, specLog := range instance.Spec.Logs {
 		logStatus := rhtasv1.CTlogLogStatus{
-			Prefix:        specLog.Prefix,
-			Readonly:      specLog.Readonly,
-			NotAfterStart: specLog.NotAfterStart,
-			NotAfterLimit: specLog.NotAfterLimit,
-			FrozenSTH:     specLog.FrozenSTH,
+			Prefix: specLog.Prefix,
 		}
 
 		// Preserve existing status fields if present
@@ -62,14 +58,6 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 
 		if specLog.Active != nil && *specLog.Active {
 			logStatus.Active = true
-
-			if specLog.Signer != nil {
-				logStatus.SignerType = specLog.Signer.Type
-				if specLog.Signer.PKCS11 != nil {
-					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
-					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
-				}
-			}
 		} else {
 			if specLog.LogId != nil {
 				logStatus.LogId = specLog.LogId
@@ -78,15 +66,12 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				logStatus.RootCertificates = specLog.RootCerts
 			}
 			if specLog.Signer != nil {
-				logStatus.SignerType = specLog.Signer.Type
 				if specLog.Signer.File != nil {
 					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
 					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
 				}
 				if specLog.Signer.PKCS11 != nil {
 					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
-					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
-					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
 				}
 			}
 		}
