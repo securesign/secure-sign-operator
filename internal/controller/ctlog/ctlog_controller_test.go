@@ -184,8 +184,8 @@ var _ = Describe("CTlog controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.Logs).To(HaveLen(1))
 				privateKeyRef = found.Status.Logs[0].PrivateKeyRef
+				g.Expect(privateKeyRef).NotTo(BeNil())
 			}).WithContext(ctx).Should(Succeed())
-			Expect(privateKeyRef).NotTo(BeNil())
 			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: privateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})
 			}).WithContext(ctx).Should(Not(HaveOccurred()))
