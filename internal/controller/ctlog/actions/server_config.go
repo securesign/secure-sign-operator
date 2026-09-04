@@ -319,7 +319,13 @@ func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhta
 	}
 
 	logs, err := i.resolveAllLogs(ctx, instance)
+	if err != nil {
+		return err
+	}
 	_, hash, err := ctlogUtils.CreateConfig(trillianUrl, logs)
+	if err != nil {
+		return err
+	}
 	expectedAnnotations := i.configMatchingAnnotations(trillianUrl, hash)
 	actualAnnotations := secretMeta.GetAnnotations()
 	for _, key := range serverConfigAnnotations {
