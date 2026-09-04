@@ -12,10 +12,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	v1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -316,6 +319,84 @@ func testCreateJob(t *testing.T) {
 	}
 }
 
+// TestResolveTree_BackoffGate: a future next-retry requeues without recreating the Job.
+func TestResolveTree_BackoffGate(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	instance := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{Name: nnObject.Name, Namespace: nnObject.Namespace},
+		Spec:       rhtasv1.RekorSpec{Trillian: rhtasv1.ServiceReference{}},
+	}
+	generation := strconv.FormatInt(instance.GetGeneration(), 10)
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nnResult.Name,
+			Namespace: nnResult.Namespace,
+			Annotations: map[string]string{
+				annotations.CreateTreeAttempts:           "1",
+				annotations.CreateTreeAttemptsGeneration: generation,
+				annotations.CreateTreeNextRetry:          time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, cm).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+	ra := a.(*resolveTree[*rhtasv1.Rekor])
+
+	got := ra.handleJob(ctx, instance)
+	g.Expect(got).ToNot(BeNil())
+	g.Expect(got.Result.RequeueAfter).To(BeNumerically(">", 0))
+
+	jobs := &v1.JobList{}
+	g.Expect(c.List(ctx, jobs, client.InNamespace(nnObject.Namespace))).To(Succeed())
+	g.Expect(jobs.Items).To(BeEmpty())
+}
+
+// TestResolveTree_BackoffGateElapsed: a past next-retry recreates the Job.
+func TestResolveTree_BackoffGateElapsed(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	instance := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{Name: nnObject.Name, Namespace: nnObject.Namespace},
+		Spec:       rhtasv1.RekorSpec{Trillian: rhtasv1.ServiceReference{}},
+	}
+	generation := strconv.FormatInt(instance.GetGeneration(), 10)
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nnResult.Name,
+			Namespace: nnResult.Namespace,
+			Annotations: map[string]string{
+				annotations.CreateTreeAttempts:           "1",
+				annotations.CreateTreeAttemptsGeneration: generation,
+				annotations.CreateTreeNextRetry:          time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, cm).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+	ra := a.(*resolveTree[*rhtasv1.Rekor])
+
+	g.Expect(ra.handleJob(ctx, instance)).To(Equal(testAction.Return()))
+
+	jobs := &v1.JobList{}
+	g.Expect(c.List(ctx, jobs, client.InNamespace(nnObject.Namespace))).To(Succeed())
+	g.Expect(jobs.Items).To(HaveLen(1))
+}
+
 func testMonitorJob(t *testing.T) {
 	for _, tc := range []struct {
 		desc string
@@ -428,7 +509,129 @@ func testMonitorJob(t *testing.T) {
 				},
 			},
 			want: want{
+				// first failure -> attempt 1, linear backoff base*1
+				result: testAction.RequeueAfter(createTreeRetryBaseDelay),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					// failed Job is deleted so it can be recreated
+					job := &v1.Job{}
+					g.Expect(apierrors.IsNotFound(
+						c.Get(ctx, types.NamespacedName{Name: "job", Namespace: nnResult.Namespace}, job),
+					)).To(BeTrue())
+
+					// Job owner reference is removed from the result ConfigMap so
+					// handleJob recreates the Job on the next reconcile
+					cm := &corev1.ConfigMap{}
+					g.Expect(c.Get(ctx, nnResult, cm)).To(Succeed())
+					for _, ref := range cm.GetOwnerReferences() {
+						g.Expect(ref.Kind).ToNot(Equal("Job"))
+					}
+
+					// attempt count is recorded on the ConfigMap
+					g.Expect(cm.GetAnnotations()).To(HaveKeyWithValue(annotations.CreateTreeAttempts, "1"))
+
+					// the resource is not frozen into a terminal Failure state
+					r := rhtasv1.Rekor{}
+					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
+					cond := meta.FindStatusCondition(r.GetConditions(), JobCondition)
+					g.Expect(cond).ToNot(BeNil())
+					g.Expect(cond.Reason).ToNot(Equal(state.Failure.String()))
+				},
+			},
+		},
+		{
+			desc: "job failed at max attempts is terminal and keeps the failed job",
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					r := rhtasv1.Rekor{}
+					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
+
+					cm := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnResult.Name,
+							Namespace: nnResult.Namespace,
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
+							},
+							Annotations: map[string]string{
+								// one below the cap, recorded for the current generation
+								annotations.CreateTreeAttempts:           strconv.Itoa(createTreeMaxAttempts - 1),
+								annotations.CreateTreeAttemptsGeneration: strconv.FormatInt(r.GetGeneration(), 10),
+							},
+						},
+					}
+					g.Expect(c.Create(ctx, cm)).To(Succeed())
+
+					job := v1.Job{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "job",
+							Namespace: nnResult.Namespace,
+						},
+						Status: v1.JobStatus{
+							Conditions: []v1.JobCondition{
+								{Status: corev1.ConditionTrue, Type: v1.JobComplete},
+								{Status: corev1.ConditionTrue, Type: v1.JobFailed},
+							},
+						},
+					}
+					g.Expect(c.Create(ctx, &job)).To(Succeed())
+				},
+			},
+			want: want{
 				result: testAction.Error(reconcile.TerminalError(ErrJobFailed)),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					// the failed Job is kept for debugging
+					job := &v1.Job{}
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: "job", Namespace: nnResult.Namespace}, job)).To(Succeed())
+
+					// Tree condition is terminal Failure
+					r := rhtasv1.Rekor{}
+					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
+					cond := meta.FindStatusCondition(r.GetConditions(), JobCondition)
+					g.Expect(cond).ToNot(BeNil())
+					g.Expect(cond.Reason).To(Equal(state.Failure.String()))
+				},
+			},
+		},
+		{
+			desc: "job failed but result present adopts existing tree",
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					cm := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnResult.Name,
+							Namespace: nnResult.Namespace,
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
+							},
+						},
+						Data: map[string]string{
+							"tree_id": "123456789",
+						},
+					}
+					g.Expect(c.Create(ctx, cm)).To(Succeed())
+
+					job := v1.Job{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "job",
+							Namespace: nnResult.Namespace,
+						},
+						Status: v1.JobStatus{
+							Conditions: []v1.JobCondition{
+								{Status: corev1.ConditionTrue, Type: v1.JobComplete},
+								{Status: corev1.ConditionTrue, Type: v1.JobFailed},
+							},
+						},
+					}
+					g.Expect(c.Create(ctx, &job)).To(Succeed())
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					// the Job is left intact for handleExtractJobResult to consume
+					job := &v1.Job{}
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: "job", Namespace: nnResult.Namespace}, job)).To(Succeed())
+				},
 			},
 		},
 		{

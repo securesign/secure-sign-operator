@@ -193,6 +193,7 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).
 		Owns(&batchv1.CronJob{}).
+		Owns(&batchv1.Job{}).
 		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(
 			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.RekorList{}, func(o client.Object) rhtasv1.ServiceReference {
 				return o.(*rhtasv1.Rekor).Spec.Trillian
