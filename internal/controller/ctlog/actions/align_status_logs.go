@@ -37,6 +37,10 @@ func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *a
 
 func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 	logs := make([]rhtasv1.CTlogLogStatus, 0, len(instance.Spec.Logs))
+	statusLogsMap := make(map[string]*rhtasv1.CTlogLogStatus)
+	for i := range instance.Status.Logs {
+		statusLogsMap[instance.Status.Logs[i].Prefix] = &instance.Status.Logs[i]
+	}
 
 	for _, specLog := range instance.Spec.Logs {
 		logStatus := rhtasv1.CTlogLogStatus{
@@ -45,6 +49,15 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			NotAfterStart: specLog.NotAfterStart,
 			NotAfterLimit: specLog.NotAfterLimit,
 			FrozenSTH:     specLog.FrozenSTH,
+		}
+
+		// Preserve existing status fields if present
+		if existing, ok := statusLogsMap[specLog.Prefix]; ok {
+			logStatus.LogId = existing.LogId
+			logStatus.PublicKey = existing.PublicKey
+			logStatus.PrivateKeyRef = existing.PrivateKeyRef
+			logStatus.PublicKeyRef = existing.PublicKeyRef
+			logStatus.RootCertificates = existing.RootCertificates
 		}
 
 		if specLog.Active != nil && *specLog.Active {
@@ -58,7 +71,9 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				}
 			}
 		} else {
-			logStatus.LogId = specLog.LogId
+			if specLog.LogId != nil {
+				logStatus.LogId = specLog.LogId
+			}
 			if len(specLog.RootCerts) > 0 {
 				logStatus.RootCertificates = specLog.RootCerts
 			}

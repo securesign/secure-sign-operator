@@ -9,6 +9,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
@@ -45,7 +46,11 @@ func createCTLogInstance() *rhtasv1.CTlog {
 				{
 					Prefix: "trusted-artifact-signer",
 					LogId:  ptr.To(int64(123456)),
+					Active: true,
 				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Ready.String()},
 			},
 		},
 	}
