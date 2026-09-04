@@ -44,11 +44,7 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 
 	for _, specLog := range instance.Spec.Logs {
 		logStatus := rhtasv1.CTlogLogStatus{
-			Prefix:        specLog.Prefix,
-			Readonly:      specLog.Readonly,
-			NotAfterStart: specLog.NotAfterStart,
-			NotAfterLimit: specLog.NotAfterLimit,
-			FrozenSTH:     specLog.FrozenSTH,
+			Prefix: specLog.Prefix,
 		}
 
 		// Preserve existing status fields if present
@@ -60,40 +56,24 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			logStatus.RootCertificates = existing.RootCertificates
 		}
 
-		// Override status with spec values when user explicitly configures them
-		// (applies to both active and readonly logs)
-		if specLog.LogId != nil {
-			logStatus.LogId = specLog.LogId
-		}
-		if len(specLog.RootCerts) > 0 {
-			logStatus.RootCertificates = specLog.RootCerts
-		}
-		if specLog.Signer != nil {
-			logStatus.SignerType = specLog.Signer.Type
-			// Only override key refs if explicitly provided in spec
-			if specLog.Signer.File != nil {
-				if specLog.Signer.File.PrivateKeyRef != nil {
-					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
-				}
-				if specLog.Signer.File.PublicKeyRef != nil {
-					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
-				}
-			}
-			if specLog.Signer.PKCS11 != nil {
-				if specLog.Signer.PKCS11.PublicKeyRef != nil {
-					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
-				}
-				if specLog.Signer.PKCS11.PinSecretRef != nil {
-					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
-				}
-				if specLog.Signer.PKCS11.TokenLabel != "" {
-					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
-				}
-			}
-		}
-
 		if specLog.Active != nil && *specLog.Active {
 			logStatus.Active = true
+		} else {
+			if specLog.LogId != nil {
+				logStatus.LogId = specLog.LogId
+			}
+			if len(specLog.RootCerts) > 0 {
+				logStatus.RootCertificates = specLog.RootCerts
+			}
+			if specLog.Signer != nil {
+				if specLog.Signer.File != nil {
+					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
+					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+				}
+				if specLog.Signer.PKCS11 != nil {
+					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
+				}
+			}
 		}
 
 		logs = append(logs, logStatus)

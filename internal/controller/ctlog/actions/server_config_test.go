@@ -148,10 +148,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LogId:      ptr.To(int64(111111)),
-							Prefix:     "shard-111111",
-							Readonly:   ptr.To(true),
-							SignerType: "file",
+							LogId:  ptr.To(int64(111111)),
+							Prefix: "shard-111111",
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
@@ -218,10 +216,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LogId:      ptr.To(int64(222222)),
-							Prefix:     "shard-222222",
-							Readonly:   ptr.To(true),
-							SignerType: "file",
+							LogId:  ptr.To(int64(222222)),
+							Prefix: "shard-222222",
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
@@ -286,10 +282,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LogId:      ptr.To(int64(333333)),
-							Prefix:     "shard-333333",
-							Readonly:   ptr.To(true),
-							SignerType: "file",
+							LogId:  ptr.To(int64(333333)),
+							Prefix: "shard-333333",
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
@@ -301,8 +295,6 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 							RootCertificates: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 							},
-							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
-							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
 						},
 					},
 				},
@@ -396,10 +388,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 			Status: rhtasv1.CTlogStatus{
 				Logs: []rhtasv1.CTlogLogStatus{
 					{
-						Active:     true,
-						LogId:      ptr.To(int64(123456)),
-						Prefix:     "trusted-artifact-signer",
-						SignerType: "file",
+						Active: true,
+						LogId:  ptr.To(int64(123456)),
+						Prefix: "trusted-artifact-signer",
 						PrivateKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private",
 						},
@@ -438,14 +429,8 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 		}
 	}
 
-	defaultAnnotations := func() map[string]string {
-		a := serverConfig{}
-		inst := newBaseInstance()
-		return a.configMatchingAnnotations(&inst, "trillian-logserver.default.svc:80")
-	}
-
-	newConfigSecret := func(name, namespace string, annotations map[string]string) *v1.Secret {
-		cfg, _ := ctlogUtils.CreateConfig(
+	newConfigSecret := func(name, namespace string) *v1.Secret {
+		cfg, hash, _ := ctlogUtils.CreateConfig(
 			"trillian-logserver.default.svc:80",
 			[]ctlogUtils.ShardConfig{
 				{
@@ -457,6 +442,9 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				},
 			},
 		)
+
+		a := serverConfig{}
+		annotations := a.configMatchingAnnotations("trillian-logserver.default.svc:80", hash)
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Annotations: annotations},
 			Data:       cfg,
@@ -500,10 +488,8 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					},
 				})
 				inst.Status.Logs = append(inst.Status.Logs, rhtasv1.CTlogLogStatus{
-					LogId:      ptr.To(int64(444444)),
-					Prefix:     "shard-444444",
-					Readonly:   ptr.To(true),
-					SignerType: "file",
+					LogId:  ptr.To(int64(444444)),
+					Prefix: "shard-444444",
 					PublicKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 						Key:                  "public",
@@ -524,7 +510,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
 							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 						},
-						newConfigSecret("old-config", "default", defaultAnnotations()),
+						newConfigSecret("old-config", "default"),
 					},
 				}
 			}(),
@@ -557,7 +543,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					instance: inst,
 					objects: []client.Object{
 						newKeySecret("default"),
-						newConfigSecret("old-config", "default", defaultAnnotations()),
+						newConfigSecret("old-config", "default"),
 					},
 				}
 			}(),
@@ -617,10 +603,8 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				)
 				inst.Status.Logs = append(inst.Status.Logs,
 					rhtasv1.CTlogLogStatus{
-						LogId:      ptr.To(int64(555555)),
-						Prefix:     "shard-555555",
-						Readonly:   ptr.To(true),
-						SignerType: "file",
+						LogId:  ptr.To(int64(555555)),
+						Prefix: "shard-555555",
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
 							Key:                  "public",
@@ -630,10 +614,8 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						},
 					},
 					rhtasv1.CTlogLogStatus{
-						LogId:      ptr.To(int64(666666)),
-						Prefix:     "shard-666666",
-						Readonly:   ptr.To(true),
-						SignerType: "file",
+						LogId:  ptr.To(int64(666666)),
+						Prefix: "shard-666666",
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
 							Key:                  "public",
@@ -655,7 +637,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{Name: "shard2-keys", Namespace: "default"},
 							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 						},
-						newConfigSecret("old-config", "default", defaultAnnotations()),
+						newConfigSecret("old-config", "default"),
 					},
 				}
 			}(),
@@ -750,15 +732,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					Status: rhtasv1.CTlogStatus{
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:           true,
-								LogId:            ptr.To(int64(123456)),
-								Prefix:           "trusted-artifact-signer",
-								SignerType:       rhtasv1.SignerTypePKCS11,
-								PKCS11TokenLabel: "test-token",
-								PinSecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
-									Key:                  "pin",
-								},
+								Active: true,
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
@@ -825,12 +801,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					Status: rhtasv1.CTlogStatus{
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:           true,
-								LogId:            ptr.To(int64(123456)),
-								Prefix:           "trusted-artifact-signer",
-								SignerType:       rhtasv1.SignerTypePKCS11,
-								PKCS11TokenLabel: "test-token",
-								PinSecretRef:     nil,
+								Active: true,
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
@@ -885,15 +858,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					Status: rhtasv1.CTlogStatus{
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:           true,
-								LogId:            ptr.To(int64(123456)),
-								Prefix:           "trusted-artifact-signer",
-								SignerType:       rhtasv1.SignerTypePKCS11,
-								PKCS11TokenLabel: "test-token",
-								PinSecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
-									Key:                  "pin",
-								},
+								Active:       true,
+								LogId:        ptr.To(int64(123456)),
+								Prefix:       "trusted-artifact-signer",
 								PublicKeyRef: nil,
 								RootCertificates: []rhtasv1.SecretKeySelector{
 									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
@@ -945,15 +912,9 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					Status: rhtasv1.CTlogStatus{
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:           true,
-								LogId:            ptr.To(int64(123456)),
-								Prefix:           "trusted-artifact-signer",
-								SignerType:       rhtasv1.SignerTypePKCS11,
-								PKCS11TokenLabel: "test-token",
-								PinSecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
-									Key:                  "pin",
-								},
+								Active: true,
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
@@ -1002,14 +963,18 @@ func TestServerConfig_PKCS11(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
+
+			i := tt.env.instance.DeepCopy()
+			i.Spec.SetDefaults()
+
 			c := testAction.FakeClientBuilder().
-				WithObjects(&tt.env.instance).
-				WithStatusSubresource(&tt.env.instance).
+				WithObjects(i).
+				WithStatusSubresource(i).
 				WithObjects(tt.env.objects...).
 				Build()
 
 			a := testAction.PrepareAction(c, NewServerConfigAction())
-			result := a.Handle(ctx, &tt.env.instance)
+			result := a.Handle(ctx, i)
 
 			if tt.want.result != nil {
 				if !reflect.DeepEqual(result, tt.want.result) {
@@ -1019,7 +984,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
 			}
 			if tt.want.verify != nil {
-				tt.want.verify(ctx, g, c, &tt.env.instance)
+				tt.want.verify(ctx, g, c, i)
 			}
 		})
 	}
@@ -1085,10 +1050,9 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 					Status: rhtasv1.CTlogStatus{
 						Logs: []rhtasv1.CTlogLogStatus{
 							{
-								Active:     true,
-								Prefix:     "trusted-artifact-signer",
-								SignerType: "file",
-								LogId:      nil,
+								Active: true,
+								Prefix: "trusted-artifact-signer",
+								LogId:  nil,
 							},
 						},
 						Conditions: []metav1.Condition{

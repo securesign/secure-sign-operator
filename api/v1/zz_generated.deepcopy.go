@@ -366,33 +366,10 @@ func (in *CTlogLogStatus) DeepCopyInto(out *CTlogLogStatus) {
 		*out = new(SecretKeySelector)
 		**out = **in
 	}
-	if in.PinSecretRef != nil {
-		in, out := &in.PinSecretRef, &out.PinSecretRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
 	if in.RootCertificates != nil {
 		in, out := &in.RootCertificates, &out.RootCertificates
 		*out = make([]SecretKeySelector, len(*in))
 		copy(*out, *in)
-	}
-	if in.Readonly != nil {
-		in, out := &in.Readonly, &out.Readonly
-		*out = new(bool)
-		**out = **in
-	}
-	if in.NotAfterStart != nil {
-		in, out := &in.NotAfterStart, &out.NotAfterStart
-		*out = (*in).DeepCopy()
-	}
-	if in.NotAfterLimit != nil {
-		in, out := &in.NotAfterLimit, &out.NotAfterLimit
-		*out = (*in).DeepCopy()
-	}
-	if in.FrozenSTH != nil {
-		in, out := &in.FrozenSTH, &out.FrozenSTH
-		*out = new(CTLogFrozenSTH)
-		(*in).DeepCopyInto(*out)
 	}
 }
 

@@ -13,6 +13,15 @@ func ActiveLog(logs []rhtasv1.CTLogConfig) *rhtasv1.CTLogConfig {
 	return nil
 }
 
+func GetLog(name string, logs []rhtasv1.CTLogConfig) *rhtasv1.CTLogConfig {
+	for i, v := range logs {
+		if v.Prefix == name {
+			return &logs[i]
+		}
+	}
+	return nil
+}
+
 // ActiveLogPrefix returns the Prefix of the active log, or empty string if
 // there is no active log.
 func ActiveLogPrefix(logs []rhtasv1.CTLogConfig) string {

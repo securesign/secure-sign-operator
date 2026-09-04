@@ -96,7 +96,6 @@ func TestAlignStatusLogs_ActiveLog(t *testing.T) {
 	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("keys"))
 	g.Expect(instance.Status.Logs[0].PublicKey).To(ContainSubstring("PUBLIC KEY"))
 	g.Expect(instance.Status.Logs[0].RootCertificates).To(HaveLen(1))
-	g.Expect(instance.Status.Logs[0].Readonly).To(BeNil())
 }
 
 func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
@@ -174,7 +173,6 @@ func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
 	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
 	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
 	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].Readonly).To(BeNil())
 
 	// Readonly shard
 	g.Expect(instance.Status.Logs[1].Prefix).To(Equal("shard-2024"))
@@ -183,7 +181,72 @@ func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
 	g.Expect(instance.Status.Logs[1].PublicKeyRef.Name).To(Equal("shard-keys"))
 	g.Expect(instance.Status.Logs[1].RootCertificates).To(HaveLen(1))
 	g.Expect(instance.Status.Logs[1].RootCertificates[0].Name).To(Equal("shard-root"))
-	g.Expect(instance.Status.Logs[1].Readonly).To(Equal(ptr.To(true)))
+}
+
+func TestAlignStatusLogs_SpecOverride(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	instance := &rhtasv1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+								Key:                  "new-key",
+							},
+						},
+					},
+					LogId: ptr.To(int64(54321)),
+				},
+			},
+		},
+		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(12345)),
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "private",
+					},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "public",
+					},
+					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+					},
+				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
+	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(54321))))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys-new"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("keys"))
+	g.Expect(instance.Status.Logs[0].PublicKey).To(ContainSubstring("PUBLIC KEY"))
+	g.Expect(instance.Status.Logs[0].RootCertificates).To(HaveLen(1))
 }
 
 func TestAlignStatusLogs_NoChangeSkips(t *testing.T) {
