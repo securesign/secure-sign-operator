@@ -57,18 +57,23 @@ func TestAlignStatusLogs_ActiveLog(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
-			TreeID: ptr.To(int64(12345)),
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-				Key:                  "private",
-			},
-			PublicKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-				Key:                  "public",
-			},
-			PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-			RootCertificates: []rhtasv1.SecretKeySelector{
-				{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(12345)),
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "private",
+					},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "public",
+					},
+					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+					},
+				},
 			},
 			Conditions: []metav1.Condition{
 				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
@@ -131,18 +136,23 @@ func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
-			TreeID: ptr.To(int64(12345)),
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-				Key:                  "private",
-			},
-			PublicKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-				Key:                  "public",
-			},
-			PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-			RootCertificates: []rhtasv1.SecretKeySelector{
-				{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(12345)),
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "private",
+					},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "public",
+					},
+					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+					},
+				},
 			},
 			Conditions: []metav1.Condition{
 				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
@@ -191,7 +201,6 @@ func TestAlignStatusLogs_NoChangeSkips(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
-			TreeID: ptr.To(int64(12345)),
 			Logs: []rhtasv1.CTlogLogStatus{
 				{
 					Prefix: "trusted-artifact-signer",

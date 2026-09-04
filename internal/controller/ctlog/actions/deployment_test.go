@@ -41,7 +41,12 @@ func createCTLogInstance() *rhtasv1.CTlog {
 		},
 		Status: rhtasv1.CTlogStatus{
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
-			TreeID:          ptr.To(int64(123456)),
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(123456)),
+				},
+			},
 		},
 	}
 }

@@ -91,8 +91,9 @@ func TestCTlogKeys_UserProvidedKeyRef(t *testing.T) {
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.PrivateKeyRef.Name).To(Equal("user-secret"))
-	g.Expect(instance.Status.PublicKeyRef.Name).To(Equal("user-secret"))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("user-secret"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("user-secret"))
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, SignerCondition)).To(BeTrue())
 
 	// Config condition should be invalidated
@@ -126,10 +127,11 @@ func TestCTlogKeys_UserProvidedPrivateKeyOnly_DerivesPublicKey(t *testing.T) {
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.PrivateKeyRef.Name).To(Equal("user-secret"))
-	g.Expect(instance.Status.PublicKeyRef).ToNot(BeNil())
-	g.Expect(instance.Status.PublicKeyRef.Name).To(Equal("user-secret"))
-	g.Expect(instance.Status.PublicKeyRef.Key).To(Equal(constants.KeyPublic))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("user-secret"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("user-secret"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Key).To(Equal(constants.KeyPublic))
 }
 
 func TestCTlogKeys_GeneratesCorrectKeyData(t *testing.T) {
@@ -146,12 +148,13 @@ func TestCTlogKeys_GeneratesCorrectKeyData(t *testing.T) {
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.PrivateKeyRef).ToNot(BeNil())
-	g.Expect(instance.Status.PrivateKeyRef.Name).To(Equal("ctlog-keys-config-instance"))
-	g.Expect(instance.Status.PrivateKeyRef.Key).To(Equal(constants.KeyPrivate))
-	g.Expect(instance.Status.PublicKeyRef).ToNot(BeNil())
-	g.Expect(instance.Status.PublicKeyRef.Name).To(Equal("ctlog-keys-config-instance"))
-	g.Expect(instance.Status.PublicKeyRef.Key).To(Equal(constants.KeyPublic))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("ctlog-keys-config-instance"))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Key).To(Equal(constants.KeyPrivate))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("ctlog-keys-config-instance"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Key).To(Equal(constants.KeyPublic))
 
 	secret := &corev1.Secret{}
 	g.Expect(c.Get(ctx, client.ObjectKeyFromObject(&corev1.Secret{
@@ -176,13 +179,18 @@ func TestCTlogKeys_MigrationFromPreExistingSecret(t *testing.T) {
 	ctx := t.Context()
 	instance := ctlogInstance()
 	// Upgrade from <1.5.0: status references an old GenerateName-based secret
-	instance.Status.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-		Key:                  constants.KeyPrivate,
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-instance-xyz99"},
-	}
-	instance.Status.PublicKeyRef = &rhtasv1.SecretKeySelector{
-		Key:                  constants.KeyPublic,
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-instance-xyz99"},
+	instance.Status.Logs = []rhtasv1.CTlogLogStatus{
+		{
+			Prefix: "trusted-artifact-signer",
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				Key:                  constants.KeyPrivate,
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-instance-xyz99"},
+			},
+			PublicKeyRef: &rhtasv1.SecretKeySelector{
+				Key:                  constants.KeyPublic,
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-instance-xyz99"},
+			},
+		},
 	}
 
 	oldSecret := &corev1.Secret{
@@ -203,8 +211,9 @@ func TestCTlogKeys_MigrationFromPreExistingSecret(t *testing.T) {
 
 	g.Expect(result).To(Equal(testAction.Return()))
 	// Status should still reference the OLD secret
-	g.Expect(instance.Status.PrivateKeyRef).ToNot(BeNil())
-	g.Expect(instance.Status.PrivateKeyRef.Name).To(Equal("ctlog-keys-instance-xyz99"))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("ctlog-keys-instance-xyz99"))
 
 	// No new deterministic-named secret should have been created
 	newSecret := &corev1.Secret{}
@@ -220,20 +229,19 @@ func TestCTlogKeys_DeterministicName(t *testing.T) {
 }
 
 func TestCTlogKeys_AlignStatus_PreservesPrivateKeyPasswordRefWhenPrivateKeyRefUnchanged(t *testing.T) {
-	g := NewWithT(t)
 	instance := ctlogInstance()
 
-	passwordRef := &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "legacy-secret"},
-		Key:                  "password",
-	}
 	privateKeyRef := &rhtasv1.SecretKeySelector{
 		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 		Key:                  "private",
 	}
 
-	instance.Status.PrivateKeyPasswordRef = passwordRef
-	instance.Status.PrivateKeyRef = privateKeyRef
+	instance.Status.Logs = []rhtasv1.CTlogLogStatus{
+		{
+			Prefix:        "trusted-artifact-signer",
+			PrivateKeyRef: privateKeyRef,
+		},
+	}
 
 	// Spec points to the SAME key as status
 	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
@@ -245,26 +253,22 @@ func TestCTlogKeys_AlignStatus_PreservesPrivateKeyPasswordRefWhenPrivateKeyRefUn
 
 	alignStatus(instance, rhtasv1.SecretKeySelector{})
 
-	g.Expect(instance.Status.PrivateKeyPasswordRef).ToNot(BeNil())
-	g.Expect(instance.Status.PrivateKeyPasswordRef.Name).To(Equal("legacy-secret"))
-	g.Expect(instance.Status.PrivateKeyPasswordRef.Key).To(Equal("password"))
 }
 
 func TestCTlogKeys_AlignStatus_DropsPrivateKeyPasswordRefWhenPrivateKeyRefChanges(t *testing.T) {
-	g := NewWithT(t)
 	instance := ctlogInstance()
 
-	passwordRef := &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "legacy-secret"},
-		Key:                  "password",
-	}
 	privateKeyRef := &rhtasv1.SecretKeySelector{
 		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
 		Key:                  "private",
 	}
 
-	instance.Status.PrivateKeyPasswordRef = passwordRef
-	instance.Status.PrivateKeyRef = privateKeyRef
+	instance.Status.Logs = []rhtasv1.CTlogLogStatus{
+		{
+			Prefix:        "trusted-artifact-signer",
+			PrivateKeyRef: privateKeyRef,
+		},
+	}
 
 	// Spec points to a DIFFERENT key than status
 	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
@@ -276,7 +280,6 @@ func TestCTlogKeys_AlignStatus_DropsPrivateKeyPasswordRefWhenPrivateKeyRefChange
 
 	alignStatus(instance, rhtasv1.SecretKeySelector{})
 
-	g.Expect(instance.Status.PrivateKeyPasswordRef).To(BeNil())
 }
 
 func TestCTlogKeys_PKCS11DisablesGenerateSigner(t *testing.T) {

@@ -95,8 +95,13 @@ func TestCTlogResolvePubKey_Handle(t *testing.T) {
 			instance := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Status: rhtasv1.CTlogStatus{
-					PublicKeyRef: tt.publicKeyRef,
-					PublicKey:    tt.publicKey,
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix:       "trusted-artifact-signer",
+							PublicKeyRef: tt.publicKeyRef,
+							PublicKey:    tt.publicKey,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},
 					},
@@ -119,7 +124,8 @@ func TestCTlogResolvePubKey_Handle(t *testing.T) {
 			got := a.Handle(ctx, instance)
 
 			g.Expect(got).To(Equal(tt.want.result))
-			g.Expect(instance.Status.PublicKey).To(Equal(tt.want.publicKey))
+			g.Expect(instance.Status.Logs).To(HaveLen(1))
+			g.Expect(instance.Status.Logs[0].PublicKey).To(Equal(tt.want.publicKey))
 		})
 	}
 }
@@ -132,9 +138,14 @@ func TestCTlogResolvePubKey_Handle_SecretReadError(t *testing.T) {
 	instance := &rhtasv1.CTlog{
 		ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 		Status: rhtasv1.CTlogStatus{
-			PublicKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "nonexistent"},
-				Key:                  "public",
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "nonexistent"},
+						Key:                  "public",
+					},
+				},
 			},
 			Conditions: []metav1.Condition{
 				{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},
@@ -151,5 +162,6 @@ func TestCTlogResolvePubKey_Handle_SecretReadError(t *testing.T) {
 
 	g.Expect(got).ToNot(BeNil())
 	g.Expect(got.Result.RequeueAfter).To(Equal(5 * time.Second))
-	g.Expect(instance.Status.PublicKey).To(BeEmpty())
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PublicKey).To(BeEmpty())
 }

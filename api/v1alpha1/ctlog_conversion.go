@@ -20,6 +20,35 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out
 			return err
 		}
 	}
+	// Derive deprecated status fields from the active log in Status.Logs
+	for _, log := range in.Logs {
+		if log.Prefix == v1alpha1Prefix {
+			if log.LogId != nil {
+				out.TreeID = log.LogId
+			}
+			if log.PrivateKeyRef != nil {
+				out.PrivateKeyRef = &SecretKeySelector{}
+				if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(log.PrivateKeyRef, out.PrivateKeyRef, s); err != nil {
+					return err
+				}
+			}
+			if log.PublicKeyRef != nil {
+				out.PublicKeyRef = &SecretKeySelector{}
+				if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(log.PublicKeyRef, out.PublicKeyRef, s); err != nil {
+					return err
+				}
+			}
+			if len(log.RootCertificates) > 0 {
+				out.RootCertificates = make([]SecretKeySelector, len(log.RootCertificates))
+				for i, root := range log.RootCertificates {
+					if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(&root, &out.RootCertificates[i], s); err != nil {
+						return err
+					}
+				}
+			}
+			break
+		}
+	}
 	return nil
 }
 

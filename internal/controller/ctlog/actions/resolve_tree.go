@@ -16,7 +16,10 @@ func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 			return nil
 		},
 		func(ctlog *rhtasv1.CTlog) *int64 {
-			return ctlog.Status.TreeID
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				return active.LogId
+			}
+			return nil
 		},
 		func(ctlog *rhtasv1.CTlog, i *int64) {
 			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {

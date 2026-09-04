@@ -237,13 +237,6 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 				}
 				sc.PrivateKey = privateKey
 			}
-			if log.PrivateKeyPasswordRef != nil {
-				password, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PrivateKeyPasswordRef)
-				if err != nil {
-					return nil, fmt.Errorf("log %q privateKeyPasswordRef: %w", log.Prefix, err)
-				}
-				sc.PrivateKeyPassword = password
-			}
 		}
 
 		if log.FrozenSTH != nil {
@@ -353,9 +346,6 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillia
 		}
 		if log.PrivateKeyRef != nil {
 			_, _ = fmt.Fprintf(h, "privateKeyRef:%s/%s\n", log.PrivateKeyRef.Name, log.PrivateKeyRef.Key)
-		}
-		if log.PrivateKeyPasswordRef != nil {
-			_, _ = fmt.Fprintf(h, "privateKeyPasswordRef:%s/%s\n", log.PrivateKeyPasswordRef.Name, log.PrivateKeyPasswordRef.Key)
 		}
 		if log.PinSecretRef != nil {
 			_, _ = fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.PinSecretRef.Name, log.PinSecretRef.Key)

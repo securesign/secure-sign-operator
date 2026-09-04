@@ -104,10 +104,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
+		activeLog := ctlogutils.ActiveLogStatus(instance.Status.Logs)
 		switch {
 		case instance.Status.ServerConfigRef == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrServerConfigNotSpecified)
-		case instance.Status.TreeID == nil:
+		case activeLog == nil || activeLog.LogId == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTreeNotSpecified)
 		}
 

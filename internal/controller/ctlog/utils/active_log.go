@@ -21,3 +21,14 @@ func ActiveLogPrefix(logs []rhtasv1.CTLogConfig) string {
 	}
 	return ""
 }
+
+// ActiveLogStatus returns a pointer to the active log entry from the Status.Logs slice,
+// or nil if no log has Active set to true.
+func ActiveLogStatus(logs []rhtasv1.CTlogLogStatus) *rhtasv1.CTlogLogStatus {
+	for i := range logs {
+		if logs[i].Active {
+			return &logs[i]
+		}
+	}
+	return nil
+}

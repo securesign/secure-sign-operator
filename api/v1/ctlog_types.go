@@ -212,8 +212,6 @@ type CTlogLogStatus struct {
 	SignerType string `json:"signerType,omitempty"`
 	// PrivateKeyRef points to the secret containing the private key.
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
-	// PrivateKeyPasswordRef points to the secret containing the private key password (if encrypted).
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 	// PublicKeyRef points to the secret containing the public key.
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
 	// PublicKey is the PEM-encoded public key.
@@ -248,23 +246,6 @@ type CTlogStatus struct {
 	// +patchMergeKey=prefix
 	// +optional
 	Logs []CTlogLogStatus `json:"logs,omitempty"`
-
-	// Deprecated: Use logs[0].PrivateKeyRef instead
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
-	// Deprecated: Use logs[0].PrivateKeyPasswordRef instead
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
-	// Deprecated: Use logs[0].PublicKeyRef instead
-	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
-	// Deprecated: Use logs[0].RootCertificates instead
-	// +listType=atomic
-	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
-	// PEM-encoded public key resolved from the CTlog signer secret.
-	// Deprecated: Use logs[0].PublicKey instead
-	// +optional
-	PublicKey string `json:"publicKey,omitempty"`
-	// The ID of a Trillian tree that stores the log data.
-	// Deprecated: Use logs[0].LogId instead
-	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`

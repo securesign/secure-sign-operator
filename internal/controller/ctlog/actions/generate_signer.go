@@ -11,7 +11,6 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +56,11 @@ func resolveRef(ctx context.Context, instance *rhtasv1.CTlog, c client.Client) (
 		}
 		return ref, nil
 	}
-	return generateSigner.ResolveStatusSecret(ctx, c, instance.Status.PrivateKeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
+	if activeLogStatus == nil || activeLogStatus.PrivateKeyRef == nil {
+		return nil, fmt.Errorf("no active log with PrivateKeyRef")
+	}
+	return generateSigner.ResolveStatusSecret(ctx, c, activeLogStatus.PrivateKeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }
 
 func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[string][]byte, error) {
@@ -89,9 +92,6 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 		return
 	}
 
-	oldPasswordRef := activeLogStatus.PrivateKeyPasswordRef
-	oldPrivateKeyRef := activeLogStatus.PrivateKeyRef
-
 	var file *rhtasv1.CTlogFile
 	if activeLog.Signer != nil {
 		file = activeLog.Signer.File
@@ -117,13 +117,6 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 			Key:                  constants.KeyPublic,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
-	}
-
-	if oldPasswordRef != nil &&
-		equality.Semantic.DeepEqual(activeLogStatus.PrivateKeyRef, oldPrivateKeyRef) {
-		activeLogStatus.PrivateKeyPasswordRef = oldPasswordRef
-	} else {
-		activeLogStatus.PrivateKeyPasswordRef = nil
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

@@ -48,22 +48,24 @@ func (g handleFulcioCert) Name() string {
 func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.ReadyCondition)
 	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
 	switch {
 	case c == nil:
 		return false
 	case state.FromReason(c.Reason) < state.Creating:
 		return false
-	case len(instance.Status.RootCertificates) == 0: //nolint:staticcheck
+	case activeLogStatus == nil || len(activeLogStatus.RootCertificates) == 0:
 		return true
 	case activeLog == nil || len(activeLog.RootCerts) == 0:
 		return true
 	default:
-		return !equality.Semantic.DeepDerivative(activeLog.RootCerts, instance.Status.RootCertificates) //nolint:staticcheck
+		return !equality.Semantic.DeepDerivative(activeLog.RootCerts, activeLogStatus.RootCertificates)
 	}
 }
 
 func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	previouslyResolved := len(instance.Status.RootCertificates) > 0 //nolint:staticcheck
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
+	previouslyResolved := activeLogStatus != nil && len(activeLogStatus.RootCertificates) > 0
 
 	if !previouslyResolved && state.FromInstance(instance, constants.ReadyCondition) != state.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -99,7 +101,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 
 		if previouslyResolved {
-			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &instance.Status.RootCertificates[0]) //nolint:staticcheck
+			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &activeLogStatus.RootCertificates[0])
 			if readErr == nil && bytes.Equal(existing, signingCert) {
 				return g.Continue()
 			}
@@ -131,9 +133,13 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		} else {
 			g.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "FulcioCertDiscovered", "Discovered", "Fulcio root certificate resolved from Fulcio CR status")
 		}
-		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks} //nolint:staticcheck
+		if activeLogStatus != nil {
+			activeLogStatus.RootCertificates = []rhtasv1.SecretKeySelector{sks}
+		}
 	} else {
-		instance.Status.RootCertificates = activeLog.RootCerts //nolint:staticcheck
+		if activeLogStatus != nil {
+			activeLogStatus.RootCertificates = activeLog.RootCerts
+		}
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

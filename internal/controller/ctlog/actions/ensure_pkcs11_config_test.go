@@ -270,10 +270,11 @@ func TestHandle_SetsPublicKeyRef(t *testing.T) {
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
 
-	// Status.PublicKeyRef should point to the spec's PublicKeyRef.
-	g.Expect(instance.Status.PublicKeyRef).ToNot(BeNil())
-	g.Expect(instance.Status.PublicKeyRef.Name).To(Equal("hsm-pubkey"))
-	g.Expect(instance.Status.PublicKeyRef.Key).To(Equal("public"))
+	// Status.Logs[0].PublicKeyRef should point to the spec's PublicKeyRef.
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("hsm-pubkey"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Key).To(Equal("public"))
 }
 
 func TestHandle_ConfigConditionInvalidated(t *testing.T) {

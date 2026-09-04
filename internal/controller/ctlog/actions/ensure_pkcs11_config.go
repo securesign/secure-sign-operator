@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -72,7 +73,10 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 		}
 
 		if log.Active != nil && *log.Active {
-			instance.Status.PublicKeyRef = p.PublicKeyRef.DeepCopy() //nolint:staticcheck // populates deprecated top-level field for backward compat
+			activeLog := utils.ActiveLogStatus(instance.Status.Logs)
+			if activeLog != nil {
+				activeLog.PublicKeyRef = p.PublicKeyRef.DeepCopy()
+			}
 		}
 	}
 

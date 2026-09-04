@@ -361,11 +361,6 @@ func (in *CTlogLogStatus) DeepCopyInto(out *CTlogLogStatus) {
 		*out = new(SecretKeySelector)
 		**out = **in
 	}
-	if in.PrivateKeyPasswordRef != nil {
-		in, out := &in.PrivateKeyPasswordRef, &out.PrivateKeyPasswordRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
 	if in.PublicKeyRef != nil {
 		in, out := &in.PublicKeyRef, &out.PublicKeyRef
 		*out = new(SecretKeySelector)
@@ -520,31 +515,6 @@ func (in *CTlogStatus) DeepCopyInto(out *CTlogStatus) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
-	}
-	if in.PrivateKeyRef != nil {
-		in, out := &in.PrivateKeyRef, &out.PrivateKeyRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
-	if in.PrivateKeyPasswordRef != nil {
-		in, out := &in.PrivateKeyPasswordRef, &out.PrivateKeyPasswordRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
-	if in.PublicKeyRef != nil {
-		in, out := &in.PublicKeyRef, &out.PublicKeyRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
-	if in.RootCertificates != nil {
-		in, out := &in.RootCertificates, &out.RootCertificates
-		*out = make([]SecretKeySelector, len(*in))
-		copy(*out, *in)
-	}
-	if in.TreeID != nil {
-		in, out := &in.TreeID, &out.TreeID
-		*out = new(int64)
-		**out = **in
 	}
 	in.TLS.DeepCopyInto(&out.TLS)
 	if in.Conditions != nil {
