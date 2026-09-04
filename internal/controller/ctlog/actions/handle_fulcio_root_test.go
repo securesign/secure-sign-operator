@@ -79,7 +79,8 @@ func TestCertCan_Handle(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							Prefix: "trusted-artifact-signer",
+							Prefix: "test-log",
+							Active: true,
 							RootCertificates: []rhtasv1.SecretKeySelector{
 								{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fake"},
@@ -132,7 +133,8 @@ func TestCertCan_Handle(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							Prefix: "trusted-artifact-signer",
+							Prefix: "test-log",
+							Active: true,
 							RootCertificates: []rhtasv1.SecretKeySelector{
 								{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fake"},
@@ -158,7 +160,8 @@ func TestCertCan_Handle(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							Prefix: "trusted-artifact-signer",
+							Prefix: "test-log",
+							Active: true,
 							RootCertificates: []rhtasv1.SecretKeySelector{
 								{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-fulcio-root-instance"},
@@ -199,6 +202,7 @@ func TestCertCan_Handle(t *testing.T) {
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
 							Prefix: "test-log",
+							Active: true,
 							RootCertificates: []rhtasv1.SecretKeySelector{
 								{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
@@ -272,6 +276,12 @@ func TestCert_Handle(t *testing.T) {
 			env: env{
 				certificates: nil,
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -303,6 +313,12 @@ func TestCert_Handle(t *testing.T) {
 			env: env{
 				certificates: nil,
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -351,6 +367,12 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -392,6 +414,12 @@ func TestCert_Handle(t *testing.T) {
 					readyFulcio(),
 				},
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -439,6 +467,12 @@ func TestCert_Handle(t *testing.T) {
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -518,7 +552,8 @@ func TestCert_Handle(t *testing.T) {
 				status: rhtasv1.CTlogStatus{
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							Prefix: "trusted-artifact-signer",
+							Prefix: "test-log",
+							Active: true,
 							RootCertificates: []rhtasv1.SecretKeySelector{
 								{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},

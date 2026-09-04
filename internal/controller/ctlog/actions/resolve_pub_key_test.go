@@ -98,6 +98,7 @@ func TestCTlogResolvePubKey_Handle(t *testing.T) {
 					Logs: []rhtasv1.CTlogLogStatus{
 						{
 							Prefix:       "trusted-artifact-signer",
+							Active:       true,
 							PublicKeyRef: tt.publicKeyRef,
 							PublicKey:    tt.publicKey,
 						},
@@ -141,6 +142,7 @@ func TestCTlogResolvePubKey_Handle_SecretReadError(t *testing.T) {
 			Logs: []rhtasv1.CTlogLogStatus{
 				{
 					Prefix: "trusted-artifact-signer",
+					Active: true,
 					PublicKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "nonexistent"},
 						Key:                  "public",

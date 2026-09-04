@@ -58,7 +58,7 @@ func resolveRef(ctx context.Context, instance *rhtasv1.CTlog, c client.Client) (
 	}
 	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
 	if activeLogStatus == nil || activeLogStatus.PrivateKeyRef == nil {
-		return nil, fmt.Errorf("no active log with PrivateKeyRef")
+		return nil, nil
 	}
 	return generateSigner.ResolveStatusSecret(ctx, c, activeLogStatus.PrivateKeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }

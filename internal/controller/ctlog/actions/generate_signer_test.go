@@ -50,6 +50,7 @@ func ctlogInstance() *rhtasv1.CTlog {
 				{
 					Prefix: "test-log",
 					Active: true,
+					LogId:  ptr.To(int64(123456)),
 				},
 			},
 			Conditions: []metav1.Condition{
@@ -187,7 +188,9 @@ func TestCTlogKeys_MigrationFromPreExistingSecret(t *testing.T) {
 	// Upgrade from <1.5.0: status references an old GenerateName-based secret
 	instance.Status.Logs = []rhtasv1.CTlogLogStatus{
 		{
-			Prefix: "trusted-artifact-signer",
+			Prefix: "test-log",
+			Active: true,
+			LogId:  ptr.To(int64(123456)),
 			PrivateKeyRef: &rhtasv1.SecretKeySelector{
 				Key:                  constants.KeyPrivate,
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-instance-xyz99"},
