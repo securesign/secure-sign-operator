@@ -86,7 +86,16 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		It("Get current ctlog tree information", func(ctx SpecContext) {
 			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(c).ToNot(BeNil())
-			oldTreeId = c.Status.TreeID
+			// Get LogId from active log in Status.Logs
+			var activeLog *rhtasv1.CTlogLogStatus
+			for i := range c.Status.Logs {
+				if c.Status.Logs[i].Active {
+					activeLog = &c.Status.Logs[i]
+					break
+				}
+			}
+			Expect(activeLog).ToNot(BeNil())
+			oldTreeId = activeLog.LogId
 			Expect(oldTreeId).ToNot(BeNil())
 
 			var err error
@@ -316,7 +325,15 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			Eventually(func(g Gomega) bool {
 				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(c).ToNot(BeNil())
-				return c.Status.TreeID != nil && *c.Status.TreeID == newTreeId && condition.IsReady(c)
+				// Get LogId from active log in Status.Logs
+				var activeLog *rhtasv1.CTlogLogStatus
+				for i := range c.Status.Logs {
+					if c.Status.Logs[i].Active {
+						activeLog = &c.Status.Logs[i]
+						break
+					}
+				}
+				return activeLog != nil && activeLog.LogId != nil && *activeLog.LogId == newTreeId && condition.IsReady(c)
 			}, time.Duration(5)*time.Minute).Should(BeTrue())
 		})
 

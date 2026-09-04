@@ -274,7 +274,16 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		It("Update ctlog keys", func(ctx SpecContext) {
 			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(c).ToNot(BeNil())
-			oldTreeId := c.Status.TreeID
+			// Get LogId from active log in Status.Logs
+			var activeLog *rhtasv1.CTlogLogStatus
+			for i := range c.Status.Logs {
+				if c.Status.Logs[i].Active {
+					activeLog = &c.Status.Logs[i]
+					break
+				}
+			}
+			Expect(activeLog).ToNot(BeNil())
+			oldTreeId := activeLog.LogId
 			Expect(oldTreeId).ToNot(BeNil())
 
 			oldConfig, err := ctlog.GetConfigSecret(ctx, cli, s.Namespace, c.Status.ServerConfigRef.Name)

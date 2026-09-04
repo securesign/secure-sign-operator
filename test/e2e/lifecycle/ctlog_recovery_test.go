@@ -273,7 +273,16 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			// and the CR itself was not deleted during this recovery scenario
 			c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 			Expect(c).NotTo(BeNil())
-			Expect(c.Status.TreeID).NotTo(BeNil(), "TreeID should remain stable across secret recreation")
+			// Get LogId from active log in Status.Logs
+			var activeLog *rhtasv1.CTlogLogStatus
+			for i := range c.Status.Logs {
+				if c.Status.Logs[i].Active {
+					activeLog = &c.Status.Logs[i]
+					break
+				}
+			}
+			Expect(activeLog).NotTo(BeNil())
+			Expect(activeLog.LogId).NotTo(BeNil(), "LogId should remain stable across secret recreation")
 		})
 
 		AfterAll(func(ctx SpecContext) {
