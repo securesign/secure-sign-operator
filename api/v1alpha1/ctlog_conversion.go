@@ -164,11 +164,10 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
+	// Restore v1-only Spec fields from storage (fields that don't exist in v1alpha1)
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
-	// Restore Logs array from storage to preserve all fields
 	dst.Spec.Logs = restored.Spec.Logs
-	dst.Status = restored.Status
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	if dst.Spec.Trillian.URL == "" {
 		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
@@ -180,6 +179,9 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	dst.Spec.Auth = restored.Spec.Auth
 	dst.Spec.Ingress = restored.Spec.Ingress
+	// All Status fields (Conditions, ServerConfigRef, Tls, Url) are shared between v1 and v1alpha1
+	// and are properly converted by autoConvert_v1alpha1_CTlog_To_v1_CTlog above.
+	// Do not restore Status from storage.
 	return nil
 }
 
