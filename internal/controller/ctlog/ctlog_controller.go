@@ -127,9 +127,9 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewHandleFulcioCertAction(),
 		actions.NewFIPSValidationAction(),
+		actions.NewAlignStatusLogsAction(),
 		actions.NewGenerateSignerAction(),
 		actions.NewResolveTreeAction(),
-		actions.NewAlignStatusLogsAction(),
 		actions.NewServerConfigAction(),
 
 		actions.NewRBACAction(),

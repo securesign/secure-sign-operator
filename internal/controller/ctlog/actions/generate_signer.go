@@ -72,42 +72,58 @@ func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[str
 }
 
 func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
-	oldPasswordRef := instance.Status.PrivateKeyPasswordRef
-	oldPrivateKeyRef := instance.Status.PrivateKeyRef
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	if activeLog == nil {
+		return
+	}
+
+	// Find the active log's Status.Logs entry
+	var activeLogStatus *rhtasv1.CTlogLogStatus
+	for idx := range instance.Status.Logs {
+		if instance.Status.Logs[idx].Prefix == activeLog.Prefix {
+			activeLogStatus = &instance.Status.Logs[idx]
+			break
+		}
+	}
+	if activeLogStatus == nil {
+		return
+	}
+
+	oldPasswordRef := activeLogStatus.PrivateKeyPasswordRef
+	oldPrivateKeyRef := activeLogStatus.PrivateKeyRef
 
 	var file *rhtasv1.CTlogFile
-	activeLog := utils.ActiveLog(instance.Spec.Logs)
-	if activeLog != nil && activeLog.Signer != nil {
+	if activeLog.Signer != nil {
 		file = activeLog.Signer.File
 	}
-	if file != nil && file.PrivateKeyRef != nil {
-		instance.Status.PrivateKeyRef = file.PrivateKeyRef
 
-		//TODO: Status.PublicKey resolver will be extracted to separate action.
+	if file != nil && file.PrivateKeyRef != nil {
+		activeLogStatus.PrivateKeyRef = file.PrivateKeyRef
+
 		if file.PublicKeyRef != nil {
-			instance.Status.PublicKeyRef = file.PublicKeyRef
+			activeLogStatus.PublicKeyRef = file.PublicKeyRef
 		} else {
-			instance.Status.PublicKeyRef = &rhtasv1.SecretKeySelector{
+			activeLogStatus.PublicKeyRef = &rhtasv1.SecretKeySelector{
 				LocalObjectReference: file.PrivateKeyRef.LocalObjectReference,
 				Key:                  constants.KeyPublic,
 			}
 		}
 	} else {
-		instance.Status.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+		activeLogStatus.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 			Key:                  constants.KeyPrivate,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
-		instance.Status.PublicKeyRef = &rhtasv1.SecretKeySelector{
+		activeLogStatus.PublicKeyRef = &rhtasv1.SecretKeySelector{
 			Key:                  constants.KeyPublic,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
 	}
 
 	if oldPasswordRef != nil &&
-		equality.Semantic.DeepEqual(instance.Status.PrivateKeyRef, oldPrivateKeyRef) {
-		instance.Status.PrivateKeyPasswordRef = oldPasswordRef
+		equality.Semantic.DeepEqual(activeLogStatus.PrivateKeyRef, oldPrivateKeyRef) {
+		activeLogStatus.PrivateKeyPasswordRef = oldPasswordRef
 	} else {
-		instance.Status.PrivateKeyPasswordRef = nil
+		activeLogStatus.PrivateKeyPasswordRef = nil
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

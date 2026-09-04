@@ -19,7 +19,14 @@ func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 			return ctlog.Status.TreeID
 		},
 		func(ctlog *rhtasv1.CTlog, i *int64) {
-			ctlog.Status.TreeID = i
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				for idx := range ctlog.Status.Logs {
+					if ctlog.Status.Logs[idx].Prefix == active.Prefix {
+						ctlog.Status.Logs[idx].LogId = i
+						break
+					}
+				}
+			}
 		},
 		func(ctlog *rhtasv1.CTlog) *rhtasv1.ServiceReference {
 			return &ctlog.Spec.Trillian
