@@ -93,7 +93,8 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))
 				case "ctfe.pub":
-					expectedKeyRef := s.Spec.Ctlog.Signer.File.PrivateKeyRef.DeepCopy()
+					// Signer is now in Logs[0] for active log
+					expectedKeyRef := s.Spec.Ctlog.Logs[0].Signer.File.PrivateKeyRef.DeepCopy()
 					expectedKeyRef.Key = "public"
 					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))

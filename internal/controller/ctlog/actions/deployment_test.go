@@ -9,6 +9,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
@@ -27,11 +28,30 @@ func createCTLogInstance() *rhtasv1.CTlog {
 			Trillian: rhtasv1.ServiceReference{
 				URL: "trillian-logserver.default.svc:8091",
 			},
-			Prefix: "trusted-artifact-signer",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					LogId:  ptr.To(int64(123456)),
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{Type: "file"},
+					RootCerts: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+					},
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
-			TreeID:          ptr.To(int64(123456)),
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(123456)),
+					Active: true,
+				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Ready.String()},
+			},
 		},
 	}
 }
@@ -237,8 +257,8 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -288,8 +308,8 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 
 	// First, create a deployment in PKCS#11 mode
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -310,8 +330,8 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 		"precondition: hsm-lib should be present in PKCS#11 mode")
 
 	// Now switch to file mode and re-apply the deployment ensures
-	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	l := labels.For(ComponentName, DeploymentName, instance.Name)
 	action := deployAction{}
@@ -346,8 +366,8 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: &rhtasv1.SecretKeySelector{

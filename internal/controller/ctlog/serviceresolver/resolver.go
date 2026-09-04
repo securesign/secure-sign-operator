@@ -6,7 +6,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
-	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
@@ -18,16 +18,17 @@ func init() {
 				return "", fmt.Errorf("TLS is not yet resolved")
 			}
 			var protocol string
-			if utils.TlsEnabled(obj) {
+			if ctlogutils.TlsEnabled(obj) {
 
 				protocol = "https"
 			} else {
 				protocol = "http"
 			}
+			prefix := ctlogutils.ActiveLogPrefix(obj.Spec.Logs)
 			u := url.URL{
 				Scheme: protocol,
 				Host:   fmt.Sprintf("%s.%s.svc", actions.DeploymentName, obj.Namespace),
-				Path:   obj.Spec.Prefix,
+				Path:   prefix,
 			}
 			return u.String(), nil
 		})

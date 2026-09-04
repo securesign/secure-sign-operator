@@ -1,11 +1,12 @@
 package v1alpha1
 
 import (
+	"reflect"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -53,11 +54,12 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
 	dst.Spec.Fulcio.Signer.Type = restored.Spec.Fulcio.Signer.Type
-	if dst.Spec.Fulcio.Signer.File == nil {
-		dst.Spec.Fulcio.Signer.File = restored.Spec.Fulcio.Signer.File
-	}
-	if dst.Spec.Fulcio.Signer.Kms == nil {
-		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
+	// If original v1 had File=&{} (empty struct), preserve it
+	if dst.Spec.Fulcio.Signer.File == nil && restored.Spec.Fulcio.Signer.File != nil {
+		emptyFile := &rhtasv1.FulcioFile{}
+		if reflect.DeepEqual(restored.Spec.Fulcio.Signer.File, emptyFile) {
+			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
+		}
 	}
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
 	if restored.Spec.Fulcio.Ctlog.URL == "" && dst.Spec.Fulcio.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
@@ -69,28 +71,24 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.PodExtensions = restored.Spec.Fulcio.PodExtensions
 	dst.Spec.Fulcio.Auth = restored.Spec.Fulcio.Auth
 	dst.Spec.Fulcio.Signer.PKCS11 = restored.Spec.Fulcio.Signer.PKCS11
+	if dst.Spec.Fulcio.Signer.Kms == nil {
+		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
+	}
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
-	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
-	dst.Spec.Ctlog.Signer.Type = restored.Spec.Ctlog.Signer.Type
-	// If original v1 had File=&{} (empty struct), preserve it
-	if dst.Spec.Ctlog.Signer.File == nil && restored.Spec.Ctlog.Signer.File != nil {
-		emptyFile := &rhtasv1.CTlogFile{}
-		if equality.Semantic.DeepEqual(restored.Spec.Ctlog.Signer.File, emptyFile) {
-			dst.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
-		}
-	}
+	// Restore Logs array from storage
+	dst.Spec.Ctlog.Logs = restored.Spec.Ctlog.Logs
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
 	}
 	if dst.Spec.Ctlog.Monitoring.Tuf.URL == "" {
 		dst.Spec.Ctlog.Monitoring.Tuf.Ref = restored.Spec.Ctlog.Monitoring.Tuf.Ref
 	}
+	dst.Spec.Ctlog.Fulcio = restored.Spec.Ctlog.Fulcio
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
 	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
-	dst.Spec.Ctlog.Signer.PKCS11 = restored.Spec.Ctlog.Signer.PKCS11
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions

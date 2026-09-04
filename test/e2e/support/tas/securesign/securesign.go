@@ -225,23 +225,29 @@ func WithProvidedCerts() Opts {
 			},
 		}
 
-		s.Spec.Ctlog.Signer = rhtasv1.CTlogSigner{
-			Type: "file",
-			File: &rhtasv1.CTlogFile{
-				PrivateKeyRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-ctlog-secret",
-					},
-					Key: "private",
-				},
-			},
-		}
-		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
+		s.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
 			{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
+				Prefix: "log",
+				Active: ptr.To(true),
+				Signer: &rhtasv1.CTlogSigner{
+					Type: "file",
+					File: &rhtasv1.CTlogFile{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-ctlog-secret",
+							},
+							Key: "private",
+						},
+					},
 				},
-				Key: "cert",
+				RootCerts: []rhtasv1.SecretKeySelector{
+					{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "my-fulcio-secret",
+						},
+						Key: "cert",
+					},
+				},
 			},
 		}
 
@@ -342,22 +348,37 @@ func WithPKCS11Signer(namespace string) Opts {
 		}
 
 		// --- CTLog PKCS#11 signer ---
-		s.Spec.Ctlog.Signer = rhtasv1.CTlogSigner{
-			Type: rhtasv1.SignerTypePKCS11,
-			PKCS11: &rhtasv1.CTlogPKCS11Config{
-				ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-				TokenLabel: "PKCS11CA",
-				PinSecretRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "hsm-credentials",
+		s.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
+			{
+				Prefix: "log",
+				Active: ptr.To(true),
+				Signer: &rhtasv1.CTlogSigner{
+					Type: rhtasv1.SignerTypePKCS11,
+					PKCS11: &rhtasv1.CTlogPKCS11Config{
+						ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+						TokenLabel: "PKCS11CA",
+						PinSecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "hsm-credentials",
+							},
+							Key: "pin",
+						},
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "ctlog-public-key",
+							},
+							Key: "public.pem",
+						},
 					},
-					Key: "pin",
 				},
-				PublicKeyRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "ctlog-public-key",
+				// --- CTLog root certificates (Fulcio's CA) ---
+				RootCerts: []rhtasv1.SecretKeySelector{
+					{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "fulcio-root-ca",
+						},
+						Key: "cert.pem",
 					},
-					Key: "public.pem",
 				},
 			},
 		}
@@ -367,16 +388,6 @@ func WithPKCS11Signer(namespace string) Opts {
 					Name:  "SOFTHSM2_CONF",
 					Value: "/etc/softhsm/softhsm2.conf",
 				},
-			},
-		}
-
-		// --- CTLog root certificates (Fulcio's CA) ---
-		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
-			{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "fulcio-root-ca",
-				},
-				Key: "cert.pem",
 			},
 		}
 

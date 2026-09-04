@@ -72,7 +72,13 @@ func TestResolve_RefBased(t *testing.T) {
 func TestResolve_Autodiscovery(t *testing.T) {
 	g := NewWithT(t)
 	ctlog := &rhtasv1.CTlog{ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: t.Name()}}
-	ctlog.Status.PublicKey = testPEM
+	ctlog.Status.Logs = []rhtasv1.CTlogLogStatus{
+		{
+			Prefix:    "test-log",
+			Active:    true,
+			PublicKey: testPEM,
+		},
+	}
 	ctlog.Status.Url = "https://ctlog.internal.svc"
 	ctlog.Status.Conditions = []metav1.Condition{readyCondition()}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ctlog).WithStatusSubresource(ctlog).Build()

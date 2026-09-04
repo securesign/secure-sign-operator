@@ -57,7 +57,13 @@ func readyRekor(ns string) *rhtasv1.Rekor {
 
 func readyCTlog() *rhtasv1.CTlog {
 	c := &rhtasv1.CTlog{ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"}}
-	c.Status.PublicKey = testPEM
+	c.Status.Logs = []rhtasv1.CTlogLogStatus{
+		{
+			Prefix:    "test-log",
+			Active:    true,
+			PublicKey: testPEM,
+		},
+	}
 	c.Status.Url = "https://ctlog.internal.svc"
 	c.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},

@@ -29,6 +29,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v12 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -105,7 +106,11 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	conditionSupplier := func(instance *rhtasv1.CTlog) []string {
 		conditions := []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition, trustmaterial.TrustMaterialCondition}
-		if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 {
+		signerType := rhtasv1.SignerTypeFile // default
+		if activeLog := ctlogutils.ActiveLog(instance.Spec.Logs); activeLog != nil && activeLog.Signer != nil {
+			signerType = activeLog.Signer.Type
+		}
+		if signerType == rhtasv1.SignerTypePKCS11 {
 			conditions = append(conditions, actions.PKCS11Condition)
 		}
 		return fipsutil.AppendFIPSCondition(conditions)
@@ -122,6 +127,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewHandleFulcioCertAction(),
 		actions.NewFIPSValidationAction(),
+		actions.NewAlignStatusLogsAction(),
 		actions.NewGenerateSignerAction(),
 		actions.NewResolveTreeAction(),
 		actions.NewServerConfigAction(),

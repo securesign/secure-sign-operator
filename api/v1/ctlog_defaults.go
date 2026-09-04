@@ -7,9 +7,25 @@ func (s *CTlogSpec) SetDefaults() {
 	s.PodExtensions.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Ingress.SetDefaults()
-	s.Signer.SetDefaults()
-	setDefault(&s.Prefix, "trusted-artifact-signer")
 	setDefault(&s.MaxCertChainSize, ptr.To(int64(153600)))
+	if len(s.Logs) == 0 {
+		s.Logs = []CTLogConfig{
+			{
+				Prefix: "trusted-artifact-signer",
+				Active: ptr.To(true),
+				Signer: &CTlogSigner{Type: SignerTypeFile},
+			},
+		}
+	}
+	for i := range s.Logs {
+		s.Logs[i].SetDefaults()
+	}
+}
+
+func (c *CTLogConfig) SetDefaults() {
+	if c.Signer != nil {
+		c.Signer.SetDefaults()
+	}
 }
 
 func (s *CTlogSigner) SetDefaults() {

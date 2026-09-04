@@ -11,7 +11,6 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,7 +31,11 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled: func(i *rhtasv1.CTlog) bool {
-				return i.Spec.Signer.Type == rhtasv1.SignerTypeFile || i.Spec.Signer.Type == ""
+				activeLog := utils.ActiveLog(i.Spec.Logs)
+				if activeLog == nil || activeLog.Signer == nil {
+					return true
+				}
+				return activeLog.Signer.Type == rhtasv1.SignerTypeFile || activeLog.Signer.Type == ""
 			},
 			MutateSecret: func(_ *rhtasv1.CTlog, secret *corev1.Secret) {
 				if secret.Labels == nil {
@@ -45,14 +48,19 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.CTlog, c client.Client) (*rhtasv1.SecretKeySelector, error) {
-	if instance.Spec.Signer.File != nil && instance.Spec.Signer.File.PrivateKeyRef != nil {
-		ref := instance.Spec.Signer.File.PrivateKeyRef
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	if activeLog != nil && activeLog.Signer != nil && activeLog.Signer.File != nil && activeLog.Signer.File.PrivateKeyRef != nil {
+		ref := activeLog.Signer.File.PrivateKeyRef
 		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, ref); err != nil {
 			return nil, err
 		}
 		return ref, nil
 	}
-	return generateSigner.ResolveStatusSecret(ctx, c, instance.Status.PrivateKeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
+	if activeLogStatus == nil || activeLogStatus.PrivateKeyRef == nil {
+		return nil, nil
+	}
+	return generateSigner.ResolveStatusSecret(ctx, c, activeLogStatus.PrivateKeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }
 
 func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[string][]byte, error) {
@@ -67,43 +75,41 @@ func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[str
 }
 
 func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
-	// Save existing status values before overwrite so we can preserve
-	// PrivateKeyPasswordRef for legacy encrypted-key deployments.
-	oldPasswordRef := instance.Status.PrivateKeyPasswordRef
-	oldPrivateKeyRef := instance.Status.PrivateKeyRef
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	if activeLog == nil {
+		return
+	}
 
-	file := instance.Spec.Signer.File
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
+	if activeLogStatus == nil {
+		return
+	}
+
+	var file *rhtasv1.CTlogFile
+	if activeLog.Signer != nil {
+		file = activeLog.Signer.File
+	}
+
 	if file != nil && file.PrivateKeyRef != nil {
-		instance.Status.PrivateKeyRef = file.PrivateKeyRef
+		activeLogStatus.PrivateKeyRef = file.PrivateKeyRef
 
-		//TODO: Status.PublicKey resolver will be extracted to separate action.
 		if file.PublicKeyRef != nil {
-			instance.Status.PublicKeyRef = file.PublicKeyRef
+			activeLogStatus.PublicKeyRef = file.PublicKeyRef
 		} else {
-			instance.Status.PublicKeyRef = &rhtasv1.SecretKeySelector{
+			activeLogStatus.PublicKeyRef = &rhtasv1.SecretKeySelector{
 				LocalObjectReference: file.PrivateKeyRef.LocalObjectReference,
 				Key:                  constants.KeyPublic,
 			}
 		}
 	} else {
-		instance.Status.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+		activeLogStatus.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 			Key:                  constants.KeyPrivate,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
-		instance.Status.PublicKeyRef = &rhtasv1.SecretKeySelector{
+		activeLogStatus.PublicKeyRef = &rhtasv1.SecretKeySelector{
 			Key:                  constants.KeyPublic,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
-	}
-
-	// Backward compat: PrivateKeyPasswordRef was removed from spec but may still
-	// exist in status for deployments using legacy encrypted keys. Preserve it
-	// unless the key reference changed.
-	if oldPasswordRef != nil &&
-		equality.Semantic.DeepEqual(instance.Status.PrivateKeyRef, oldPrivateKeyRef) {
-		instance.Status.PrivateKeyPasswordRef = oldPasswordRef
-	} else {
-		instance.Status.PrivateKeyPasswordRef = nil
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

@@ -104,10 +104,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
+		activeLog := ctlogutils.ActiveLogStatus(instance.Status.Logs)
 		switch {
 		case instance.Status.ServerConfigRef == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrServerConfigNotSpecified)
-		case instance.Status.TreeID == nil:
+		case activeLog == nil || activeLog.LogId == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTreeNotSpecified)
 		}
 
@@ -141,15 +142,17 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			metricsPort.Protocol = core.ProtocolTCP
 		}
 
-		isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
-
-		if isPKCS11 {
-			p := instance.Spec.Signer.PKCS11
-			if p == nil {
-				return fmt.Errorf("PKCS#11 config not yet resolved")
+		isPKCS11 := false
+		for _, log := range instance.Spec.Logs {
+			if log.Signer != nil && log.Signer.Type == rhtasv1.SignerTypePKCS11 {
+				isPKCS11 = true
+				if log.Signer.PKCS11 == nil {
+					return fmt.Errorf("PKCS#11 config not yet resolved for log %s", log.Prefix)
+				}
+				modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(log.Signer.PKCS11.ModulePath))
+				appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
+				break
 			}
-			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(p.ModulePath))
-			appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
 		}
 
 		container.Args = appArgs

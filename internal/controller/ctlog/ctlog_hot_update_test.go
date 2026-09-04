@@ -107,7 +107,14 @@ var _ = Describe("CTlog update test", func() {
 								Name:      "test-trillian",
 							},
 						},
-						TreeID: &treeID,
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								LogId:  &treeID,
+								Prefix: "test-log",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
+							},
+						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
 							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
@@ -184,8 +191,8 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
-				originalPublicKey = found.Status.PublicKey
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(BeEmpty())
+				originalPublicKey = found.Status.Logs[0].PublicKey
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Private key has changed")
@@ -204,7 +211,10 @@ var _ = Describe("CTlog update test", func() {
 			found := &rhtasv1.CTlog{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.Signer.File = &rhtasv1.CTlogFile{
+				if found.Spec.Logs[0].Signer == nil {
+					found.Spec.Logs[0].Signer = &rhtasv1.CTlogSigner{}
+				}
+				found.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "key-secret",
@@ -225,7 +235,8 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PrivateKeyRef.Name
+				g.Expect(found.Status.Logs).To(HaveLen(1))
+				return found.Status.Logs[0].PrivateKeyRef.Name
 			}).WithContext(ctx).Should(Equal("key-secret"))
 
 			By("CTL deployment is updated")
@@ -252,7 +263,7 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PublicKey
+				return found.Status.Logs[0].PublicKey
 			}).WithContext(ctx).Should(Equal(originalPublicKey))
 
 			By("Acknowledging the drift")
@@ -270,9 +281,9 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
-				g.Expect(found.Status.PublicKey).ShouldNot(Equal(originalPublicKey))
-				g.Expect(found.Status.PublicKey).Should(Equal(string(key.PublicKey)))
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(BeEmpty())
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(Equal(originalPublicKey))
+				g.Expect(found.Status.Logs[0].PublicKey).Should(Equal(string(key.PublicKey)))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

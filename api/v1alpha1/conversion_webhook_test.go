@@ -39,7 +39,13 @@ var _ = Describe("Conversion webhook", func() {
 				},
 				Spec: rhtasv1.CTlogSpec{
 					PodRequirements: rhtasv1.PodRequirements{Replicas: ptr.To[int32](1)},
-					TreeID:          ptr.To[int64](12345),
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							LogId:  ptr.To[int64](12345),
+							Prefix: "trusted-artifact-signer",
+							Active: ptr.To(true),
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, v1obj)).To(Succeed())
@@ -58,14 +64,21 @@ var _ = Describe("Conversion webhook", func() {
 				},
 				Spec: CTlogSpec{
 					TreeID: ptr.To[int64](67890),
+					PrivateKeyRef: &SecretKeySelector{
+						Key: "key",
+						LocalObjectReference: LocalObjectReference{
+							Name: "private-key-secret",
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, v1alpha1obj)).To(Succeed())
 
 			v1obj := &rhtasv1.CTlog{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "ctlog-v1alpha1-test", Namespace: testNs}, v1obj)).To(Succeed())
-			Expect(v1obj.Spec.TreeID).ToNot(BeNil())
-			Expect(*v1obj.Spec.TreeID).To(Equal(int64(67890)))
+			Expect(v1obj.Spec.Logs).ToNot(BeEmpty())
+			Expect(v1obj.Spec.Logs[0].LogId).ToNot(BeNil())
+			Expect(*v1obj.Spec.Logs[0].LogId).To(Equal(int64(67890)))
 		})
 	})
 
@@ -243,7 +256,13 @@ var _ = Describe("Conversion webhook", func() {
 						Signer: rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{OrganizationName: "Red Hat"}},
 					},
 					Ctlog: rhtasv1.CTlogSpec{
-						Signer: rhtasv1.CTlogSigner{Type: "file"},
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								Prefix: "trusted-artifact-signer",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
+							},
+						},
 					},
 				},
 			}

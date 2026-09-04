@@ -88,11 +88,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*CTlogStatus)(nil), (*v1.CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(a.(*CTlogStatus), b.(*v1.CTlogStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*CertificateChain)(nil), (*v1.CertificateChain)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_CertificateChain_To_v1_CertificateChain(a.(*CertificateChain), b.(*v1.CertificateChain), scope)
 	}); err != nil {
@@ -638,6 +633,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*CTlogStatus)(nil), (*v1.CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(a.(*CTlogStatus), b.(*v1.CTlogStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*CtlogService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_CtlogService_To_v1_ServiceReference(a.(*CtlogService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
@@ -933,18 +933,18 @@ func autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *v1.CTlog
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
-	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
+	// WARNING: in.TreeID requires manual conversion: does not exist in peer-type
 	// WARNING: in.PrivateKeyRef requires manual conversion: does not exist in peer-type
 	// WARNING: in.PrivateKeyPasswordRef requires manual conversion: does not exist in peer-type
 	// WARNING: in.PublicKeyRef requires manual conversion: does not exist in peer-type
-	out.RootCertificates = *(*[]v1.SecretKeySelector)(unsafe.Pointer(&in.RootCertificates))
+	// WARNING: in.RootCertificates requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_MonitoringWithTLogConfig_To_v1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
 	if err := Convert_v1alpha1_TrillianService_To_v1_ServiceReference(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
-	out.ServerConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
+	// WARNING: in.ServerConfigRef requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_TLS_To_v1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}
@@ -957,9 +957,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 		return err
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
-	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
-	// WARNING: in.Signer requires manual conversion: does not exist in peer-type
-	out.RootCertificates = *(*[]SecretKeySelector)(unsafe.Pointer(&in.RootCertificates))
+	// WARNING: in.Logs requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
@@ -967,8 +965,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	if err := Convert_v1_ServiceReference_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
-	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	// WARNING: in.Prefix requires manual conversion: does not exist in peer-type
+	// WARNING: in.Fulcio requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_TLS_To_v1alpha1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}
@@ -981,11 +978,11 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 
 func autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *v1.CTlogStatus, s conversion.Scope) error {
 	out.ServerConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	out.PrivateKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
-	out.PrivateKeyPasswordRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PrivateKeyPasswordRef))
-	out.PublicKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PublicKeyRef))
-	out.RootCertificates = *(*[]v1.SecretKeySelector)(unsafe.Pointer(&in.RootCertificates))
-	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
+	// WARNING: in.PrivateKeyRef requires manual conversion: does not exist in peer-type
+	// WARNING: in.PrivateKeyPasswordRef requires manual conversion: does not exist in peer-type
+	// WARNING: in.PublicKeyRef requires manual conversion: does not exist in peer-type
+	// WARNING: in.RootCertificates requires manual conversion: does not exist in peer-type
+	// WARNING: in.TreeID requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_TLS_To_v1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}
@@ -994,19 +991,9 @@ func autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *v1
 	return nil
 }
 
-// Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus is an autogenerated conversion function.
-func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *v1.CTlogStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s)
-}
-
 func autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out *CTlogStatus, s conversion.Scope) error {
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	out.PrivateKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
-	out.PrivateKeyPasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyPasswordRef))
-	out.PublicKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PublicKeyRef))
-	out.RootCertificates = *(*[]SecretKeySelector)(unsafe.Pointer(&in.RootCertificates))
-	// WARNING: in.PublicKey requires manual conversion: does not exist in peer-type
-	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
+	// WARNING: in.Logs requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_TLS_To_v1alpha1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}

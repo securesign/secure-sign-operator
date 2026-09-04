@@ -2,13 +2,11 @@ package actions
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
 	"slices"
-	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
@@ -19,11 +17,11 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -33,14 +31,9 @@ const (
 // errSecretInvalid indicates the secret needs to be recreated (not a failure)
 var errSecretInvalid = errors.New("secret needs recreation")
 
-// Annotations used to track the data sources for server config secret
 var serverConfigAnnotations = []string{
-	labels.LabelNamespace + "/treeID",
 	labels.LabelNamespace + "/trillianUrl",
-	labels.LabelNamespace + "/rootCertificatesHash",
-	labels.LabelNamespace + "/privateKeyRef",
-	labels.LabelNamespace + "/logPrefix",
-	labels.LabelNamespace + "/pkcs11SpecHash",
+	labels.LabelNamespace + "/logsHash",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -62,20 +55,8 @@ func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	var (
-		err error
-	)
-
-	if instance.Spec.ServerConfigRef != nil {
-		return i.handleCustomConfig(ctx, instance)
-	}
-
-	// Validate prerequisites and normalize Trillian address before validation
-	switch {
-	case instance.Status.TreeID == nil:
-		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
-	case (instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == "") && instance.Status.PrivateKeyRef == nil:
-		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
+	if len(instance.Status.Logs) == 0 {
+		return i.Error(ctx, fmt.Errorf("%s: no logs in status", i.Name()), instance)
 	}
 
 	trillianHost, trillianPort, err := serviceresolver.ResolveInternalGrpcService(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
@@ -94,11 +75,9 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
 		if err := i.validateExistingSecret(ctx, instance, trillianUrl); err != nil {
 			if errors.Is(err, errSecretInvalid) {
-				// Secret needs recreation - log and continue
 				i.Logger.Info("Server config secret needs recreation", "secret", instance.Status.ServerConfigRef.Name)
 				i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "CTLogConfigRecreate", "Recreating", "Config secret will be recreated: %s", instance.Status.ServerConfigRef.Name)
 			} else {
-				// API error - fail reconciliation
 				return i.Error(ctx, fmt.Errorf("error validating server config secret: %w", err), instance,
 					metav1.Condition{
 						Type:               ConfigCondition,
@@ -109,8 +88,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 					})
 			}
 		} else {
-			// Secret is valid - update observedGeneration if spec changed (e.g. replicas-only change)
-			// to prevent unnecessary recreation on next reconciliation
 			c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
 			isSpecChange := c != nil && c.ObservedGeneration != instance.Generation
 			if isSpecChange {
@@ -129,43 +106,18 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 	configLabels := labels.ForResource(ComponentName, DeploymentName, instance.Name, serverConfigResourceName)
 
-	rootCerts, err := i.handleRootCertificates(ctx, instance)
+	logs, err := i.resolveAllLogs(ctx, instance)
 	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		return i.Error(ctx, fmt.Errorf("could not resolve log entries: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             FulcioReason,
-			Message:            fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
+			Reason:             state.Failure.String(),
+			Message:            fmt.Sprintf("Failed to resolve log entries: %v", err),
 			ObservedGeneration: instance.Generation,
 		})
-		if _, err := i.PersistStatus(ctx, instance); err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		return i.RequeueAfter(5 * time.Second)
 	}
 
-	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
-
-	var cfg map[string][]byte
-	if isPKCS11 {
-		cfg, err = i.buildPKCS11Config(ctx, instance, trillianUrl, rootCerts)
-	} else {
-		certConfig, keyErr := i.handlePrivateKey(ctx, instance)
-		if keyErr != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:               ConfigCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             SignerKeyReason,
-				Message:            "Waiting for Ctlog private key secret",
-				ObservedGeneration: instance.Generation,
-			})
-			if _, err := i.PersistStatus(ctx, instance); err != nil {
-				return i.Error(ctx, err, instance)
-			}
-			return i.RequeueAfter(5 * time.Second)
-		}
-		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix)
-	}
+	cfg, hash, err := ctlogUtils.CreateConfig(trillianUrl, logs)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
@@ -183,7 +135,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		},
 	}
 
-	configAnnotations := i.configMatchingAnnotations(ctx, instance, trillianUrl)
+	configAnnotations := i.configMatchingAnnotations(trillianUrl, hash)
 
 	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
@@ -224,46 +176,101 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 	return i.Continue()
 }
 
-func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	secret, err := kubernetes.GetSecret(ctx, i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
-	if err != nil {
-		return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
-			metav1.Condition{
-				Type:               ConfigCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             state.Failure.String(),
-				Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
-				ObservedGeneration: instance.Generation,
-			})
-	}
-	if secret.Data == nil || secret.Data[ctlogUtils.ConfigKey] == nil {
-		return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
-			metav1.Condition{
-				Type:               ConfigCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             state.Failure.String(),
-				Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
-				ObservedGeneration: instance.Generation,
-			})
+// resolveAllLogs builds a ShardConfig for every entry in status.logs,
+// reading secret data as needed. Active/inactive is irrelevant here —
+// every entry is serialized uniformly into the config proto.
+func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
+	logs := make([]ctlogUtils.ShardConfig, 0, len(instance.Status.Logs))
+
+	for _, log := range instance.Status.Logs {
+		specLog := ctlogUtils.GetLog(log.Prefix, instance.Spec.Logs)
+		if log.LogId == nil {
+			return nil, fmt.Errorf("log %q has no LogId", log.Prefix)
+		}
+
+		sc := ctlogUtils.ShardConfig{
+			TreeID:   *log.LogId,
+			Prefix:   log.Prefix,
+			Readonly: ptr.Deref(specLog.Readonly, false),
+		}
+
+		// Root certificates
+		for _, selector := range log.RootCertificates {
+			data, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &selector)
+			if err != nil {
+				return nil, fmt.Errorf("log %q root cert %s/%s: %w", log.Prefix, selector.Name, selector.Key, err)
+			}
+			sc.RootCerts = append(sc.RootCerts, data)
+		}
+
+		// Public key
+		if log.PublicKeyRef != nil {
+			publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PublicKeyRef)
+			if err != nil {
+				return nil, fmt.Errorf("log %q publicKeyRef: %w", log.Prefix, err)
+			}
+			sc.PublicKey = publicKey
+		}
+
+		switch specLog.Signer.Type {
+		case rhtasv1.SignerTypePKCS11:
+			pkcsConfig := specLog.Signer.PKCS11
+			if pkcsConfig == nil {
+				return nil, fmt.Errorf("log %q: configuration for PKCS#11 has not been set", log.Prefix)
+			}
+			if pkcsConfig.PinSecretRef == nil {
+				return nil, fmt.Errorf("log %q: pinSecretRef is required for PKCS#11 signer", log.Prefix)
+			}
+			if log.PublicKeyRef == nil {
+				return nil, fmt.Errorf("log %q: publicKeyRef is required for PKCS#11 signer", log.Prefix)
+			}
+			pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, pkcsConfig.PinSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("log %q pkcs11 pinSecretRef: %w", log.Prefix, err)
+			}
+			if len(pin) == 0 {
+				return nil, fmt.Errorf("log %q: PIN secret %s/%s is empty", log.Prefix, pkcsConfig.PinSecretRef.Name, pkcsConfig.PinSecretRef.Key)
+			}
+			sc.PKCS11 = &ctlogUtils.PKCS11ShardConfig{
+				TokenLabel: pkcsConfig.TokenLabel,
+				Pin:        string(pin),
+			}
+		case rhtasv1.SignerTypeFile:
+			if log.PrivateKeyRef != nil {
+				privateKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PrivateKeyRef)
+				if err != nil {
+					return nil, fmt.Errorf("log %q privateKeyRef: %w", log.Prefix, err)
+				}
+				sc.PrivateKey = privateKey
+			}
+		default:
+			return nil, fmt.Errorf("log %q: signer type %q is not supported", log.Prefix, specLog.Signer.Type)
+		}
+
+		if specLog.FrozenSTH != nil {
+			sc.FrozenSTH = &ctlogUtils.FrozenSTH{
+				Sha256RootHash:    specLog.FrozenSTH.Sha256RootHash,
+				TreeHeadSignature: specLog.FrozenSTH.TreeHeadSignature,
+			}
+			if specLog.FrozenSTH.TreeSize != nil {
+				sc.FrozenSTH.TreeSize = *specLog.FrozenSTH.TreeSize
+			}
+			if specLog.FrozenSTH.Timestamp != nil {
+				sc.FrozenSTH.Timestamp = specLog.FrozenSTH.Timestamp.Unix()
+			}
+		}
+
+		if specLog.NotAfterStart != nil {
+			sc.NotAfterStart = specLog.NotAfterStart.Unix()
+		}
+		if specLog.NotAfterLimit != nil {
+			sc.NotAfterLimit = specLog.NotAfterLimit.Unix()
+		}
+
+		logs = append(logs, sc)
 	}
 
-	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-	if c != nil && c.Status == metav1.ConditionTrue &&
-		c.ObservedGeneration == instance.Generation &&
-		equality.Semantic.DeepEqual(instance.Status.ServerConfigRef, instance.Spec.ServerConfigRef) {
-		return i.Continue()
-	}
-
-	instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
-	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigUpdated", "Updated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:               ConfigCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             state.Ready.String(),
-		Message:            "Using custom server config", //nolint:goconst
-		ObservedGeneration: instance.Generation,
-	})
-	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+	return logs, nil
 }
 
 func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.CTlog, configLabels map[string]string) {
@@ -272,7 +279,6 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.CTlog, conf
 		return
 	}
 
-	// try to discover existing secrets and clear them out
 	partialConfigs, err := kubernetes.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
@@ -294,94 +300,16 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.CTlog, conf
 	}
 }
 
-func (i serverConfig) buildPKCS11Config(
-	ctx context.Context,
-	instance *rhtasv1.CTlog,
-	trillianUrl string,
-	rootCerts []ctlogUtils.RootCertificate,
-) (map[string][]byte, error) {
-	p := instance.Spec.Signer.PKCS11
-	if p == nil {
-		return nil, fmt.Errorf("PKCS#11 config is nil")
-	}
-	if p.PinSecretRef == nil {
-		return nil, fmt.Errorf("pinSecretRef is required for PKCS#11 signer")
-	}
-	if p.PublicKeyRef == nil {
-		return nil, fmt.Errorf("publicKeyRef is required for PKCS#11 signer")
-	}
-
-	pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PinSecretRef)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read PIN secret: %w", err)
-	}
-	if len(pin) == 0 {
-		return nil, fmt.Errorf("PIN secret %s/%s is empty", p.PinSecretRef.Name, p.PinSecretRef.Key)
-	}
-
-	publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PublicKeyRef)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read public key secret: %w", err)
-	}
-	if len(publicKey) == 0 {
-		return nil, fmt.Errorf("public key secret %s/%s is empty", p.PublicKeyRef.Name, p.PublicKeyRef.Key)
-	}
-
-	return ctlogUtils.CreateCtlogPKCS11Config(
-		trillianUrl,
-		*instance.Status.TreeID,
-		rootCerts,
-		p.TokenLabel,
-		string(pin),
-		publicKey,
-		instance.Spec.Prefix,
-	)
-}
-
-func (i serverConfig) handlePrivateKey(ctx context.Context, instance *rhtasv1.CTlog) (*ctlogUtils.KeyConfig, error) {
-	if instance == nil {
-		return nil, nil
-	}
-	private, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Status.PrivateKeyRef)
-	if err != nil {
-		return nil, err
-	}
-	public, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Status.PublicKeyRef)
-	if err != nil {
-		return nil, err
-	}
-	password, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ctlogUtils.KeyConfig{
-		PrivateKey:     private,
-		PublicKey:      public,
-		PrivateKeyPass: password,
-	}, nil
-}
-
-func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.RootCertificate, error) {
-	certs := make([]ctlogUtils.RootCertificate, 0)
-
-	for _, selector := range instance.Status.RootCertificates {
-		data, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &selector)
-		if err != nil {
-			return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
-		}
-		certs = append(certs, data)
-	}
-
-	return certs, nil
-}
-
-// validateExistingSecret checks if the existing server config secret is valid.
-// Returns:
-//   - nil if the secret is valid
-//   - errSecretInvalid if the secret needs recreation (not a failure)
-//   - other error for API errors - reconciliation should fail
 func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhtasv1.CTlog, trillianUrl string) error {
+	// Cert rotation updates the root cert secret content but keeps the same
+	// secret reference, so the logsHash annotation won't detect the change.
+	// handleFulcioCert signals this by setting ConfigCondition to False with
+	// FulcioReason — honor that signal and force recreation.
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+	if c != nil && c.Status == metav1.ConditionFalse && c.Reason == FulcioReason {
+		return errSecretInvalid
+	}
+
 	secretMeta, err := kubernetes.GetSecretMetadata(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -390,47 +318,35 @@ func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhta
 		return err
 	}
 
-	// Check if the secret was generated from the same data sources using annotations
-	expectedAnnotations := i.configMatchingAnnotations(ctx, instance, trillianUrl)
-	if !equality.Semantic.DeepDerivative(expectedAnnotations, secretMeta.GetAnnotations()) {
-		return errSecretInvalid
+	logs, err := i.resolveAllLogs(ctx, instance)
+	if err != nil {
+		return err
+	}
+	_, hash, err := ctlogUtils.CreateConfig(trillianUrl, logs)
+	if err != nil {
+		return err
+	}
+	expectedAnnotations := i.configMatchingAnnotations(trillianUrl, hash)
+	actualAnnotations := secretMeta.GetAnnotations()
+	for _, key := range serverConfigAnnotations {
+		expected, hasExpected := expectedAnnotations[key]
+		actual, hasActual := actualAnnotations[key]
+		if hasExpected != hasActual || expected != actual {
+			return errSecretInvalid
+		}
 	}
 
 	return nil
 }
 
-// configMatchingAnnotations generates annotations that identify the data sources
-// used to generate the server config secret.
-func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *rhtasv1.CTlog, trillianUrl string) map[string]string {
-	annotations := map[string]string{
+// configMatchingAnnotations generates annotations that identify the data
+// sources used to generate the server config secret. All status.logs entries
+// are hashed uniformly — no active/inactive distinction.
+func (i serverConfig) configMatchingAnnotations(trillianUrl string, configHash [32]byte) map[string]string {
+	ann := map[string]string{
 		labels.LabelNamespace + "/trillianUrl": trillianUrl,
 	}
+	ann[labels.LabelNamespace+"/logsHash"] = hex.EncodeToString(configHash[:])
 
-	if instance.Status.TreeID != nil {
-		annotations[labels.LabelNamespace+"/treeID"] = fmt.Sprintf("%d", *instance.Status.TreeID)
-	}
-
-	if certs, err := i.handleRootCertificates(ctx, instance); err == nil {
-		h := sha256.New()
-		for _, cert := range certs {
-			h.Write(cert)
-		}
-		annotations[labels.LabelNamespace+"/rootCertificatesHash"] = hex.EncodeToString(h.Sum(nil))
-	} else {
-		annotations[labels.LabelNamespace+"/rootCertificatesHash"] = "unresolvable"
-	}
-
-	if instance.Status.PrivateKeyRef != nil {
-		annotations[labels.LabelNamespace+"/privateKeyRef"] = fmt.Sprintf("%s/%s", instance.Status.PrivateKeyRef.Name, instance.Status.PrivateKeyRef.Key)
-	}
-
-	if instance.Spec.Prefix != "" {
-		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
-	}
-
-	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
-		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Signer.PKCS11)
-	}
-
-	return annotations
+	return ann
 }

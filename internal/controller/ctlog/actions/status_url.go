@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 )
 
 func NewStatusUrlAction() action.Action[*rhtasv1.CTlog] {
@@ -59,7 +60,8 @@ func ResolveUrl(ctx context.Context, cli client.Client, instance *rhtasv1.CTlog)
 		if len(ingress.Spec.TLS) > 0 {
 			scheme = "https"
 		}
-		return (&url.URL{Scheme: scheme, Host: ingress.Spec.Rules[0].Host, Path: instance.Spec.Prefix}).String(), nil
+		prefix := ctlogutils.ActiveLogPrefix(instance.Spec.Logs)
+		return (&url.URL{Scheme: scheme, Host: ingress.Spec.Rules[0].Host, Path: prefix}).String(), nil
 	}
 	return serviceresolver.Resolve(instance)
 }

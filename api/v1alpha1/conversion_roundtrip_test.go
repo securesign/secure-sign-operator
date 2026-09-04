@@ -287,7 +287,40 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.Ctlog.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
+			s.Spec.Ctlog.ServerConfigRef = nil
 		},
+	}
+}
+
+// normalizeEmptyContainers converts empty maps/slices to nil for JSON roundtrip consistency
+func normalizeEmptyContainers(s *rhtasv1.CTlog) {
+	// Normalize empty slices in status
+	if len(s.Status.Logs) == 0 {
+		s.Status.Logs = nil
+	}
+	// RootCertificates was deprecated and removed from v1 CTlogStatus
+	if len(s.Status.Conditions) == 0 {
+		s.Status.Conditions = nil
+	}
+	// Normalize empty slices/maps in spec
+	if len(s.Spec.Logs) == 0 {
+		s.Spec.Logs = nil
+	}
+	if s.Spec.Ingress.Labels != nil && len(s.Spec.Ingress.Labels) == 0 {
+		s.Spec.Ingress.Labels = nil
+	}
+	if len(s.Spec.ImagePullSecrets) == 0 {
+		s.Spec.ImagePullSecrets = nil
+	}
+	if len(s.Spec.InitContainers) == 0 {
+		s.Spec.InitContainers = nil
+	}
+	if len(s.Spec.Volumes) == 0 {
+		s.Spec.Volumes = nil
+	}
+	if len(s.Spec.PodExtensions.VolumeMounts) == 0 { //nolint:staticcheck // QF1008: embedded field access kept explicit for clarity
+		s.Spec.PodExtensions.VolumeMounts = nil //nolint:staticcheck
 	}
 }
 
@@ -298,18 +331,24 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
-			s.Spec.Prefix = urlfuzz.URLPath(c)
-			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.Status.Url != "" {
-				s.Status.Url += "/" + s.Spec.Prefix
+			// Set Prefix on first log if it exists
+			if len(s.Spec.Logs) > 0 {
+				s.Spec.Logs[0].Prefix = urlfuzz.URLPath(c)
 			}
-
+			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+			if s.Status.Url != "" && len(s.Spec.Logs) > 0 {
+				s.Status.Url += "/" + s.Spec.Logs[0].Prefix
+			}
+			normalizeEmptyContainers(s)
 		},
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.PrivateKeyPasswordRef = nil
+			s.Status.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.logs; it has no roundtrip path.
+			s.Spec.ServerConfigRef = nil
 		},
 	}
 }
