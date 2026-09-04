@@ -88,11 +88,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*CTlogStatus)(nil), (*v1.CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(a.(*CTlogStatus), b.(*v1.CTlogStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*CertificateChain)(nil), (*v1.CertificateChain)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_CertificateChain_To_v1_CertificateChain(a.(*CertificateChain), b.(*v1.CertificateChain), scope)
 	}); err != nil {
@@ -635,6 +630,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*CTlogSpec)(nil), (*v1.CTlogSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(a.(*CTlogSpec), b.(*v1.CTlogSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*CTlogStatus)(nil), (*v1.CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(a.(*CTlogStatus), b.(*v1.CTlogStatus), scope)
 	}); err != nil {
 		return err
 	}

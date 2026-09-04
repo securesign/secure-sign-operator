@@ -10,6 +10,14 @@ import (
 
 const v1alpha1Prefix = "trusted-artifact-signer"
 
+func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv1.CTlogStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
+		return err
+	}
+	// v1alpha1 deprecated fields are converted to v1 Status.Logs by ConvertFrom
+	return nil
+}
+
 func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out *CTlogStatus, s apiconversion.Scope) error {
 	if err := autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in, out, s); err != nil {
 		return err

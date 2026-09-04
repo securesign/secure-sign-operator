@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/serviceresolver"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -110,8 +111,15 @@ var descriptors = map[ComponentKey]descriptor{
 		materialFromStatus: func(obj apis.AddressableConditionAware) string { return obj.(*rhtasv1.Rekor).Status.PublicKey },
 	},
 	CTFE: {
-		newInstance:        func() apis.AddressableConditionAware { return &rhtasv1.CTlog{} },
-		materialFromStatus: func(obj apis.AddressableConditionAware) string { return obj.(*rhtasv1.CTlog).Status.PublicKey },
+		newInstance: func() apis.AddressableConditionAware { return &rhtasv1.CTlog{} },
+		materialFromStatus: func(obj apis.AddressableConditionAware) string {
+			ctlog := obj.(*rhtasv1.CTlog)
+			activeLog := ctlogutils.ActiveLogStatus(ctlog.Status.Logs)
+			if activeLog != nil {
+				return activeLog.PublicKey
+			}
+			return ""
+		},
 	},
 	Fulcio: {
 		newInstance:        func() apis.AddressableConditionAware { return &rhtasv1.Fulcio{} },

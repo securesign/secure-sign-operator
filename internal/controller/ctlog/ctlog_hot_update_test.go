@@ -191,8 +191,8 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
-				originalPublicKey = found.Status.PublicKey
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(BeEmpty())
+				originalPublicKey = found.Status.Logs[0].PublicKey
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Private key has changed")
@@ -235,7 +235,8 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PrivateKeyRef.Name
+				g.Expect(found.Status.Logs).To(HaveLen(1))
+				return found.Status.Logs[0].PrivateKeyRef.Name
 			}).WithContext(ctx).Should(Equal("key-secret"))
 
 			By("CTL deployment is updated")
@@ -262,7 +263,7 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PublicKey
+				return found.Status.Logs[0].PublicKey
 			}).WithContext(ctx).Should(Equal(originalPublicKey))
 
 			By("Acknowledging the drift")
@@ -280,9 +281,9 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
-				g.Expect(found.Status.PublicKey).ShouldNot(Equal(originalPublicKey))
-				g.Expect(found.Status.PublicKey).Should(Equal(string(key.PublicKey)))
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(BeEmpty())
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(Equal(originalPublicKey))
+				g.Expect(found.Status.Logs[0].PublicKey).Should(Equal(string(key.PublicKey)))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

@@ -299,9 +299,7 @@ func normalizeEmptyContainers(s *rhtasv1.CTlog) {
 	if len(s.Status.Logs) == 0 {
 		s.Status.Logs = nil
 	}
-	if len(s.Status.RootCertificates) == 0 { //nolint:staticcheck // backward-compat field
-		s.Status.RootCertificates = nil //nolint:staticcheck // backward-compat field
-	}
+	// RootCertificates was deprecated and removed from v1 CTlogStatus
 	if len(s.Status.Conditions) == 0 {
 		s.Status.Conditions = nil
 	}

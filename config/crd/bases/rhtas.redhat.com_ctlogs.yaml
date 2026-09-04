@@ -3350,25 +3350,6 @@ spec:
                     prefix:
                       description: Prefix is the log's URL prefix.
                       type: string
-                    privateKeyPasswordRef:
-                      description: PrivateKeyPasswordRef points to the secret containing
-                        the private key password (if encrypted).
-                      properties:
-                        key:
-                          description: The key of the secret to select from. Must
-                            be a valid secret key.
-                          pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
                     privateKeyRef:
                       description: PrivateKeyRef points to the secret containing the
                         private key.
@@ -3447,87 +3428,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - prefix
                 x-kubernetes-list-type: map
-              privateKeyPasswordRef:
-                description: 'Deprecated: Use logs[0].PrivateKeyPasswordRef instead'
-                properties:
-                  key:
-                    description: The key of the secret to select from. Must be a valid
-                      secret key.
-                    pattern: ^[-._a-zA-Z0-9]+$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - key
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
-              privateKeyRef:
-                description: 'Deprecated: Use logs[0].PrivateKeyRef instead'
-                properties:
-                  key:
-                    description: The key of the secret to select from. Must be a valid
-                      secret key.
-                    pattern: ^[-._a-zA-Z0-9]+$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - key
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
-              publicKey:
-                description: |-
-                  PEM-encoded public key resolved from the CTlog signer secret.
-                  Deprecated: Use logs[0].PublicKey instead
-                type: string
-              publicKeyRef:
-                description: 'Deprecated: Use logs[0].PublicKeyRef instead'
-                properties:
-                  key:
-                    description: The key of the secret to select from. Must be a valid
-                      secret key.
-                    pattern: ^[-._a-zA-Z0-9]+$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - key
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
-              rootCertificates:
-                description: 'Deprecated: Use logs[0].RootCertificates instead'
-                items:
-                  description: SecretKeySelector selects a key of a Secret.
-                  properties:
-                    key:
-                      description: The key of the secret to select from. Must be a
-                        valid secret key.
-                      pattern: ^[-._a-zA-Z0-9]+$
-                      type: string
-                    name:
-                      description: |-
-                        Name of the referent.
-                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      type: string
-                  required:
-                  - key
-                  - name
-                  type: object
-                  x-kubernetes-map-type: atomic
-                type: array
-                x-kubernetes-list-type: atomic
               serverConfigRef:
                 description: |-
                   LocalObjectReference contains enough information to let you locate the
@@ -3588,12 +3488,6 @@ spec:
                 x-kubernetes-validations:
                 - message: privateKeyRef cannot be empty
                   rule: (!has(self.certificateRef) || has(self.privateKeyRef))
-              treeID:
-                description: |-
-                  The ID of a Trillian tree that stores the log data.
-                  Deprecated: Use logs[0].LogId instead
-                format: int64
-                type: integer
               url:
                 description: |-
                   Url is the CTlog endpoint URL including the log prefix path,
