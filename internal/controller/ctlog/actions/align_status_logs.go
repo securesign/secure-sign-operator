@@ -60,35 +60,29 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			logStatus.RootCertificates = existing.RootCertificates
 		}
 
+		// Override status with spec values when user explicitly configures them
+		// (applies to both active and readonly logs)
+		if specLog.LogId != nil {
+			logStatus.LogId = specLog.LogId
+		}
+		if len(specLog.RootCerts) > 0 {
+			logStatus.RootCertificates = specLog.RootCerts
+		}
+		if specLog.Signer != nil {
+			logStatus.SignerType = specLog.Signer.Type
+			if specLog.Signer.File != nil {
+				logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
+				logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+			}
+			if specLog.Signer.PKCS11 != nil {
+				logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
+				logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
+				logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
+			}
+		}
+
 		if specLog.Active != nil && *specLog.Active {
 			logStatus.Active = true
-
-			if specLog.Signer != nil {
-				logStatus.SignerType = specLog.Signer.Type
-				if specLog.Signer.PKCS11 != nil {
-					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
-					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
-				}
-			}
-		} else {
-			if specLog.LogId != nil {
-				logStatus.LogId = specLog.LogId
-			}
-			if len(specLog.RootCerts) > 0 {
-				logStatus.RootCertificates = specLog.RootCerts
-			}
-			if specLog.Signer != nil {
-				logStatus.SignerType = specLog.Signer.Type
-				if specLog.Signer.File != nil {
-					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
-					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
-				}
-				if specLog.Signer.PKCS11 != nil {
-					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
-					logStatus.PinSecretRef = specLog.Signer.PKCS11.PinSecretRef
-					logStatus.PKCS11TokenLabel = specLog.Signer.PKCS11.TokenLabel
-				}
-			}
 		}
 
 		logs = append(logs, logStatus)
