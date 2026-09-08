@@ -94,7 +94,7 @@ func TestUpdateStatusAction_Handle_PropagatesDrift(t *testing.T) {
 	if ready == nil {
 		t.Fatal("expected Ready condition to be set")
 	}
-	if ready.Status != metav1.ConditionFalse {
+	if ready == nil || ready.Status != metav1.ConditionFalse {
 		t.Fatalf("expected umbrella Ready to be False when a child has drifted, got %s", ready.Status)
 	}
 	if ready.Reason != state.Ready.String() {

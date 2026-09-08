@@ -18,6 +18,7 @@ import (
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -716,7 +717,12 @@ func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: rhtasv1.CTlogSpec{
-			Prefix: "test-prefix",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "test-prefix",
+					Active: ptr.To(true),
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			Conditions: []v1.Condition{
@@ -749,7 +755,12 @@ func TestDeployAction_Handle_AutodiscoveryCtlogAddress(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: rhtasv1.CTlogSpec{
-			Prefix: "trusted-artifact-signer",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			Conditions: []v1.Condition{

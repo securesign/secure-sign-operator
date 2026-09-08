@@ -165,6 +165,15 @@ var _ = Describe("Fulcio hot update", func() {
 					Name:      "test-ctlog",
 					Namespace: Namespace,
 				},
+				Spec: rhtasv1.CTlogSpec{
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "log",
+							Active: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{Type: "file"},
+						},
+					},
+				},
 			}
 			Expect(suite.Client().Create(ctx, ctlog)).To(Succeed())
 			meta.SetStatusCondition(&ctlog.Status.Conditions, metav1.Condition{

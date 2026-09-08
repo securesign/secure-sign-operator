@@ -3,7 +3,6 @@ package actions
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -13,7 +12,9 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -42,31 +43,29 @@ func (g handleFulcioCert) Name() string {
 
 // CanHandle gates on the component's readiness state and cert resolution status.
 //
-// Spec.RootCertificates empty → autodiscovery: operator resolves certs from Fulcio CR status.
-// Spec.RootCertificates set   → user-provided: operator uses the explicit refs from spec.
+// Active log Roots empty → autodiscovery: operator resolves certs from Fulcio CR status.
+// Active log Roots set   → user-provided: operator uses the explicit refs from spec.
 func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.ReadyCondition)
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
 	switch {
 	case c == nil:
 		return false
 	case state.FromReason(c.Reason) < state.Creating:
 		return false
-	case len(instance.Status.RootCertificates) == 0:
-		// No certs resolved yet — initial resolution needed.
+	case activeLogStatus == nil || len(activeLogStatus.RootCertificates) == 0:
 		return true
-	case len(instance.Spec.RootCertificates) == 0:
-		// Autodiscovery: always re-run Handle so it can compare the provisioned cert
-		// against Fulcio CR's current status and detect rotation.
-		// Handle itself short-circuits with Continue() when content is unchanged.
+	case activeLog == nil || len(activeLog.RootCerts) == 0:
 		return true
 	default:
-		// User-provided: only re-run when spec refs differ from status refs.
-		return !equality.Semantic.DeepDerivative(instance.Spec.RootCertificates, instance.Status.RootCertificates)
+		return !equality.Semantic.DeepDerivative(activeLog.RootCerts, activeLogStatus.RootCertificates)
 	}
 }
 
 func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	previouslyResolved := len(instance.Status.RootCertificates) > 0
+	activeLogStatus := utils.ActiveLogStatus(instance.Status.Logs)
+	previouslyResolved := activeLogStatus != nil && len(activeLogStatus.RootCertificates) > 0
 
 	if !previouslyResolved && state.FromInstance(instance, constants.ReadyCondition) != state.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -78,8 +77,11 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
-	if len(instance.Spec.RootCertificates) == 0 {
-		cert, err := g.discoverFulcioRootCert(ctx, instance.Namespace)
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	userProvidedRoots := activeLog != nil && len(activeLog.RootCerts) > 0
+
+	if !userProvidedRoots {
+		cert, err := g.discoverFulcioRootCert(ctx, instance)
 		if err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
@@ -99,7 +101,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 
 		if previouslyResolved {
-			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &instance.Status.RootCertificates[0])
+			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &activeLogStatus.RootCertificates[0])
 			if readErr == nil && bytes.Equal(existing, signingCert) {
 				return g.Continue()
 			}
@@ -131,9 +133,13 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		} else {
 			g.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "FulcioCertDiscovered", "Discovered", "Fulcio root certificate resolved from Fulcio CR status")
 		}
-		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks}
+		if activeLogStatus != nil {
+			activeLogStatus.RootCertificates = []rhtasv1.SecretKeySelector{sks}
+		}
 	} else {
-		instance.Status.RootCertificates = instance.Spec.RootCertificates
+		if activeLogStatus != nil {
+			activeLogStatus.RootCertificates = activeLog.RootCerts
+		}
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -151,17 +157,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g handleFulcioCert) discoverFulcioRootCert(ctx context.Context, namespace string) ([]byte, error) {
-	item, err := trustmaterial.FindReadyInstance(ctx, g.Client, namespace, &rhtasv1.FulcioList{})
-	if err != nil {
-		if errors.Is(err, trustmaterial.ErrNoReadyInstance) {
-			return nil, fmt.Errorf("no ready fulcio instance found")
-		}
-		return nil, err
-	}
-	fulcio, ok := item.(*rhtasv1.Fulcio)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type %T for ready Fulcio instance", item)
+func (g handleFulcioCert) discoverFulcioRootCert(ctx context.Context, instance *rhtasv1.CTlog) ([]byte, error) {
+	fulcio := &rhtasv1.Fulcio{}
+	if err := serviceresolver.PopulateInstance(ctx, g.Client, instance.Spec.Fulcio, instance.Namespace, fulcio); err != nil {
+		return nil, fmt.Errorf("resolving Fulcio instance: %w", err)
 	}
 	if fulcio.Status.CertificateChain == "" {
 		return nil, fmt.Errorf("fulcio root certificate not yet available")
