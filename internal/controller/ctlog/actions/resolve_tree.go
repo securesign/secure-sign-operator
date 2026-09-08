@@ -9,18 +9,23 @@ import (
 
 func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 	wrapper := tree.Wrapper[*rhtasv1.CTlog](
+		// getTree: read desired LogId from spec (first callback)
 		func(ctlog *rhtasv1.CTlog) *int64 {
 			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
 				return active.LogId
 			}
 			return nil
 		},
+		// getStatusTree: read allocated LogId from status (second callback)
+		// This is called by CanHandle to check if a tree ID is already allocated.
+		// Allocated IDs live in Status.Logs, not Spec.Logs.
 		func(ctlog *rhtasv1.CTlog) *int64 {
-			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+			if active := utils.ActiveLogStatus(ctlog.Status.Logs); active != nil {
 				return active.LogId
 			}
 			return nil
 		},
+		// setStatusTree: write allocated LogId to status (third callback)
 		func(ctlog *rhtasv1.CTlog, i *int64) {
 			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
 				for idx := range ctlog.Status.Logs {
