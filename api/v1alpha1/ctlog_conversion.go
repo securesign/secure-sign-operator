@@ -305,6 +305,29 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 			}
 		}
 	}
+	// Also restore v1alpha1Prefix log's status fields if present in storage
+	for i := range dst.Status.Logs {
+		if dst.Status.Logs[i].Prefix == v1alpha1Prefix {
+			for _, rlog := range restored.Status.Logs {
+				if rlog.Prefix == v1alpha1Prefix {
+					// Restore password refs for backward compatibility
+					if dst.Status.Logs[i].PrivateKeyPasswordRef == nil {
+						dst.Status.Logs[i].PrivateKeyPasswordRef = rlog.PrivateKeyPasswordRef
+					}
+					// Restore already-resolved public key (critical for TUF trust material)
+					if dst.Status.Logs[i].PublicKey == "" {
+						dst.Status.Logs[i].PublicKey = rlog.PublicKey
+					}
+					// Restore signer type if not already set
+					if dst.Status.Logs[i].SignerType == "" {
+						dst.Status.Logs[i].SignerType = rlog.SignerType
+					}
+					break
+				}
+			}
+			break
+		}
+	}
 	// Shared Status fields (Conditions, ServerConfigRef, Tls, Url) are properly converted by
 	// autoConvert_v1alpha1_CTlog_To_v1_CTlog above. Do not restore them from storage.
 	// However, reconstruct Status.Url to include the active log prefix (which v1alpha1 strips)
