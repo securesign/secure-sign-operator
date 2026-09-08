@@ -89,28 +89,32 @@ func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogC
 		rootPems = rootPemPaths(log.TreeID, len(log.RootCerts))
 	}
 
-	var privateKey *anypb.Any
-	if log.PKCS11 != nil {
-		privateKey = mustMarshalAny(&keyspb.PKCS11Config{
-			TokenLabel: log.PKCS11.TokenLabel,
-			Pin:        log.PKCS11.Pin,
-			PublicKey:  string(log.PublicKey),
-		})
-	} else {
-		privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
-			Path: fmt.Sprintf("%slog-%d-private", rootsPemFileDir, log.TreeID),
-		})
-	}
-
 	cfg := &configpb.LogConfig{
 		LogId:          log.TreeID,
 		Prefix:         log.Prefix,
 		RootsPemFile:   rootPems,
-		PrivateKey:     privateKey,
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
 		IsReadonly:     log.Readonly,
+	}
+
+	// Mirrors (read-only mirrors without signing capability) do not have a private key.
+	// All other logs (active, frozen/readonly) require a private key configuration.
+	if !log.Mirror {
+		var privateKey *anypb.Any
+		if log.PKCS11 != nil {
+			privateKey = mustMarshalAny(&keyspb.PKCS11Config{
+				TokenLabel: log.PKCS11.TokenLabel,
+				Pin:        log.PKCS11.Pin,
+				PublicKey:  string(log.PublicKey),
+			})
+		} else {
+			privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
+				Path: fmt.Sprintf("%slog-%d-private", rootsPemFileDir, log.TreeID),
+			})
+		}
+		cfg.PrivateKey = privateKey
 	}
 
 	if log.FrozenSTH != nil {

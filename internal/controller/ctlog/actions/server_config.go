@@ -192,6 +192,7 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 			TreeID:   *log.LogId,
 			Prefix:   log.Prefix,
 			Readonly: ptr.Deref(specLog.Readonly, false),
+			Mirror:   ptr.Deref(specLog.Mirror, false),
 		}
 
 		// Root certificates
@@ -212,30 +213,17 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 			sc.PublicKey = publicKey
 		}
 
-		switch specLog.Signer.Type {
-		case rhtasv1.SignerTypePKCS11:
-			pkcsConfig := specLog.Signer.PKCS11
-			if pkcsConfig == nil {
-				return nil, fmt.Errorf("log %q: configuration for PKCS#11 has not been set", log.Prefix)
+		// Handle signer configuration. Signer is optional for mirrors.
+		isMirror := specLog.Mirror != nil && *specLog.Mirror
+
+		if isMirror {
+			// Mirrors have no signer configuration
+			if specLog.Signer != nil {
+				return nil, fmt.Errorf("log %q: mirrors must not have signer configured", log.Prefix)
 			}
-			if pkcsConfig.PinSecretRef.Name == "" || pkcsConfig.PinSecretRef.Key == "" {
-				return nil, fmt.Errorf("log %q: pinSecretRef is required for PKCS#11 signer", log.Prefix)
-			}
-			if log.PublicKeyRef == nil {
-				return nil, fmt.Errorf("log %q: publicKeyRef is required for PKCS#11 signer", log.Prefix)
-			}
-			pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &pkcsConfig.PinSecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("log %q pkcs11 pinSecretRef: %w", log.Prefix, err)
-			}
-			if len(pin) == 0 {
-				return nil, fmt.Errorf("log %q: PIN secret %s/%s is empty", log.Prefix, pkcsConfig.PinSecretRef.Name, pkcsConfig.PinSecretRef.Key)
-			}
-			sc.PKCS11 = &ctlogUtils.PKCS11ShardConfig{
-				TokenLabel: pkcsConfig.TokenLabel,
-				Pin:        string(pin),
-			}
-		case rhtasv1.SignerTypeFile:
+		} else if specLog.Signer == nil {
+			// Active or non-mirror logs without explicit signer: normalize to file mode
+			// and use generated keys from status
 			if log.PrivateKeyRef != nil {
 				privateKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PrivateKeyRef)
 				if err != nil {
@@ -243,8 +231,42 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 				}
 				sc.PrivateKey = privateKey
 			}
-		default:
-			return nil, fmt.Errorf("log %q: signer type %q is not supported", log.Prefix, specLog.Signer.Type)
+		} else {
+			// Explicit signer configuration
+			switch specLog.Signer.Type {
+			case rhtasv1.SignerTypePKCS11:
+				pkcsConfig := specLog.Signer.PKCS11
+				if pkcsConfig == nil {
+					return nil, fmt.Errorf("log %q: configuration for PKCS#11 has not been set", log.Prefix)
+				}
+				if pkcsConfig.PinSecretRef == nil {
+					return nil, fmt.Errorf("log %q: pinSecretRef is required for PKCS#11 signer", log.Prefix)
+				}
+				if log.PublicKeyRef == nil {
+					return nil, fmt.Errorf("log %q: publicKeyRef is required for PKCS#11 signer", log.Prefix)
+				}
+				pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, pkcsConfig.PinSecretRef)
+				if err != nil {
+					return nil, fmt.Errorf("log %q pkcs11 pinSecretRef: %w", log.Prefix, err)
+				}
+				if len(pin) == 0 {
+					return nil, fmt.Errorf("log %q: PIN secret %s/%s is empty", log.Prefix, pkcsConfig.PinSecretRef.Name, pkcsConfig.PinSecretRef.Key)
+				}
+				sc.PKCS11 = &ctlogUtils.PKCS11ShardConfig{
+					TokenLabel: pkcsConfig.TokenLabel,
+					Pin:        string(pin),
+				}
+			case rhtasv1.SignerTypeFile:
+				if log.PrivateKeyRef != nil {
+					privateKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PrivateKeyRef)
+					if err != nil {
+						return nil, fmt.Errorf("log %q privateKeyRef: %w", log.Prefix, err)
+					}
+					sc.PrivateKey = privateKey
+				}
+			default:
+				return nil, fmt.Errorf("log %q: signer type %q is not supported", log.Prefix, specLog.Signer.Type)
+			}
 		}
 
 		if specLog.FrozenSTH != nil {

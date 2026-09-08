@@ -13,6 +13,7 @@ type ShardConfig struct {
 	NotAfterLimit      int64
 	FrozenSTH          *FrozenSTH
 	Readonly           bool
+	Mirror             bool
 	RootCerts          []RootCertificate
 }
 
