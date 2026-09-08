@@ -162,10 +162,19 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 		}
 	}
 	if idx == -1 {
+		// Check if any existing log is already marked as active
+		hasActiveLog := false
+		for _, log := range out.Logs {
+			if log.Active != nil && *log.Active {
+				hasActiveLog = true
+				break
+			}
+		}
+		// Only set this log as active if no other log is currently active
 		out.Logs = append(out.Logs, rhtasv1.CTLogConfig{
 			Prefix: v1alpha1Prefix,
 			Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile},
-			Active: ptr.To(true),
+			Active: ptr.To(!hasActiveLog),
 		})
 		idx = len(out.Logs) - 1
 	}
@@ -217,10 +226,21 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
 	// Merge restored logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
 	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
+	// Preserve the original active log selection: if a v1-only log was active before,
+	// keep it active and deactivate the converted v1alpha1 log.
 	for _, rlog := range restored.Spec.Logs {
 		if rlog.Prefix != v1alpha1Prefix {
 			// This is a v1-only log (not the legacy v1alpha1 log), append it
 			dst.Spec.Logs = append(dst.Spec.Logs, rlog)
+			// If this restored log was the original active log, deactivate the v1alpha1 log
+			if rlog.Active != nil && *rlog.Active {
+				for i := range dst.Spec.Logs {
+					if dst.Spec.Logs[i].Prefix == v1alpha1Prefix {
+						dst.Spec.Logs[i].Active = ptr.To(false)
+						break
+					}
+				}
+			}
 		}
 	}
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
