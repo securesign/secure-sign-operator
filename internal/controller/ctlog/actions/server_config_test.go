@@ -2,27 +2,20 @@ package actions
 
 import (
 	"context"
-	"crypto/sha256"
 	_ "embed"
-	"encoding/hex"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
-	"github.com/securesign/operator/internal/testing/errors"
 
-	"github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"k8s.io/utils/ptr"
 
@@ -46,90 +39,38 @@ var (
 func TestServerConfig_CanHandle(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name                  string
-		status                metav1.ConditionStatus
-		canHandle             bool
-		serverConfigRef       *rhtasv1.LocalObjectReference
-		statusServerConfigRef *rhtasv1.LocalObjectReference
-		observedGeneration    int64
-		generation            int64
+		name               string
+		status             metav1.ConditionStatus
+		canHandle          bool
+		observedGeneration int64
+		generation         int64
 	}{
 		{
-			name:                  "ConditionTrue: spec.serverConfigRef is not nil and status.serverConfigRef is nil",
-			status:                metav1.ConditionTrue,
-			canHandle:             true,
-			serverConfigRef:       &rhtasv1.LocalObjectReference{Name: "config"},
-			statusServerConfigRef: nil,
+			name:      "ConditionTrue: ready to handle",
+			status:    metav1.ConditionTrue,
+			canHandle: true,
 		},
 		{
-			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is not nil",
-			status:                metav1.ConditionTrue,
-			canHandle:             true,
-			serverConfigRef:       nil,
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			observedGeneration:    1,
-			generation:            1,
+			name:      "empty condition",
+			status:    "",
+			canHandle: false,
 		},
 		{
-			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is nil",
-			status:                metav1.ConditionTrue,
-			canHandle:             true,
-			serverConfigRef:       nil,
-			statusServerConfigRef: nil,
+			name:      "ConditionUnknown",
+			status:    metav1.ConditionUnknown,
+			canHandle: true,
 		},
 		{
-			name:                  "ConditionTrue: spec.serverConfigRef != status.serverConfigRef",
-			status:                metav1.ConditionTrue,
-			canHandle:             true,
-			serverConfigRef:       &rhtasv1.LocalObjectReference{Name: "new_config"},
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "old_config"},
+			name:      "ConditionFalse",
+			status:    metav1.ConditionFalse,
+			canHandle: true,
 		},
 		{
-			name:                  "ConditionTrue: spec.serverConfigRef == status.serverConfigRef",
-			status:                metav1.ConditionTrue,
-			canHandle:             true, // Always true for periodic validation
-			serverConfigRef:       &rhtasv1.LocalObjectReference{Name: "config"},
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-		},
-		{
-			name:                  "ConditionTrue: observedGeneration == generation",
-			status:                metav1.ConditionTrue,
-			canHandle:             true,
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			observedGeneration:    1,
-			generation:            1,
-		},
-		{
-			name:                  "ConditionTrue: observedGeneration != generation",
-			status:                metav1.ConditionTrue,
-			canHandle:             true,
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			observedGeneration:    1,
-			generation:            2,
-		},
-		{
-			name:                  "empty condition",
-			status:                "",
-			canHandle:             false,
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			observedGeneration:    1,
-			generation:            1,
-		},
-		{
-			name:                  "ConditionUnknown",
-			status:                metav1.ConditionUnknown,
-			canHandle:             true,
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			observedGeneration:    1,
-			generation:            1,
-		},
-		{
-			name:                  "ConditionFalse",
-			status:                metav1.ConditionFalse,
-			canHandle:             true,
-			statusServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			observedGeneration:    1,
-			generation:            1,
+			name:               "generation mismatch triggers rehandle",
+			status:             metav1.ConditionTrue,
+			canHandle:          true,
+			observedGeneration: 1,
+			generation:         2,
 		},
 	}
 	for _, tt := range tests {
@@ -143,12 +84,8 @@ func TestServerConfig_CanHandle(t *testing.T) {
 					Namespace:  "default",
 					Generation: tt.generation,
 				},
-				Spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: tt.serverConfigRef,
-				},
-				Status: rhtasv1.CTlogStatus{
-					ServerConfigRef: tt.statusServerConfigRef,
-				},
+				Spec:   rhtasv1.CTlogSpec{},
+				Status: rhtasv1.CTlogStatus{},
 			}
 			if tt.status != "" {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -165,16 +102,14 @@ func TestServerConfig_CanHandle(t *testing.T) {
 	}
 }
 
-func TestServerConfig_Handle(t *testing.T) {
+func TestServerConfig_Handle_Sharding(t *testing.T) {
 	t.Parallel()
 	g := NewWithT(t)
-	labels := labels.ForResource(ComponentName, DeploymentName, "ctlog", serverConfigResourceName)
 
 	type env struct {
-		spec      rhtasv1.CTlogSpec
-		status    rhtasv1.CTlogStatus
-		objects   []client.Object
-		intercept interceptor.Funcs
+		spec    rhtasv1.CTlogSpec
+		status  rhtasv1.CTlogStatus
+		objects []client.Object
 	}
 	type want struct {
 		result *action.Result
@@ -186,345 +121,205 @@ func TestServerConfig_Handle(t *testing.T) {
 		want want
 	}{
 		{
-			name: "use spec.serverConfigRef",
+			name: "create config with shards",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							LogId:    ptr.To(int64(111111)),
+							Prefix:   "shard-111111",
+							Readonly: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{
+								Type: "file",
+								File: &rhtasv1.CTlogFile{
+									PublicKeyRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+										Key:                  "public",
+									},
+								},
+							},
+							RootCerts: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
+					},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							LogId:  ptr.To(int64(111111)),
+							Prefix: "shard-111111",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
+					},
 				},
 				objects: []client.Object{
 					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "config",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							ctlogUtils.ConfigKey: []byte("test-config"),
-						},
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
 					},
-				},
-			},
-			want: want{
-				result: testAction.Return(),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.ServerConfigRef.Name).Should(Equal("config"))
-				},
-			},
-		},
-		{
-			name: "create a new config",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-					},
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-				},
-				objects: []client.Object{
 					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert":    cert,
-							"private": privateKey,
-							"public":  publicKey,
-						},
-					},
-				},
-			},
-			want: want{
-				result: testAction.Return(),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
-				},
-			},
-		},
-		{
-			name: "create a new config with an uncached client rejecting empty-name Get",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:80"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-					},
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-				},
-				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert":    cert,
-							"private": privateKey,
-							"public":  publicKey,
-						},
-					},
-				},
-				intercept: interceptor.Funcs{
-					Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-						if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
-							return k8sErrors.NewBadRequest("resource name may not be empty")
-						}
-						return wrapped.Get(ctx, key, obj, opts...)
-					},
-				},
-			},
-			want: want{
-				result: testAction.Return(),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
-				},
-			},
-		},
-		{
-			name: "replace config from spec",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "new_config"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "old_config"},
-				},
-				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "new_config",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							ctlogUtils.ConfigKey: []byte("new-test-config"),
-						},
-					},
-				},
-			},
-			want: want{
-				result: testAction.Return(),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.ServerConfigRef.Name).Should(Equal("new_config"))
-				},
-			},
-		},
-		{
-			name: "Waiting for Fulcio root certificate",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "not-existing"}, Key: "cert"},
-					},
-					PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
-				},
-				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert":    cert,
-							"private": privateKey,
-							"public":  publicKey,
-						},
-					},
-				},
-			},
-			want: want{
-				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
-					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Message": ContainSubstring("Waiting for Fulcio root certificate: not-existing/cert"),
-						"Status":  Equal(metav1.ConditionFalse),
-						"Reason":  Equal(FulcioReason),
-					})))
-				},
-			},
-		},
-		{
-			name: "Waiting for Ctlog private key secret",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-					},
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "not-existing"}, Key: "private"},
-					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-				},
-				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert":    cert,
-							"private": privateKey,
-							"public":  publicKey,
-						},
-					},
-				},
-			},
-			want: want{
-				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
-					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Message": ContainSubstring("Waiting for Ctlog private key secret"),
-						"Status":  Equal(metav1.ConditionFalse),
-						"Reason":  Equal(SignerKeyReason),
-					})))
-				},
-			},
-		},
-		{
-			name: "Delete existing Ctlog configuration",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-					TreeID:          ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-					},
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-				},
-				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert":    cert,
-							"private": privateKey,
-							"public":  publicKey,
-						},
-					},
-
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "config",
-							Namespace: "default",
-							Labels:    labels,
-						},
-						Data: map[string][]byte{},
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
-
-					g.Expect(k8sErrors.IsNotFound(cli.Get(ctx, client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 
 					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("111111"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("is_readonly:true"))
 				},
 			},
 		},
 		{
-			name: "Update config on cert change",
+			name: "create config with readonly shard",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							LogId:    ptr.To(int64(222222)),
+							Prefix:   "shard-222222",
+							Readonly: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{
+								Type: "file",
+								File: &rhtasv1.CTlogFile{
+									PublicKeyRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+										Key:                  "public",
+									},
+								},
+							},
+							RootCerts: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
+					},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new"}, Key: "cert"},
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							LogId:  ptr.To(int64(222222)),
+							Prefix: "shard-222222",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
 					},
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				},
 				objects: []client.Object{
 					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert":    cert,
-							"private": privateKey,
-							"public":  publicKey,
-						},
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
 					},
 					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "new",
-							Namespace: "default",
-						},
-						Data: map[string][]byte{
-							"cert": cert,
-						},
-					},
-
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "config",
-							Namespace: "default",
-							Labels:    labels,
-						},
-						Data: map[string][]byte{},
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
-					g.Expect(instance.Status.ServerConfigRef.Name).Should(Not(Equal("config")))
-
-					_, err := kubernetes.GetSecret(ctx, cli, "default", "config")
-					g.Expect(k8sErrors.IsNotFound(err)).To(BeTrue())
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 
 					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("222222"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("is_readonly:true"))
+				},
+			},
+		},
+		{
+			name: "create config with shard validity timestamps",
+			env: env{
+				spec: rhtasv1.CTlogSpec{
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							LogId:    ptr.To(int64(333333)),
+							Prefix:   "shard-333333",
+							Readonly: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{
+								Type: "file",
+								File: &rhtasv1.CTlogFile{
+									PublicKeyRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+										Key:                  "public",
+									},
+								},
+							},
+							RootCerts: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+						},
+					},
+				},
+				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							LogId:  ptr.To(int64(333333)),
+							Prefix: "shard-333333",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+							},
+						},
+					},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("333333"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("1704067200"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("1735689600"))
 				},
 			},
 		},
@@ -551,13 +346,12 @@ func TestServerConfig_Handle(t *testing.T) {
 				WithObjects(instance).
 				WithStatusSubresource(instance).
 				WithObjects(tt.env.objects...).
-				WithInterceptorFuncs(tt.env.intercept).
 				Build()
 
 			a := testAction.PrepareAction(c, NewServerConfigAction())
 
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
-				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+				t.Errorf("Handle() = %v, want %v", got, tt.want.result)
 			}
 			if tt.want.verify != nil {
 				tt.want.verify(ctx, g, instance, c)
@@ -566,11 +360,9 @@ func TestServerConfig_Handle(t *testing.T) {
 	}
 }
 
-func TestServerConfig_Update(t *testing.T) {
+func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 	t.Parallel()
 	g := NewWithT(t)
-
-	// -- local helpers scoped to this test function --
 
 	newBaseInstance := func() rhtasv1.CTlog {
 		return rhtasv1.CTlog{
@@ -581,17 +373,35 @@ func TestServerConfig_Update(t *testing.T) {
 			},
 			Spec: rhtasv1.CTlogSpec{
 				Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:80"},
-				Prefix:   "trusted-artifact-signer",
+				Logs: []rhtasv1.CTLogConfig{
+					{
+						LogId:  ptr.To(int64(123456)),
+						Prefix: "trusted-artifact-signer",
+						Active: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{Type: "file"},
+						RootCerts: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+				},
 			},
 			Status: rhtasv1.CTlogStatus{
-				ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "existing-config"},
-				TreeID:          ptr.To(int64(123456)),
-				RootCertificates: []rhtasv1.SecretKeySelector{
-					{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+				Logs: []rhtasv1.CTlogLogStatus{
+					{
+						Active: true,
+						LogId:  ptr.To(int64(123456)),
+						Prefix: "trusted-artifact-signer",
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private",
+						},
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public",
+						},
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
 				},
-				PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-				PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
-				PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				Conditions: []metav1.Condition{
 					{
 						Type:               constants.ReadyCondition,
@@ -619,26 +429,25 @@ func TestServerConfig_Update(t *testing.T) {
 		}
 	}
 
-	defaultAnnotations := func() map[string]string {
-		h := sha256.Sum256(cert)
-		return map[string]string{
-			"rhtas.redhat.com/treeID":               "123456",
-			"rhtas.redhat.com/trillianUrl":          "trillian-logserver.default.svc:80",
-			"rhtas.redhat.com/rootCertificatesHash": hex.EncodeToString(h[:]),
-			"rhtas.redhat.com/privateKeyRef":        "secret/private",
-			"rhtas.redhat.com/logPrefix":            "trusted-artifact-signer",
-		}
-	}
+	newConfigSecret := func(name, namespace string) *v1.Secret {
+		cfg, hash, _ := ctlogUtils.CreateConfig(
+			"trillian-logserver.default.svc:80",
+			[]ctlogUtils.ShardConfig{
+				{
+					TreeID:     123456,
+					Prefix:     "trusted-artifact-signer",
+					PublicKey:  publicKey,
+					PrivateKey: privateKey,
+					RootCerts:  []ctlogUtils.RootCertificate{cert},
+				},
+			},
+		)
 
-	newConfigSecret := func(name, namespace string, annotations map[string]string) *v1.Secret {
+		a := serverConfig{}
+		annotations := a.configMatchingAnnotations("trillian-logserver.default.svc:80", hash)
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Annotations: annotations},
-			Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
-				"trillian-logserver.default.svc:80", 123456,
-				[]ctlogUtils.RootCertificate{cert},
-				&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
-				"trusted-artifact-signer",
-			)),
+			Data:       cfg,
 		}
 	}
 
@@ -656,179 +465,179 @@ func TestServerConfig_Update(t *testing.T) {
 		want want
 	}{
 		{
-			name: "new secret with config created",
+			name: "sharding change triggers config recreation",
 			env: func() env {
 				inst := newBaseInstance()
 				inst.Generation = 2
-				inst.Spec.Trillian = rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:443"}
-				inst.Spec.TreeID = ptr.To(int64(123456))
-				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old_secret"}
-				// Only ReadyCondition, no ConfigCondition
-				inst.Status.Conditions = []metav1.Condition{{
-					Type:               constants.ReadyCondition,
-					Reason:             state.Ready.String(),
-					ObservedGeneration: 1,
-				}}
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						newKeySecret("default"),
-						// Old secret without annotations - forces recreation
-						&v1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Name: "old_secret", Namespace: "default"},
-							Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
-								"trillian-logserver.default.svc:80", 654321,
-								[]ctlogUtils.RootCertificate{cert},
-								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
-								"trusted-artifact-signer",
-							)),
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
+				inst.Spec.Logs = append(inst.Spec.Logs, rhtasv1.CTLogConfig{
+					LogId:    ptr.To(int64(444444)),
+					Prefix:   "shard-444444",
+					Readonly: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
 						},
 					},
-				}
-			}(),
-			want: want{
-				result: testAction.Return(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
-
-					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
-					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(data).To(And(ContainSubstring("trillian-logserver.default.svc:443"), ContainSubstring("123456")))
-
-					_, err = kubernetes.GetSecret(ctx, cli, "default", "old_config")
-					g.Expect(err).To(WithTransform(k8sErrors.IsNotFound, BeTrue()), "old_config should be deleted")
-				},
-			},
-		},
-		{
-			name: "replica-only change should not recreate config",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Generation = 2 // Generation bumped (e.g. replicas changed), but config inputs unchanged
+					RootCerts: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+				})
+				inst.Status.Logs = append(inst.Status.Logs, rhtasv1.CTlogLogStatus{
+					LogId:  ptr.To(int64(444444)),
+					Prefix: "shard-444444",
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+						Key:                  "public",
+					},
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+						Key:                  "private",
+					},
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+				})
 				return env{
 					instance: inst,
 					objects: []client.Object{
 						newKeySecret("default"),
-						newConfigSecret("existing-config", "default", defaultAnnotations()),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						},
+						newConfigSecret("old-config", "default"),
 					},
 				}
 			}(),
 			want: want{
 				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("existing-config"))
-
-					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
-					g.Expect(c).ShouldNot(BeNil())
-					g.Expect(c.ObservedGeneration).Should(Equal(int64(2)))
-					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
-				},
-			},
-		},
-		{
-			name: "steady state - valid config and no generation change returns Continue",
-			env: func() env {
-				inst := newBaseInstance() // Generation=1, observedGeneration=1 -> no change
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						newKeySecret("default"),
-						newConfigSecret("existing-config", "default", defaultAnnotations()),
-					},
-				}
-			}(),
-			want: want{
-				result: testAction.Continue(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("existing-config"))
-
-					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
-					g.Expect(c).ShouldNot(BeNil())
-					g.Expect(c.ObservedGeneration).Should(Equal(int64(1)))
-					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
-				},
-			},
-		},
-		{
-			name: "secret deleted externally should trigger recreation",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "deleted-config"}
-				return env{
-					instance: inst,
-					// Note: "deleted-config" secret is intentionally NOT created
-					objects: []client.Object{newKeySecret("default")},
-				}
-			}(),
-			want: want{
-				result: testAction.Return(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
-					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("deleted-config"))
 
 					secret, err := kubernetes.GetSecret(ctx, cli, "default", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("444444"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("is_readonly:true"))
+					g.Expect(secret.Annotations).To(HaveKey("rhtas.redhat.com/logsHash"))
 				},
 			},
 		},
 		{
-			name: "treeID change detected via annotations triggers recreation",
+			name: "fulcio cert rotation forces recreation even if annotations match",
 			env: func() env {
 				inst := newBaseInstance()
-				inst.Generation = 2
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
-				inst.Status.TreeID = ptr.To(int64(999999)) // Changed from 123456
+				meta.SetStatusCondition(&inst.Status.Conditions, metav1.Condition{
+					Type:    ConfigCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  FulcioReason,
+					Message: "Fulcio certificate changed",
+				})
 				return env{
 					instance: inst,
 					objects: []client.Object{
 						newKeySecret("default"),
-						// Config secret still has OLD treeID in annotations
-						newConfigSecret("old-config", "default", defaultAnnotations()),
+						newConfigSecret("old-config", "default"),
 					},
 				}
 			}(),
 			want: want{
 				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
-
-					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{
-						LocalObjectReference: *current.Status.ServerConfigRef, Key: "config",
-					})
-					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(data).To(ContainSubstring("999999"))
+					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 
 					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
 					g.Expect(c).ShouldNot(BeNil())
-					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
-					g.Expect(c.ObservedGeneration).Should(Equal(int64(2)))
+					g.Expect(c.Status).To(Equal(metav1.ConditionTrue))
 				},
 			},
 		},
 		{
-			name: "root certificate change detected via annotations triggers recreation",
+			name: "sharding with multiple shards and private keys",
 			env: func() env {
 				inst := newBaseInstance()
 				inst.Generation = 2
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
-				// Add a second root certificate
-				inst.Status.RootCertificates = append(inst.Status.RootCertificates,
-					rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-fulcio"}, Key: "cert"},
+				inst.Spec.Logs = append(inst.Spec.Logs,
+					rhtasv1.CTLogConfig{
+						LogId:    ptr.To(int64(555555)),
+						Prefix:   "shard-555555",
+						Readonly: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
+									Key:                  "public",
+								},
+							},
+						},
+						RootCerts: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+					rhtasv1.CTLogConfig{
+						LogId:    ptr.To(int64(666666)),
+						Prefix:   "shard-666666",
+						Readonly: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
+									Key:                  "public",
+								},
+							},
+						},
+						RootCerts: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+				)
+				inst.Status.Logs = append(inst.Status.Logs,
+					rhtasv1.CTlogLogStatus{
+						LogId:  ptr.To(int64(555555)),
+						Prefix: "shard-555555",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
+							Key:                  "public",
+						},
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
+					rhtasv1.CTlogLogStatus{
+						LogId:  ptr.To(int64(666666)),
+						Prefix: "shard-666666",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
+							Key:                  "public",
+						},
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+					},
 				)
 				return env{
 					instance: inst,
 					objects: []client.Object{
 						newKeySecret("default"),
 						&v1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Name: "new-fulcio", Namespace: "default"},
-							Data:       map[string][]byte{"cert": cert},
+							ObjectMeta: metav1.ObjectMeta{Name: "shard1-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 						},
-						// Config secret has only the original single root cert annotation
-						newConfigSecret("old-config", "default", defaultAnnotations()),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard2-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						},
+						newConfigSecret("old-config", "default"),
 					},
 				}
 			}(),
@@ -839,203 +648,8 @@ func TestServerConfig_Update(t *testing.T) {
 
 					secret, err := kubernetes.GetSecret(ctx, cli, "default", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(secret.Data).To(HaveKey("config"))
-					g.Expect(secret.Annotations).To(HaveKey("rhtas.redhat.com/rootCertificatesHash"))
-					singleHash := sha256.Sum256(cert)
-					g.Expect(secret.Annotations["rhtas.redhat.com/rootCertificatesHash"]).
-						ShouldNot(Equal(hex.EncodeToString(singleHash[:])), "hash should differ from single-cert hash")
-				},
-			},
-		},
-		{
-			name: "cert secret unreadable invalidates config via hash mismatch",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Generation = 2
-				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
-				// RootCertificates points to a secret that does NOT exist
-				inst.Status.RootCertificates = []rhtasv1.SecretKeySelector{
-					{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "deleted-secret"}, Key: "cert"},
-				}
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						newKeySecret("default"),
-						// old-config has a valid hash annotation — but the cert secret is gone
-						newConfigSecret("old-config", "default", defaultAnnotations()),
-					},
-				}
-			}(),
-			want: want{
-				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
-					g.Expect(c).ShouldNot(BeNil())
-					g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(c.Reason).Should(Equal(FulcioReason))
-				},
-			},
-		},
-		{
-			name: "trillian autodiscovery resolves dns:/// URL",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Namespace = "mynamespace"
-				inst.Spec.Trillian = rhtasv1.ServiceReference{}
-				inst.Status.ServerConfigRef = nil
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						newKeySecret("mynamespace"),
-						&rhtasv1.Trillian{
-							ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "mynamespace"},
-						},
-					},
-				}
-			}(),
-			want: want{
-				result: testAction.Return(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
-
-					data, err := kubernetes.GetSecretData(ctx, cli, "mynamespace", &rhtasv1.SecretKeySelector{
-						LocalObjectReference: *current.Status.ServerConfigRef, Key: "config",
-					})
-					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(data).To(ContainSubstring("dns:///trillian-logserver.mynamespace.svc:8091"))
-
-					secret, err := kubernetes.GetSecret(ctx, cli, "mynamespace", current.Status.ServerConfigRef.Name)
-					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(secret.Annotations).To(HaveKeyWithValue(
-						"rhtas.redhat.com/trillianUrl", "dns:///trillian-logserver.mynamespace.svc:8091",
-					))
-				},
-			},
-		},
-		{
-			name: "use custom config and ignore other changes",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Generation = 2
-				inst.Spec.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "custom_config"}
-				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old_secret"}
-				// Only ReadyCondition, no ConfigCondition
-				inst.Status.Conditions = []metav1.Condition{{
-					Type:               constants.ReadyCondition,
-					Reason:             state.Ready.String(),
-					ObservedGeneration: 1,
-				}}
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						&v1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Name: "custom_config", Namespace: "default"},
-							Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
-								"trillian-logserver.custom.svc:80", 9999999,
-								[]ctlogUtils.RootCertificate{cert},
-								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
-								"trusted-artifact-signer",
-							)),
-						},
-					},
-				}
-			}(),
-			want: want{
-				result: testAction.Return(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
-
-					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
-					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(data).To(And(ContainSubstring("trillian-logserver.custom.svc:80"), ContainSubstring("9999999")))
-				},
-			},
-		},
-		{
-			name: "custom config steady state - status already reflects spec, should return Continue",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Generation = 2
-				inst.Spec.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "custom_config"}
-				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "custom_config"}
-				inst.Status.Conditions = []metav1.Condition{
-					{
-						Type:               ConfigCondition,
-						Status:             metav1.ConditionTrue,
-						Reason:             state.Ready.String(),
-						Message:            "Using custom server config",
-						ObservedGeneration: 2,
-					},
-				}
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						&v1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Name: "custom_config", Namespace: "default"},
-							Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
-								"trillian-logserver.custom.svc:80", 9999999,
-								[]ctlogUtils.RootCertificate{cert},
-								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
-								"trusted-artifact-signer",
-							)),
-						},
-					},
-				}
-			}(),
-			want: want{
-				result: testAction.Continue(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
-
-					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
-					g.Expect(c).ShouldNot(BeNil())
-					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
-					g.Expect(c.ObservedGeneration).Should(Equal(int64(2)))
-				},
-			},
-		},
-		{
-			name: "custom config with generation change - should update observedGeneration",
-			env: func() env {
-				inst := newBaseInstance()
-				inst.Generation = 3
-				inst.Spec.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "custom_config"}
-				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "custom_config"}
-				inst.Status.Conditions = []metav1.Condition{
-					{
-						Type:               ConfigCondition,
-						Status:             metav1.ConditionTrue,
-						Reason:             state.Ready.String(),
-						Message:            "Using custom server config",
-						ObservedGeneration: 2,
-					},
-				}
-				return env{
-					instance: inst,
-					objects: []client.Object{
-						&v1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Name: "custom_config", Namespace: "default"},
-							Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
-								"trillian-logserver.custom.svc:80", 9999999,
-								[]ctlogUtils.RootCertificate{cert},
-								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
-								"trusted-artifact-signer",
-							)),
-						},
-					},
-				}
-			}(),
-			want: want{
-				result: testAction.Return(),
-				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
-					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
-
-					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
-					g.Expect(c).ShouldNot(BeNil())
-					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
-					g.Expect(c.ObservedGeneration).Should(Equal(int64(3)))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("555555"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("666666"))
 				},
 			},
 		},
@@ -1052,7 +666,7 @@ func TestServerConfig_Update(t *testing.T) {
 			a := testAction.PrepareAction(c, NewServerConfigAction())
 
 			if got := a.Handle(ctx, &tt.env.instance); !reflect.DeepEqual(got, tt.want.result) {
-				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+				t.Errorf("Handle() = %v, want %v", got, tt.want.result)
 			}
 			if tt.want.verify != nil {
 				tt.want.verify(ctx, g, c, &tt.env.instance)
@@ -1089,27 +703,46 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Spec: rhtasv1.CTlogSpec{
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
-						Prefix:   "trusted-artifact-signer",
-						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.SignerTypePKCS11,
-							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
-									Key:                  "pin",
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{
+									Type: rhtasv1.SignerTypePKCS11,
+									PKCS11: &rhtasv1.CTlogPKCS11Config{
+										PinSecretRef: &rhtasv1.SecretKeySelector{
+											LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+											Key:                  "pin",
+										},
+										TokenLabel: "test-token",
+										ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+										PublicKeyRef: &rhtasv1.SecretKeySelector{
+											LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+											Key:                  "public",
+										},
+									},
 								},
-								TokenLabel: "test-token",
-								ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
-									Key:                  "public",
+								RootCerts: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
 								},
 							},
 						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID: ptr.To(int64(123456)),
-						RootCertificates: []rhtasv1.SecretKeySelector{
-							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active: true,
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
 						},
 						Conditions: []metav1.Condition{
 							{
@@ -1164,24 +797,43 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Spec: rhtasv1.CTlogSpec{
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
-						Prefix:   "trusted-artifact-signer",
-						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.SignerTypePKCS11,
-							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: nil,
-								TokenLabel:   "test-token",
-								ModulePath:   "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
-									Key:                  "public",
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{
+									Type: rhtasv1.SignerTypePKCS11,
+									PKCS11: &rhtasv1.CTlogPKCS11Config{
+										TokenLabel: "test-token",
+										ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+										PublicKeyRef: &rhtasv1.SecretKeySelector{
+											LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+											Key:                  "public",
+										},
+									},
+								},
+								RootCerts: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
 								},
 							},
 						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID: ptr.To(int64(123456)),
-						RootCertificates: []rhtasv1.SecretKeySelector{
-							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active:     true,
+								SignerType: rhtasv1.SignerTypePKCS11,
+								LogId:      ptr.To(int64(123456)),
+								Prefix:     "trusted-artifact-signer",
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
 						},
 						Conditions: []metav1.Condition{
 							{
@@ -1224,24 +876,18 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Spec: rhtasv1.CTlogSpec{
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
-						Prefix:   "trusted-artifact-signer",
-						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.SignerTypePKCS11,
-							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
-									Key:                  "pin",
-								},
-								TokenLabel:   "test-token",
-								ModulePath:   "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: nil,
-							},
-						},
 					},
 					Status: rhtasv1.CTlogStatus{
-						TreeID: ptr.To(int64(123456)),
-						RootCertificates: []rhtasv1.SecretKeySelector{
-							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active:       true,
+								LogId:        ptr.To(int64(123456)),
+								Prefix:       "trusted-artifact-signer",
+								PublicKeyRef: nil,
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
+							},
 						},
 						Conditions: []metav1.Condition{
 							{
@@ -1274,9 +920,8 @@ func TestServerConfig_PKCS11(t *testing.T) {
 			},
 		},
 		{
-			name: "PKCS#11 mode skips PrivateKeyRef nil check",
+			name: "PKCS#11 mode works without PrivateKeyRef",
 			env: func() env {
-				// In PKCS#11 mode, PrivateKeyRef is not required (keys live on HSM)
 				inst := rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-pkcs11-no-privkey",
@@ -1285,28 +930,21 @@ func TestServerConfig_PKCS11(t *testing.T) {
 					},
 					Spec: rhtasv1.CTlogSpec{
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
-						Prefix:   "trusted-artifact-signer",
-						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.SignerTypePKCS11,
-							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
-									Key:                  "pin",
-								},
-								TokenLabel: "test-token",
-								ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+					},
+					Status: rhtasv1.CTlogStatus{
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active: true,
+								LogId:  ptr.To(int64(123456)),
+								Prefix: "trusted-artifact-signer",
 								PublicKeyRef: &rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
 								},
+								RootCertificates: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+								},
 							},
-						},
-					},
-					Status: rhtasv1.CTlogStatus{
-						TreeID:        ptr.To(int64(123456)),
-						PrivateKeyRef: nil, // No private key in PKCS#11 mode
-						RootCertificates: []rhtasv1.SecretKeySelector{
-							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
 						},
 						Conditions: []metav1.Condition{
 							{
@@ -1347,25 +985,28 @@ func TestServerConfig_PKCS11(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
+
+			i := tt.env.instance.DeepCopy()
+			i.Spec.SetDefaults()
+
 			c := testAction.FakeClientBuilder().
-				WithObjects(&tt.env.instance).
-				WithStatusSubresource(&tt.env.instance).
+				WithObjects(i).
+				WithStatusSubresource(i).
 				WithObjects(tt.env.objects...).
 				Build()
 
 			a := testAction.PrepareAction(c, NewServerConfigAction())
-			result := a.Handle(ctx, &tt.env.instance)
+			result := a.Handle(ctx, i)
 
 			if tt.want.result != nil {
 				if !reflect.DeepEqual(result, tt.want.result) {
 					t.Errorf("Handle() = %v, want %v", result, tt.want.result)
 				}
 			} else {
-				// Expect an error result for nil-ref tests
 				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
 			}
 			if tt.want.verify != nil {
-				tt.want.verify(ctx, g, c, &tt.env.instance)
+				tt.want.verify(ctx, g, c, i)
 			}
 		})
 	}
@@ -1373,117 +1014,88 @@ func TestServerConfig_PKCS11(t *testing.T) {
 
 func TestServerConfig_Prerequisites(t *testing.T) {
 	t.Parallel()
-	newBaseInstance := func() rhtasv1.CTlog {
-		return rhtasv1.CTlog{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "test",
-				Namespace:  "default",
-				Generation: 1,
-			},
-			Spec: rhtasv1.CTlogSpec{
-				Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
-				Prefix:   "trusted-artifact-signer",
-			},
-			Status: rhtasv1.CTlogStatus{
-				ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "existing-config"},
-				TreeID:          ptr.To(int64(123456)),
-				RootCertificates: []rhtasv1.SecretKeySelector{
-					{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-				},
-				PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-				PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
-				PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-				Conditions: []metav1.Condition{
-					{
-						Type:               constants.ReadyCondition,
-						Reason:             state.Ready.String(),
-						ObservedGeneration: 1,
-					},
-					{
-						Type:               ConfigCondition,
-						Status:             metav1.ConditionTrue,
-						Reason:             state.Ready.String(),
-						Message:            "Server config created",
-						ObservedGeneration: 1,
-					},
-				},
-			},
-		}
-	}
 
 	type testCase struct {
 		name    string
-		setup   func() *rhtasv1.CTlog // Build instance from base with modifications
+		setup   func() *rhtasv1.CTlog
 		objects []client.Object
 		verify  func(Gomega, *action.Result, *rhtasv1.CTlog)
 	}
 
 	tests := []testCase{
 		{
-			name: "custom server config secret not found",
+			name: "error when no logs in status",
 			setup: func() *rhtasv1.CTlog {
-				inst := newBaseInstance()
-				inst.Spec.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "missing-config"}
-				inst.Status = rhtasv1.CTlogStatus{}
-				return &inst
-			},
-			verify: func(g Gomega, result *action.Result, instance *rhtasv1.CTlog) {
-				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
-				g.Expect(result.Err.Error()).To(ContainSubstring("error accessing custom server config secret"))
-
-				c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-				g.Expect(c).ShouldNot(BeNil())
-				g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
-				g.Expect(c.Reason).Should(Equal(state.Failure.String()))
-				g.Expect(c.Message).Should(ContainSubstring("missing-config"))
-			},
-		},
-		{
-			name: "custom server config secret missing config key",
-			setup: func() *rhtasv1.CTlog {
-				inst := newBaseInstance()
-				inst.Spec.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "bad-config"}
-				inst.Status = rhtasv1.CTlogStatus{}
-				return &inst
-			},
-			objects: []client.Object{
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "bad-config", Namespace: "default"},
-					Data:       map[string][]byte{"wrong-key": []byte("data")},
-				},
-			},
-			verify: func(g Gomega, result *action.Result, instance *rhtasv1.CTlog) {
-				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
-				g.Expect(result.Err.Error()).To(ContainSubstring("custom server config secret is invalid"))
-
-				c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-				g.Expect(c).ShouldNot(BeNil())
-				g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
-				g.Expect(c.Message).Should(ContainSubstring("missing '" + ctlogUtils.ConfigKey + "' key"))
-			},
-		},
-		{
-			name: "error when TreeID is nil",
-			setup: func() *rhtasv1.CTlog {
-				inst := newBaseInstance()
-				inst.Status.TreeID = nil
-				return &inst
+				return &rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test",
+						Namespace:  "default",
+						Generation: 1,
+					},
+					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					},
+					Status: rhtasv1.CTlogStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.ReadyCondition,
+								Reason:             state.Ready.String(),
+								ObservedGeneration: 1,
+							},
+							{
+								Type:               ConfigCondition,
+								Status:             metav1.ConditionTrue,
+								Reason:             state.Ready.String(),
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				}
 			},
 			verify: func(g Gomega, result *action.Result, _ *rhtasv1.CTlog) {
 				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
-				g.Expect(result.Err.Error()).To(ContainSubstring("tree not specified"))
+				g.Expect(result.Err.Error()).To(ContainSubstring("no logs in status"))
 			},
 		},
 		{
-			name: "error when PrivateKeyRef is nil",
+			name: "error when log has no LogId",
 			setup: func() *rhtasv1.CTlog {
-				inst := newBaseInstance()
-				inst.Status.PrivateKeyRef = nil
-				return &inst
+				return &rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test",
+						Namespace:  "default",
+						Generation: 1,
+					},
+					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					},
+					Status: rhtasv1.CTlogStatus{
+						Logs: []rhtasv1.CTlogLogStatus{
+							{
+								Active: true,
+								Prefix: "trusted-artifact-signer",
+								LogId:  nil,
+							},
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.ReadyCondition,
+								Reason:             state.Ready.String(),
+								ObservedGeneration: 1,
+							},
+							{
+								Type:               ConfigCondition,
+								Status:             metav1.ConditionTrue,
+								Reason:             state.Ready.String(),
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				}
 			},
 			verify: func(g Gomega, result *action.Result, _ *rhtasv1.CTlog) {
 				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
-				g.Expect(result.Err.Error()).To(ContainSubstring("private key not specified"))
+				g.Expect(result.Err.Error()).To(ContainSubstring("has no LogId"))
 			},
 		},
 	}
@@ -1495,7 +1107,6 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 			ctx := t.Context()
 			instance := tt.setup()
 
-			// Ensure ConfigCondition exists (required by CanHandle)
 			if meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition) == nil {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:               ConfigCondition,

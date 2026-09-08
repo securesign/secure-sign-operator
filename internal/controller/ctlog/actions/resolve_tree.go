@@ -4,21 +4,35 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/tree"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 )
 
 func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 	wrapper := tree.Wrapper[*rhtasv1.CTlog](
-		func(rekor *rhtasv1.CTlog) *int64 {
-			return rekor.Spec.TreeID
+		func(ctlog *rhtasv1.CTlog) *int64 {
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				return active.LogId
+			}
+			return nil
 		},
-		func(rekor *rhtasv1.CTlog) *int64 {
-			return rekor.Status.TreeID
+		func(ctlog *rhtasv1.CTlog) *int64 {
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				return active.LogId
+			}
+			return nil
 		},
-		func(rekor *rhtasv1.CTlog, i *int64) {
-			rekor.Status.TreeID = i
+		func(ctlog *rhtasv1.CTlog, i *int64) {
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				for idx := range ctlog.Status.Logs {
+					if ctlog.Status.Logs[idx].Prefix == active.Prefix {
+						ctlog.Status.Logs[idx].LogId = i
+						break
+					}
+				}
+			}
 		},
-		func(rekor *rhtasv1.CTlog) *rhtasv1.ServiceReference {
-			return &rekor.Spec.Trillian
+		func(ctlog *rhtasv1.CTlog) *rhtasv1.ServiceReference {
+			return &ctlog.Spec.Trillian
 		})
 	return tree.NewResolveTreeAction[*rhtasv1.CTlog]("ctlog", wrapper)
 }

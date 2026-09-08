@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 //go:embed testdata/fulcio_root_cert.pem
@@ -76,10 +77,16 @@ func TestCertCan_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					RootCertificates: []rhtasv1.SecretKeySelector{
+					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fake"},
-							Key:                  "fake",
+							Prefix: "test-log",
+							Active: true,
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fake"},
+									Key:                  "fake",
+								},
+							},
 						},
 					},
 				},
@@ -124,10 +131,16 @@ func TestCertCan_Handle(t *testing.T) {
 				phase:        state.Ready,
 				certificates: nil,
 				status: rhtasv1.CTlogStatus{
-					RootCertificates: []rhtasv1.SecretKeySelector{
+					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fake"},
-							Key:                  "fake",
+							Prefix: "test-log",
+							Active: true,
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fake"},
+									Key:                  "fake",
+								},
+							},
 						},
 					},
 				},
@@ -145,10 +158,16 @@ func TestCertCan_Handle(t *testing.T) {
 				phase:        state.Ready,
 				certificates: nil,
 				status: rhtasv1.CTlogStatus{
-					RootCertificates: []rhtasv1.SecretKeySelector{
+					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-fulcio-root-instance"},
-							Key:                  "cert",
+							Prefix: "test-log",
+							Active: true,
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-fulcio-root-instance"},
+									Key:                  "cert",
+								},
+							},
 						},
 					},
 				},
@@ -180,10 +199,16 @@ func TestCertCan_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					RootCertificates: []rhtasv1.SecretKeySelector{
+					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
-							Key:                  "key",
+							Prefix: "test-log",
+							Active: true,
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
+									Key:                  "key",
+								},
+							},
 						},
 					},
 				},
@@ -208,7 +233,13 @@ func TestCertCan_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					RootCertificates: tt.env.certificates,
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix:    "test-log",
+							Active:    ptr.To(true),
+							RootCerts: tt.env.certificates,
+						},
+					},
 				},
 				Status: tt.env.status,
 			}
@@ -245,6 +276,12 @@ func TestCert_Handle(t *testing.T) {
 			env: env{
 				certificates: nil,
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -258,9 +295,10 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(ctx context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).To(HaveLen(1))
-					g.Expect(status.RootCertificates[0].Name).To(Equal(fmt.Sprintf(fulcioRootSecretFormat, "instance")))
-					g.Expect(status.RootCertificates[0].Key).To(Equal(fulcioRootCertKey))
+					g.Expect(status.Logs).To(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates).To(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates[0].Name).To(Equal(fmt.Sprintf(fulcioRootSecretFormat, "instance")))
+					g.Expect(status.Logs[0].RootCertificates[0].Key).To(Equal(fulcioRootCertKey))
 
 					secret := &v1.Secret{}
 					g.Expect(cli.Get(ctx, client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
@@ -275,6 +313,12 @@ func TestCert_Handle(t *testing.T) {
 			env: env{
 				certificates: nil,
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -285,7 +329,8 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).To(BeEmpty())
+					g.Expect(status.Logs).To(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates).To(BeEmpty())
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeFalse())
 				},
@@ -322,6 +367,12 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -332,11 +383,12 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).Should(HaveLen(2))
-					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[0].Name).Should(Equal("secret"))
-					g.Expect(status.RootCertificates[1].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[1].Name).Should(Equal("secret-2"))
+					g.Expect(status.Logs).To(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates).Should(HaveLen(2))
+					g.Expect(status.Logs[0].RootCertificates[0].Key).Should(Equal("key"))
+					g.Expect(status.Logs[0].RootCertificates[0].Name).Should(Equal("secret"))
+					g.Expect(status.Logs[0].RootCertificates[1].Key).Should(Equal("key"))
+					g.Expect(status.Logs[0].RootCertificates[1].Name).Should(Equal("secret-2"))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 				},
@@ -362,6 +414,12 @@ func TestCert_Handle(t *testing.T) {
 					readyFulcio(),
 				},
 				status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -372,9 +430,10 @@ func TestCert_Handle(t *testing.T) {
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
-					g.Expect(status.RootCertificates).Should(HaveLen(1))
-					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
+					g.Expect(status.Logs).To(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates).Should(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates[0].Key).Should(Equal("key"))
+					g.Expect(status.Logs[0].RootCertificates[0].Name).Should(Equal("my-secret"))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 				},
@@ -408,6 +467,12 @@ func TestCert_Handle(t *testing.T) {
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
+					Logs: []rhtasv1.CTlogLogStatus{
+						{
+							Prefix: "test-log",
+							Active: true,
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -416,9 +481,10 @@ func TestCert_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
-					g.Expect(status.RootCertificates).Should(HaveLen(1))
-					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
-					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
+					g.Expect(status.Logs).To(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates).Should(HaveLen(1))
+					g.Expect(status.Logs[0].RootCertificates[0].Key).Should(Equal("key"))
+					g.Expect(status.Logs[0].RootCertificates[0].Name).Should(Equal("my-secret"))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 
@@ -441,10 +507,15 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					RootCertificates: []rhtasv1.SecretKeySelector{
+					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},
-							Key:                  fulcioRootCertKey,
+							Prefix: "trusted-artifact-signer",
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},
+									Key:                  fulcioRootCertKey,
+								},
+							},
 						},
 					},
 					Conditions: []metav1.Condition{
@@ -479,10 +550,16 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					RootCertificates: []rhtasv1.SecretKeySelector{
+					Logs: []rhtasv1.CTlogLogStatus{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},
-							Key:                  fulcioRootCertKey,
+							Prefix: "test-log",
+							Active: true,
+							RootCertificates: []rhtasv1.SecretKeySelector{
+								{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},
+									Key:                  fulcioRootCertKey,
+								},
+							},
 						},
 					},
 					Conditions: []metav1.Condition{
@@ -509,7 +586,13 @@ func TestCert_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					RootCertificates: tt.env.certificates,
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix:    "test-log",
+							Active:    ptr.To(true),
+							RootCerts: tt.env.certificates,
+						},
+					},
 				},
 				Status: tt.env.status,
 			}

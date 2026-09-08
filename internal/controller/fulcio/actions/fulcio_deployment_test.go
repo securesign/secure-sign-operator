@@ -717,7 +717,12 @@ func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: rhtasv1.CTlogSpec{
-			Prefix: "test-prefix",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "test-prefix",
+					Active: ptr.To(true),
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			Conditions: []v1.Condition{
@@ -750,7 +755,12 @@ func TestDeployAction_Handle_AutodiscoveryCtlogAddress(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: rhtasv1.CTlogSpec{
-			Prefix: "trusted-artifact-signer",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			Conditions: []v1.Condition{

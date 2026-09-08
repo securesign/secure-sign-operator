@@ -1,8 +1,7 @@
 package utils
 
 import (
-	"bytes"
-	"crypto/elliptic"
+	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
 
@@ -11,120 +10,134 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/ctlog/createctconfig/main.go
 const (
 	// ConfigKey is the key in the map holding the marshalled CTLog config.
 	ConfigKey = "config"
-	// PrivateKey is the key in the map holding the encrypted PEM private key
-	// for CTLog.
-	PrivateKey = "private"
-	// PublicKey is the key in the map holding the PEM public key for CTLog.
-	PublicKey = "public"
-	// Password is private key password
-	Password = "password"
 
 	// This is hardcoded since this is where we mount the certs in the
 	// container.
 	rootsPemFileDir = "/ctfe-keys/"
-	// This file contains the private key for the CTLog
-	privateKeyFile = "/ctfe-keys/private"
 )
 
-var supportedCurves = map[string]elliptic.Curve{
-	"p256": elliptic.P256(),
-	"p384": elliptic.P384(),
-	"p521": elliptic.P521(),
-}
+// CreateConfig builds a CTLog protobuf MultiConfig and the accompanying secret
+// data map from the resolved status log entries. Every entry is serialized
+// uniformly — the Active flag plays no role here.
+func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, [32]byte, error) {
+	var hash [32]byte
+	if len(logs) == 0 {
+		return nil, hash, fmt.Errorf("no log entries to serialize")
+	}
 
-// Config abstracts the proto munging to/from bytes suitable for working
-// with secrets / configmaps. Note that we keep fulcioCerts here though
-// technically they are not part of the config, however because we create a
-// secret/CM that we then mount, they need to be synced.
-type Config struct {
-	PrivKey         []byte
-	PrivKeyPassword []byte
-	PubKey          []byte
-	LogID           int64
-	LogPrefix       string
+	data := make(map[string][]byte)
 
-	// Address of the gRPC Trillian Admin Server (host:port)
-	TrillianServerAddr string
-
-	// RootCerts contains one or more Root certificates that are acceptable to the log.
-	// It may contain more than one if Fulcio key is rotated for example, so
-	// there will be a period of time when we allow both. It might also contain
-	// multiple Root Certificates, if we choose to support admitting certificates from fulcio instances run by others
-	RootCerts []RootCertificate
-}
-
-// AddRootCertificate will add the specified root certificate to truststore.
-// If it already exists, it's a nop. The fulcio root cert should come from
-// the call to fetch a PublicFulcio root and is the ChainPEM from the
-// fulcioclient RootResponse.
-func (c *Config) AddRootCertificate(root RootCertificate) error {
-	for _, fc := range c.RootCerts {
-		if bytes.Equal(fc, root) {
-			return nil
+	// Collect per-log root cert files and private key files into the data map.
+	// Track the first non-empty set of root cert paths as the default for logs
+	// that don't carry their own (inherited from the upstream resolution stage).
+	var defaultRootPemPaths []string
+	for _, log := range logs {
+		for j, cert := range log.RootCerts {
+			key := fmt.Sprintf("log-%d-root-%d", log.TreeID, j)
+			data[key] = cert
+		}
+		if defaultRootPemPaths == nil && len(log.RootCerts) > 0 {
+			defaultRootPemPaths = rootPemPaths(log.TreeID, len(log.RootCerts))
+		}
+		if len(log.PrivateKey) > 0 {
+			data[fmt.Sprintf("log-%d-private", log.TreeID)] = log.PrivateKey
 		}
 	}
-	c.RootCerts = append(c.RootCerts, root)
-	return nil
-}
 
-// MarshalConfig marshals the CTLogConfig into a format that can be handed
-// to the CTLog in form of a secret or configmap. Returns a map with the
-// following keys:
-// config - CTLog configuration
-// private - CTLog private key, PEM encoded and encrypted with the password
-// public - CTLog public key, PEM encoded
-// fulcio-%d - For each fulcioCerts, contains one entry so we can support
-// multiple.
-func (c *Config) MarshalConfig() ([]byte, error) {
-	// Since we can have multiple Fulcio secrets, we need to construct a set
-	// of files containing them for the RootsPemFile. Names don't matter
-	// so we just call them fulcio-%
-	// What matters however is to ensure that the filenames match the keys
-	// in the configmap / secret that we construct so they get properly mounted.
-	rootPems := make([]string, 0, len(c.RootCerts))
-	for i := range c.RootCerts {
-		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
+	configs := make([]*configpb.LogConfig, 0, len(logs))
+	for _, log := range logs {
+		cfg, err := marshalLogConfig(log, defaultRootPemPaths)
+		if err != nil {
+			return nil, hash, fmt.Errorf("failed to create config for log %d (%s): %w", log.TreeID, log.Prefix, err)
+		}
+		configs = append(configs, cfg)
 	}
 
-	block, _ := pem.Decode(c.PubKey)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode public key PEM")
-	}
-
-	proto := configpb.LogConfig{
-		LogId:        c.LogID,
-		Prefix:       c.LogPrefix,
-		RootsPemFile: rootPems,
-		PrivateKey: mustMarshalAny(&keyspb.PEMKeyFile{
-			Path:     privateKeyFile,
-			Password: string(c.PrivKeyPassword)}),
-		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
-		LogBackendName: "trillian",
-		ExtKeyUsages:   []string{"CodeSigning"},
-	}
-
-	multiConfig := configpb.LogMultiConfig{
-		LogConfigs: &configpb.LogConfigSet{
-			Config: []*configpb.LogConfig{&proto},
-		},
+	marshalledConfig, err := prototext.Marshal(&configpb.LogMultiConfig{
+		LogConfigs: &configpb.LogConfigSet{Config: configs},
 		Backends: &configpb.LogBackendSet{
 			Backend: []*configpb.LogBackend{{
 				Name:        "trillian",
-				BackendSpec: c.TrillianServerAddr,
+				BackendSpec: trillianUrl,
 			}},
 		},
-	}
-	marshalledConfig, err := prototext.Marshal(&multiConfig)
+	})
 	if err != nil {
-		return nil, err
+		return nil, hash, fmt.Errorf("failed to marshal ctlog config: %w", err)
 	}
-	return marshalledConfig, nil
+
+	data[ConfigKey] = marshalledConfig
+	hash = sha256.Sum256(marshalledConfig)
+	return data, hash, nil
+}
+
+func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogConfig, error) {
+	block, _ := pem.Decode(log.PublicKey)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode public key for log %d", log.TreeID)
+	}
+
+	rootPems := defaultRootPems
+	if len(log.RootCerts) > 0 {
+		rootPems = rootPemPaths(log.TreeID, len(log.RootCerts))
+	}
+
+	var privateKey *anypb.Any
+	if log.PKCS11 != nil {
+		privateKey = mustMarshalAny(&keyspb.PKCS11Config{
+			TokenLabel: log.PKCS11.TokenLabel,
+			Pin:        log.PKCS11.Pin,
+			PublicKey:  string(log.PublicKey),
+		})
+	} else {
+		privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
+			Path: fmt.Sprintf("%slog-%d-private", rootsPemFileDir, log.TreeID),
+		})
+	}
+
+	cfg := &configpb.LogConfig{
+		LogId:          log.TreeID,
+		Prefix:         log.Prefix,
+		RootsPemFile:   rootPems,
+		PrivateKey:     privateKey,
+		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
+		LogBackendName: "trillian",
+		ExtKeyUsages:   []string{"CodeSigning"},
+		IsReadonly:     log.Readonly,
+	}
+
+	if log.FrozenSTH != nil {
+		cfg.FrozenSth = &configpb.SignedTreeHead{
+			TreeSize:          log.FrozenSTH.TreeSize,
+			Timestamp:         log.FrozenSTH.Timestamp,
+			Sha256RootHash:    log.FrozenSTH.Sha256RootHash,
+			TreeHeadSignature: log.FrozenSTH.TreeHeadSignature,
+		}
+	}
+
+	if log.NotAfterStart > 0 {
+		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: log.NotAfterStart}
+	}
+	if log.NotAfterLimit > 0 {
+		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: log.NotAfterLimit}
+	}
+
+	return cfg, nil
+}
+
+func rootPemPaths(treeID int64, count int) []string {
+	paths := make([]string, count)
+	for i := range count {
+		paths[i] = fmt.Sprintf("%slog-%d-root-%d", rootsPemFileDir, treeID, i)
+	}
+	return paths
 }
 
 func mustMarshalAny(pb proto.Message) *anypb.Any {
@@ -133,107 +146,6 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 		panic(fmt.Sprintf("MarshalAny failed: %v", err))
 	}
 	return ret
-}
-
-func createConfigWithKeys(certConfig *KeyConfig) *Config {
-	return &Config{
-		PubKey:          certConfig.PublicKey,
-		PrivKey:         certConfig.PrivateKey,
-		PrivKeyPassword: certConfig.PrivateKeyPass,
-	}
-}
-
-func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig, logPrefix string) (map[string][]byte, error) {
-	ctlogConfig := createConfigWithKeys(keyConfig)
-	ctlogConfig.LogID = treeID
-	ctlogConfig.LogPrefix = logPrefix
-	ctlogConfig.TrillianServerAddr = trillianUrl
-
-	for _, cert := range rootCerts {
-		if err := ctlogConfig.AddRootCertificate(cert); err != nil {
-			return nil, fmt.Errorf("failed to add fulcio root: %v", err)
-		}
-	}
-
-	config, err := ctlogConfig.MarshalConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal ctlog config: %v", err)
-	}
-
-	data := map[string][]byte{
-		ConfigKey:  config,
-		PrivateKey: ctlogConfig.PrivKey,
-		PublicKey:  ctlogConfig.PubKey,
-	}
-	if len(ctlogConfig.PrivKeyPassword) > 0 {
-		data[Password] = ctlogConfig.PrivKeyPassword
-	}
-	for i, cert := range ctlogConfig.RootCerts {
-		fulcioKey := fmt.Sprintf("fulcio-%d", i)
-		data[fulcioKey] = cert
-	}
-	return data, nil
-}
-
-// CreateCtlogPKCS11Config creates a CTLog protobuf configuration for PKCS#11 mode.
-// Instead of PEMKeyFile, the PrivateKey field is an anypb.Any wrapping keyspb.PKCS11Config.
-// The returned map contains only the protobuf config and root certificates;
-// private key material lives on the HSM and is not included.
-func CreateCtlogPKCS11Config(
-	trillianUrl string,
-	treeID int64,
-	rootCerts []RootCertificate,
-	tokenLabel, pin string,
-	publicKeyPEM []byte,
-	logPrefix string,
-) (map[string][]byte, error) {
-	rootPems := make([]string, 0, len(rootCerts))
-	for i := range rootCerts {
-		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
-	}
-
-	block, _ := pem.Decode(publicKeyPEM)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode public key PEM")
-	}
-
-	logConfig := configpb.LogConfig{
-		LogId:        treeID,
-		Prefix:       logPrefix,
-		RootsPemFile: rootPems,
-		PrivateKey: mustMarshalAny(&keyspb.PKCS11Config{
-			TokenLabel: tokenLabel,
-			Pin:        pin,
-			PublicKey:  string(publicKeyPEM),
-		}),
-		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
-		LogBackendName: "trillian",
-		ExtKeyUsages:   []string{"CodeSigning"},
-	}
-
-	multiConfig := configpb.LogMultiConfig{
-		LogConfigs: &configpb.LogConfigSet{
-			Config: []*configpb.LogConfig{&logConfig},
-		},
-		Backends: &configpb.LogBackendSet{
-			Backend: []*configpb.LogBackend{{
-				Name:        "trillian",
-				BackendSpec: trillianUrl,
-			}},
-		},
-	}
-	marshalledConfig, err := prototext.Marshal(&multiConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal PKCS#11 ctlog config: %w", err)
-	}
-
-	data := map[string][]byte{
-		ConfigKey: marshalledConfig,
-	}
-	for i, cert := range rootCerts {
-		data[fmt.Sprintf("fulcio-%d", i)] = cert
-	}
-	return data, nil
 }
 
 func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
@@ -249,16 +161,13 @@ func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string
 	// Parse the protobuf text format configuration
 	var multiConfig configpb.LogMultiConfig
 	if err := prototext.Unmarshal(configData, &multiConfig); err != nil {
-		// Failed to parse - invalid configuration
 		return false
 	}
 
-	// Validate that at least one backend exists
 	if multiConfig.Backends == nil || multiConfig.Backends.Backend == nil || len(multiConfig.Backends.Backend) == 0 {
 		return false
 	}
 
-	// Check if any backend matches the expected Trillian address
 	for _, backend := range multiConfig.Backends.Backend {
 		if backend.BackendSpec == expectedTrillianAddr {
 			return true

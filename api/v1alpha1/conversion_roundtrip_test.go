@@ -282,13 +282,80 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			} else {
 				s.Spec.Tuf.Tsa = nil
 			}
+			normalizeCTlogSpec(&s.Spec.Ctlog)
 		},
 		func(s *Securesign, c randfill.Continue) {
 			c.FillNoCustom(s)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.Ctlog.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
+			s.Spec.Ctlog.ServerConfigRef = nil
 		},
 	}
+}
+
+// normalizeCTlogSpec converts empty maps/slices and zero times to nil for JSON roundtrip consistency
+func normalizeCTlogSpec(spec *rhtasv1.CTlogSpec) {
+	// Normalize empty slices/maps in spec
+	if len(spec.Logs) == 0 {
+		spec.Logs = nil
+	}
+	if spec.Ingress.Labels != nil && len(spec.Ingress.Labels) == 0 {
+		spec.Ingress.Labels = nil
+	}
+	if len(spec.ImagePullSecrets) == 0 {
+		spec.ImagePullSecrets = nil
+	}
+	if len(spec.InitContainers) == 0 {
+		spec.InitContainers = nil
+	}
+	if len(spec.Volumes) == 0 {
+		spec.Volumes = nil
+	}
+	if len(spec.PodExtensions.VolumeMounts) == 0 { //nolint:staticcheck // QF1008: embedded field access kept explicit for clarity
+		spec.PodExtensions.VolumeMounts = nil //nolint:staticcheck
+	}
+	// Normalize zero metav1.Time values and empty slices in logs.
+	// These don't survive JSON serialization (serialize to null, deserialize to nil).
+	for i := range spec.Logs {
+		if len(spec.Logs[i].RootCerts) == 0 {
+			spec.Logs[i].RootCerts = nil
+		}
+		if spec.Logs[i].NotAfterStart != nil && spec.Logs[i].NotAfterStart.IsZero() {
+			spec.Logs[i].NotAfterStart = nil
+		}
+		if spec.Logs[i].NotAfterLimit != nil && spec.Logs[i].NotAfterLimit.IsZero() {
+			spec.Logs[i].NotAfterLimit = nil
+		}
+		if spec.Logs[i].FrozenSTH != nil && spec.Logs[i].FrozenSTH.Timestamp != nil && spec.Logs[i].FrozenSTH.Timestamp.IsZero() {
+			spec.Logs[i].FrozenSTH.Timestamp = nil
+		}
+	}
+	// Normalize empty slices in PodExtensions init containers.
+	for i := range spec.InitContainers {
+		if len(spec.InitContainers[i].Args) == 0 {
+			spec.InitContainers[i].Args = nil
+		}
+		if len(spec.InitContainers[i].EnvFrom) == 0 {
+			spec.InitContainers[i].EnvFrom = nil
+		}
+		if spec.InitContainers[i].Resources != nil && spec.InitContainers[i].Resources.Requests != nil && len(spec.InitContainers[i].Resources.Requests) == 0 {
+			spec.InitContainers[i].Resources.Requests = nil
+		}
+	}
+}
+
+// normalizeEmptyContainers converts empty maps/slices to nil for JSON roundtrip consistency
+func normalizeEmptyContainers(s *rhtasv1.CTlog) {
+	// Normalize empty slices in status
+	if len(s.Status.Logs) == 0 {
+		s.Status.Logs = nil
+	}
+	// RootCertificates was deprecated and removed from v1 CTlogStatus
+	if len(s.Status.Conditions) == 0 {
+		s.Status.Conditions = nil
+	}
+	normalizeCTlogSpec(&s.Spec)
 }
 
 // ctlogFuzzerFuncs constrains CTlog spec/status so Status.Url stays consistent with
@@ -298,18 +365,24 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
-			s.Spec.Prefix = urlfuzz.URLPath(c)
-			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.Status.Url != "" {
-				s.Status.Url += "/" + s.Spec.Prefix
+			// Set Prefix on first log if it exists
+			if len(s.Spec.Logs) > 0 {
+				s.Spec.Logs[0].Prefix = urlfuzz.URLPath(c)
 			}
-
+			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+			if s.Status.Url != "" && len(s.Spec.Logs) > 0 {
+				s.Status.Url += "/" + s.Spec.Logs[0].Prefix
+			}
+			normalizeEmptyContainers(s)
 		},
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.PrivateKeyPasswordRef = nil
+			s.Status.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.logs; it has no roundtrip path.
+			s.Spec.ServerConfigRef = nil
 		},
 	}
 }

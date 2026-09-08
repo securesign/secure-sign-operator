@@ -11,11 +11,11 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func NewEnsurePKCS11ConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -30,17 +30,12 @@ func (a ensurePKCS11Config) Name() string {
 	return "ensure PKCS#11 config"
 }
 
-// CanHandle fires only when Type==pkcs11 AND either:
-//   - The component is in Creating (or later) state, AND
-//   - PKCS11Condition is not yet set, OR
-//   - The content hash of spec.signer.pkcs11 fields differs from the hash
-//     stored in the PKCS11Condition message (drift detection).
 func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	if instance.Spec.Signer.Type != rhtasv1.SignerTypePKCS11 {
+	if state.FromInstance(instance, constants.ReadyCondition) < state.Creating {
 		return false
 	}
 
-	if state.FromInstance(instance, constants.ReadyCondition) < state.Creating {
+	if !hasPKCS11Log(instance) {
 		return false
 	}
 
@@ -49,45 +44,43 @@ func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog
 		return true
 	}
 
-	// Drift detection: compare current spec hash against stored annotation.
-	currentHash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	currentHash := allPKCS11SpecHash(instance)
 	storedHash := instance.GetAnnotations()[annotations.PKCS11SpecHash]
 	return currentHash != storedHash
 }
 
-// Handle validates that the PKCS#11 secret references exist and are readable,
-// sets Status.PublicKeyRef for trust material resolution, invalidates
-// ConfigCondition to trigger server config regeneration, and sets
-// PKCS11Condition to True.
 func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	p := instance.Spec.Signer.PKCS11
-	if p == nil {
-		return a.Error(ctx,
-			reconcile.TerminalError(fmt.Errorf("spec.signer.pkcs11 is nil but signer type is pkcs11")),
-			instance,
-		)
-	}
 
-	// Validate PinSecretRef
-	if err := a.validateSecretRef(ctx, instance, p.PinSecretRef, "spec.signer.pkcs11.pinSecretRef"); err != nil {
-		if _, persistErr := a.PersistStatus(ctx, instance); persistErr != nil {
-			return a.Error(ctx, persistErr, instance)
+	for logIdx, log := range instance.Spec.Logs {
+		if log.Signer == nil || log.Signer.Type != rhtasv1.SignerTypePKCS11 || log.Signer.PKCS11 == nil {
+			continue
 		}
-		return a.RequeueAfter(5 * time.Second)
-	}
+		p := log.Signer.PKCS11
 
-	// Validate PublicKeyRef
-	if err := a.validateSecretRef(ctx, instance, p.PublicKeyRef, "spec.signer.pkcs11.publicKeyRef"); err != nil {
-		if _, persistErr := a.PersistStatus(ctx, instance); persistErr != nil {
-			return a.Error(ctx, persistErr, instance)
+		if err := a.validateSecretRef(ctx, instance, p.PinSecretRef,
+			fmt.Sprintf("spec.logs[%d].signer.pkcs11.pinSecretRef", logIdx)); err != nil {
+			if _, persistErr := a.PersistStatus(ctx, instance); persistErr != nil {
+				return a.Error(ctx, persistErr, instance)
+			}
+			return a.RequeueAfter(5 * time.Second)
 		}
-		return a.RequeueAfter(5 * time.Second)
+
+		if err := a.validateSecretRef(ctx, instance, p.PublicKeyRef,
+			fmt.Sprintf("spec.logs[%d].signer.pkcs11.publicKeyRef", logIdx)); err != nil {
+			if _, persistErr := a.PersistStatus(ctx, instance); persistErr != nil {
+				return a.Error(ctx, persistErr, instance)
+			}
+			return a.RequeueAfter(5 * time.Second)
+		}
+
+		if log.Active != nil && *log.Active {
+			activeLog := utils.ActiveLogStatus(instance.Status.Logs)
+			if activeLog != nil {
+				activeLog.PublicKeyRef = p.PublicKeyRef.DeepCopy()
+			}
+		}
 	}
 
-	// Set Status.PublicKeyRef for trust material resolution (resolve_pub_key action).
-	instance.Status.PublicKeyRef = p.PublicKeyRef.DeepCopy()
-
-	// Invalidate ConfigCondition to trigger server config regeneration.
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionFalse,
@@ -96,8 +89,7 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 		ObservedGeneration: instance.Generation,
 	})
 
-	// Store spec hash as annotation for drift detection.
-	contentHash := pkcs11SpecHash(p)
+	contentHash := allPKCS11SpecHash(instance)
 	ann := instance.GetAnnotations()
 	if ann == nil {
 		ann = make(map[string]string)
@@ -105,7 +97,6 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 	ann[annotations.PKCS11SpecHash] = contentHash
 	instance.SetAnnotations(ann)
 
-	// Set PKCS11Condition to True.
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               PKCS11Condition,
 		Status:             metav1.ConditionTrue,
@@ -117,10 +108,6 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 	return a.ReturnOnChange(a.PersistStatus)(ctx, instance)
 }
 
-// validateSecretRef validates a single SecretKeySelector by fetching the secret data.
-// Returns the secret data on success, or sets PKCS11Condition to False and returns an error.
-// This helper collapses the duplicated validation blocks for PinSecretRef and PublicKeyRef
-// (addresses osmman review comment #6).
 func (a ensurePKCS11Config) validateSecretRef(
 	ctx context.Context,
 	instance *rhtasv1.CTlog,
@@ -166,21 +153,30 @@ func (a ensurePKCS11Config) validateSecretRef(
 	return nil
 }
 
-// pkcs11SpecHash computes a deterministic SHA-256 hash of the PKCS#11 spec fields
-// used for drift detection. This avoids the bug where any ObservedGeneration change
-// (e.g. monitoring toggle) would re-fire PKCS#11 validation (osmman issue #1).
-func pkcs11SpecHash(p *rhtasv1.CTlogPKCS11Config) string {
-	if p == nil {
-		return ""
+func hasPKCS11Log(instance *rhtasv1.CTlog) bool {
+	for _, log := range instance.Spec.Logs {
+		if log.Signer != nil && log.Signer.Type == rhtasv1.SignerTypePKCS11 {
+			return true
+		}
 	}
+	return false
+}
+
+func allPKCS11SpecHash(instance *rhtasv1.CTlog) string {
 	h := sha256.New()
-	fmt.Fprintf(h, "modulePath:%s\n", p.ModulePath) //nolint:errcheck // hash.Hash.Write never returns an error
-	fmt.Fprintf(h, "tokenLabel:%s\n", p.TokenLabel) //nolint:errcheck
-	if p.PinSecretRef != nil {
-		fmt.Fprintf(h, "pinSecretRef:%s/%s\n", p.PinSecretRef.Name, p.PinSecretRef.Key) //nolint:errcheck
-	}
-	if p.PublicKeyRef != nil {
-		fmt.Fprintf(h, "publicKeyRef:%s/%s\n", p.PublicKeyRef.Name, p.PublicKeyRef.Key) //nolint:errcheck
+	for _, log := range instance.Spec.Logs {
+		if log.Signer == nil || log.Signer.PKCS11 == nil {
+			continue
+		}
+		_, _ = fmt.Fprintf(h, "prefix:%s\n", log.Prefix)
+		_, _ = fmt.Fprintf(h, "modulePath:%s\n", log.Signer.PKCS11.ModulePath)
+		_, _ = fmt.Fprintf(h, "tokenLabel:%s\n", log.Signer.PKCS11.TokenLabel)
+		if log.Signer.PKCS11.PinSecretRef != nil {
+			_, _ = fmt.Fprintf(h, "pinSecretRef:%s/%s\n", log.Signer.PKCS11.PinSecretRef.Name, log.Signer.PKCS11.PinSecretRef.Key)
+		}
+		if log.Signer.PKCS11.PublicKeyRef != nil {
+			_, _ = fmt.Fprintf(h, "publicKeyRef:%s/%s\n", log.Signer.PKCS11.PublicKeyRef.Name, log.Signer.PKCS11.PublicKeyRef.Key)
+		}
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

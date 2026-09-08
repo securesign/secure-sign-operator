@@ -66,18 +66,20 @@ spec:
         readOnly: true
 
   ctlog:
-    prefix: trusted-artifact-signer
-    signer:
-      type: pkcs11
-      pkcs11:
-        modulePath: /usr/lib64/pkcs11/libsofthsm2.so
-        tokenLabel: PKCS11CA
-        pinSecretRef:
-          name: hsm-credentials
-          key: pin
-        publicKeyRef:
-          name: ctlog-public-key
-          key: public.pem
+    logs:
+      - prefix: trusted-artifact-signer
+        active: true
+        signer:
+          type: pkcs11
+          pkcs11:
+            modulePath: /usr/lib64/pkcs11/libsofthsm2.so
+            tokenLabel: PKCS11CA
+            pinSecretRef:
+              name: hsm-credentials
+              key: pin
+            publicKeyRef:
+              name: ctlog-public-key
+              key: public.pem
     auth:
       env:
         - name: SOFTHSM2_CONF

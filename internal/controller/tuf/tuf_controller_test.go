@@ -167,6 +167,15 @@ var _ = Describe("TUF controller", func() {
 						Name:      "ctlog-test",
 						Namespace: typeNamespaceName.Namespace,
 					},
+					Spec: rhtasv1.CTlogSpec{
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								Prefix: "log",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
+							},
+						},
+					},
 				},
 				&rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
@@ -217,7 +226,13 @@ var _ = Describe("TUF controller", func() {
 				Expect(setStatusURL(component, "https://example.com/"+strconv.Itoa(i))).To(BeTrue())
 				switch c := component.(type) {
 				case *rhtasv1.CTlog:
-					c.Status.PublicKey = tufTestPublicKeyPEM
+					c.Status.Logs = []rhtasv1.CTlogLogStatus{
+						{
+							Prefix:    "test-log",
+							Active:    true,
+							PublicKey: tufTestPublicKeyPEM,
+						},
+					}
 				case *rhtasv1.Rekor:
 					c.Status.PublicKey = tufTestPublicKeyPEM
 				}

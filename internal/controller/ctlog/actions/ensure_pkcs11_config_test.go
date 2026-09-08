@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"errors"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -13,7 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"k8s.io/utils/ptr"
 )
 
 // pkcs11CTlogInstance returns a CTlog instance in Creating state with PKCS#11
@@ -25,23 +24,35 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 			Namespace: "default",
 		},
 		Spec: rhtasv1.CTlogSpec{
-			Signer: rhtasv1.CTlogSigner{
-				Type: rhtasv1.SignerTypePKCS11,
-				PKCS11: &rhtasv1.CTlogPKCS11Config{
-					PinSecretRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin"},
-						Key:                  "pin",
-					},
-					TokenLabel: "ctlog-token",
-					ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pubkey"},
-						Key:                  "public",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "test-log",
+					Active: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: rhtasv1.SignerTypePKCS11,
+						PKCS11: &rhtasv1.CTlogPKCS11Config{
+							PinSecretRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin"},
+								Key:                  "pin",
+							},
+							TokenLabel: "ctlog-token",
+							ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pubkey"},
+								Key:                  "public",
+							},
+						},
 					},
 				},
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "test-log",
+					Active: true,
+				},
+			},
 			Conditions: []metav1.Condition{
 				{
 					Type:   constants.ReadyCondition,
@@ -58,8 +69,8 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 func TestCanHandle_FileMode(t *testing.T) {
 	g := NewWithT(t)
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	a := NewEnsurePKCS11ConfigAction()
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
@@ -79,7 +90,7 @@ func TestCanHandle_PKCS11_CondTrue_SameHash(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Pre-compute hash and set annotation + condition.
-	hash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	hash := allPKCS11SpecHash(instance)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: hash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    PKCS11Condition,
@@ -168,7 +179,7 @@ func TestHandle_NilPKCS11(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	c := testAction.FakeClientBuilder().
 		WithObjects(instance).
@@ -178,9 +189,9 @@ func TestHandle_NilPKCS11(t *testing.T) {
 	a := testAction.PrepareAction(c, NewEnsurePKCS11ConfigAction())
 	result := a.Handle(ctx, instance)
 
+	// With PKCS11 config nil, Handle skips validation (CEL admission prevents this state).
 	g.Expect(result).ToNot(BeNil())
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+	g.Expect(result.Err).ToNot(HaveOccurred())
 }
 
 func TestHandle_MissingPin(t *testing.T) {
@@ -265,10 +276,11 @@ func TestHandle_SetsPublicKeyRef(t *testing.T) {
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
 
-	// Status.PublicKeyRef should point to the spec's PublicKeyRef.
-	g.Expect(instance.Status.PublicKeyRef).ToNot(BeNil())
-	g.Expect(instance.Status.PublicKeyRef.Name).To(Equal("hsm-pubkey"))
-	g.Expect(instance.Status.PublicKeyRef.Key).To(Equal("public"))
+	// Status.Logs[0].PublicKeyRef should point to the spec's PublicKeyRef.
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("hsm-pubkey"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Key).To(Equal("public"))
 }
 
 func TestHandle_ConfigConditionInvalidated(t *testing.T) {
@@ -315,7 +327,7 @@ func TestHandle_Rotation_FieldsUnchanged(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Set annotation + condition with matching hash -- CanHandle should return false.
-	hash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	hash := allPKCS11SpecHash(instance)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: hash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               PKCS11Condition,
@@ -339,7 +351,7 @@ func TestHandle_Rotation_PinSecretRefChanged(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Set annotation + condition with hash from old spec.
-	oldHash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	oldHash := allPKCS11SpecHash(instance)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: oldHash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    PKCS11Condition,
@@ -349,7 +361,7 @@ func TestHandle_Rotation_PinSecretRefChanged(t *testing.T) {
 	})
 
 	// Change PinSecretRef (simulates secret rotation).
-	instance.Spec.Signer.PKCS11.PinSecretRef = &rhtasv1.SecretKeySelector{
+	instance.Spec.Logs[0].Signer.PKCS11.PinSecretRef = &rhtasv1.SecretKeySelector{
 		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin-rotated"},
 		Key:                  "pin",
 	}
@@ -363,7 +375,7 @@ func TestHandle_NilPinSecretRef(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.PKCS11.PinSecretRef = nil
+	instance.Spec.Logs[0].Signer.PKCS11.PinSecretRef = nil
 
 	c := testAction.FakeClientBuilder().
 		WithObjects(instance).
