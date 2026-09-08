@@ -24,7 +24,6 @@ import (
 // CTlogSpec defines the desired state of CTlog component
 // +kubebuilder:validation:XValidation:rule="has(self.logs) && size(self.logs) > 0",message="at least one log is required"
 // +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, has(x.active) && x.active == true).size() == 1",message="exactly one log should be active"
-// +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, has(x.logId)).map(x, x.logId).size() == self.logs.filter(x, has(x.logId)).map(x, x.logId).unique().size()",message="logId must be unique across all logs (duplicate logId would cause secret data corruption)"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`

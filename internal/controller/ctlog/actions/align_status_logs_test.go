@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
@@ -361,6 +362,84 @@ func TestAlignStatusLogs_PreservesEncryptedKeyPassword(t *testing.T) {
 	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef).NotTo(BeNil())
 	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Name).To(Equal("keys"))
 	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Key).To(Equal("password"))
+}
+
+func TestAlignStatusLogs_RejectsDuplicateLogIds(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	// Regression test: duplicate logIds would cause secret data corruption
+	// since logId is used as part of the secret key name (log-{logId}-root-{idx}).
+	instance := &rhtasv1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{Type: "file"},
+				},
+				{
+					Prefix:   "shard-2024",
+					Readonly: ptr.To(true),
+					LogId:    ptr.To(int64(99999)),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+						},
+					},
+					RootCerts: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
+					},
+				},
+				{
+					Prefix:   "shard-2025",
+					Readonly: ptr.To(true),
+					LogId:    ptr.To(int64(99999)), // DUPLICATE!
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+						},
+					},
+					RootCerts: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
+					},
+				},
+			},
+		},
+		Status: rhtasv1.CTlogStatus{
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
+	result := a.Handle(ctx, instance)
+
+	// Should return error due to duplicate logIds
+	g.Expect(result).NotTo(BeNil())
+	g.Expect(result.Err).NotTo(BeNil())
+	g.Expect(result.Err.Error()).To(ContainSubstring("duplicate logIds"))
+	g.Expect(result.Err.Error()).To(ContainSubstring("99999"))
+	// Status should be updated with error condition
+	g.Expect(instance.Status.Conditions).NotTo(BeEmpty())
+	readyCondition := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(readyCondition).NotTo(BeNil())
+	g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
+	g.Expect(readyCondition.Reason).To(Equal("InvalidLogConfiguration"))
 }
 
 func TestAlignStatusLogs_DerivesPublicKeyForFrozenShards(t *testing.T) {
