@@ -132,6 +132,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
 	// Preserve the original active log selection: if a v1-only log was active before,
 	// keep it active and deactivate the converted v1alpha1 log.
+	// If v1alpha1 has no deprecated fields to project, preserve the stored v1alpha1 log unchanged.
 	for _, rlog := range restored.Spec.Ctlog.Logs {
 		if rlog.Prefix != "trusted-artifact-signer" {
 			// This is a v1-only log (not the legacy v1alpha1 log), append it
@@ -144,6 +145,24 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 						break
 					}
 				}
+			}
+		}
+	}
+	// If src.Spec.Ctlog has no deprecated fields and a "trusted-artifact-signer" log exists in restored,
+	// overlay editable v1alpha1 fields onto the restored log rather than using the auto-converted one.
+	// This preserves a valid v1 log that intentionally omits auto-resolved fields.
+	if src.Spec.Ctlog.TreeID == nil && src.Spec.Ctlog.PrivateKeyRef == nil && src.Spec.Ctlog.PublicKeyRef == nil && len(src.Spec.Ctlog.RootCertificates) == 0 {
+		// v1alpha1 has no deprecated fields to project. Check if restored has the legacy log.
+		for _, rlog := range restored.Spec.Ctlog.Logs {
+			if rlog.Prefix == "trusted-artifact-signer" {
+				// Find and replace the auto-converted log with the restored one
+				for i := range dst.Spec.Ctlog.Logs {
+					if dst.Spec.Ctlog.Logs[i].Prefix == "trusted-artifact-signer" {
+						dst.Spec.Ctlog.Logs[i] = rlog
+						break
+					}
+				}
+				break
 			}
 		}
 	}
