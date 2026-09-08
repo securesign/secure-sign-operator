@@ -74,7 +74,20 @@ func CreateConfig(trillianUrl string, logs []ShardConfig) (map[string][]byte, [3
 	}
 
 	data[ConfigKey] = marshalledConfig
-	hash = sha256.Sum256(marshalledConfig)
+
+	// Hash both the proto config and all certificate content to detect explicit
+	// root certificate rotations. Fulcio-discovered certs are handled via
+	// condition-based invalidation, but user-configured roots need content hashing.
+	hasher := sha256.New()
+	hasher.Write(marshalledConfig)
+	// Include all root certificate content in hash
+	for _, log := range logs {
+		for _, cert := range log.RootCerts {
+			hasher.Write(cert)
+		}
+	}
+	hash = [32]byte{}
+	copy(hash[:], hasher.Sum(nil))
 	return data, hash, nil
 }
 

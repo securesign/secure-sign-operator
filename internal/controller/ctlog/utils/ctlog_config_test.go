@@ -216,3 +216,43 @@ func TestCreateConfig_NoLogs(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("no log entries"))
 }
+
+func TestCreateConfig_RootCertContentChangesHash(t *testing.T) {
+	g := NewWithT(t)
+
+	// Regression test: root certificate content changes must be reflected in the
+	// configuration hash. User-configured root certificates (from Secret refs)
+	// don't trigger condition-based invalidation like Fulcio certs do, so they
+	// must be included in the hash to ensure config recreation on cert rotation.
+	cert1 := []byte("-----BEGIN CERTIFICATE-----\nCERT1\n-----END CERTIFICATE-----\n")
+	cert2 := []byte("-----BEGIN CERTIFICATE-----\nCERT2\n-----END CERTIFICATE-----\n")
+
+	_, hash1, err := CreateConfig(
+		"trillian:8091",
+		[]ShardConfig{
+			{
+				TreeID:    111,
+				Prefix:    "active",
+				PublicKey: []byte(testPublicKeyPEM),
+				RootCerts: []RootCertificate{cert1},
+			},
+		},
+	)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	_, hash2, err := CreateConfig(
+		"trillian:8091",
+		[]ShardConfig{
+			{
+				TreeID:    111,
+				Prefix:    "active",
+				PublicKey: []byte(testPublicKeyPEM),
+				RootCerts: []RootCertificate{cert2},
+			},
+		},
+	)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	// Hashes must differ when certificate content changes
+	g.Expect(hash1).NotTo(Equal(hash2))
+}
