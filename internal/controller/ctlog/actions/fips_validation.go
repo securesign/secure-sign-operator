@@ -7,6 +7,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	fipsAction "github.com/securesign/operator/internal/action/fips"
+	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -61,6 +62,18 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 		for certIdx := range log.RootCerts {
 			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &log.RootCerts[certIdx],
 				fmt.Sprintf("spec.logs[%d].rootCerts[%d]", logIdx, certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Also include auto-discovered root certificates from status (e.g., Fulcio-discovered roots)
+	// Find the active log in status and include its resolved root certificates
+	activeLogStatus := ctlogUtils.ActiveLogStatus(i.Status.Logs)
+	if activeLogStatus != nil && len(activeLogStatus.RootCertificates) > 0 {
+		for certIdx := range activeLogStatus.RootCertificates {
+			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &activeLogStatus.RootCertificates[certIdx],
+				fmt.Sprintf("status.logs[active].rootCertificates[%d]", certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
 				return nil, err
 			}
 		}
