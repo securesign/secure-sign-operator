@@ -22,6 +22,7 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
+// +kubebuilder:validation:XValidation:rule="has(self.logs) && size(self.logs) > 0",message="at least one log is required"
 // +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, has(x.active) && x.active == true).size() == 1",message="exactly one log should be active"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
@@ -102,6 +103,8 @@ type CTlogPKCS11Config struct {
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.logId)",message="logId is required for non-active logs"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.signer)",message="signer is required for non-active logs"
 // +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && size(self.rootCerts) > 0)",message="rootCerts is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="!(has(self.active) && self.active == true && (has(self.readonly) && self.readonly == true))",message="a log cannot be both active and readonly"
+// +kubebuilder:validation:XValidation:rule="!(has(self.active) && self.active == true && (has(self.mirror) && self.mirror == true))",message="a log cannot be both active and mirror"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the
