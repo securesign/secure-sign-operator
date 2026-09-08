@@ -362,3 +362,73 @@ func TestAlignStatusLogs_PreservesEncryptedKeyPassword(t *testing.T) {
 	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Name).To(Equal("keys"))
 	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Key).To(Equal("password"))
 }
+
+func TestAlignStatusLogs_DerivesPublicKeyForFrozenShards(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	// Regression test: frozen/readonly shards with only private key reference
+	// must have public key derived automatically. This ensures non-active file-backed
+	// logs can serialize correctly in CTFE config without requiring explicit public key.
+	instance := &rhtasv1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix:   "shard-2024",
+					LogId:    ptr.To(int64(99999)),
+					Readonly: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+							// No explicit public key ref
+						},
+					},
+					RootCerts: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
+					},
+				},
+			},
+		},
+		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "shard-2024",
+					LogId:  ptr.To(int64(99999)),
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+						Key:                  "private",
+					},
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
+					},
+					// No public key initially
+				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("shard-2024"))
+	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(99999))))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("shard-keys"))
+	// Public key should be derived from private key reference
+	g.Expect(instance.Status.Logs[0].PublicKeyRef).NotTo(BeNil())
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("shard-keys"))
+	g.Expect(instance.Status.Logs[0].PublicKeyRef.Key).To(Equal("public"))
+}

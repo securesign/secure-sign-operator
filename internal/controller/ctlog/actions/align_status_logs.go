@@ -98,6 +98,14 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				}
 				if specLog.Signer.File.PublicKeyRef != nil {
 					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
+				} else if logStatus.PrivateKeyRef != nil {
+					// For file-backed logs without explicit public key, derive it from the private key
+					// (same convention as generate_signer.go for the active log).
+					// This ensures non-active file-backed shards can serialize correctly.
+					logStatus.PublicKeyRef = &rhtasv1.SecretKeySelector{
+						LocalObjectReference: logStatus.PrivateKeyRef.LocalObjectReference,
+						Key:                  "public",
+					}
 				}
 			}
 			if specLog.Signer.PKCS11 != nil {
