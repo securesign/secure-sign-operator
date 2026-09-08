@@ -232,6 +232,10 @@ type CTlogLogStatus struct {
 	// +optional
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
+	// PrivateKeyPasswordRef points to the secret containing the password for encrypted private keys.
+	// This is retained for backward compatibility with existing deployments using encrypted keys.
+	// +optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

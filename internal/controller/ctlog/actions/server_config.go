@@ -269,6 +269,17 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 			}
 		}
 
+		// Restore password ref from status for backward compatibility with encrypted keys
+		if log.PrivateKeyPasswordRef != nil {
+			sc.PrivateKeyPasswordRef = log.PrivateKeyPasswordRef
+			// Resolve the actual password data from the secret
+			passwordData, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.PrivateKeyPasswordRef)
+			if err != nil {
+				return nil, fmt.Errorf("log %q privateKeyPasswordRef: %w", log.Prefix, err)
+			}
+			sc.PrivateKeyPassword = passwordData
+		}
+
 		if specLog.FrozenSTH != nil {
 			sc.FrozenSTH = &ctlogUtils.FrozenSTH{
 				Sha256RootHash:    specLog.FrozenSTH.Sha256RootHash,

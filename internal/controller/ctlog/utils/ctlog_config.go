@@ -111,7 +111,8 @@ func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogC
 			})
 		} else {
 			privateKey = mustMarshalAny(&keyspb.PEMKeyFile{
-				Path: fmt.Sprintf("%slog-%d-private", rootsPemFileDir, log.TreeID),
+				Path:     fmt.Sprintf("%slog-%d-private", rootsPemFileDir, log.TreeID),
+				Password: string(log.PrivateKeyPassword),
 			})
 		}
 		cfg.PrivateKey = privateKey
