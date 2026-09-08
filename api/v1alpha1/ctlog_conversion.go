@@ -243,6 +243,16 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Status.Logs = append(dst.Status.Logs, rlog)
 		}
 	}
+	// Restore password refs from storage for backward compatibility with encrypted keys.
+	// Match each dst status log with its corresponding restored status log by prefix.
+	for i := range dst.Status.Logs {
+		for _, rlog := range restored.Status.Logs {
+			if rlog.Prefix == dst.Status.Logs[i].Prefix {
+				dst.Status.Logs[i].PrivateKeyPasswordRef = rlog.PrivateKeyPasswordRef
+				break
+			}
+		}
+	}
 	// Shared Status fields (Conditions, ServerConfigRef, Tls, Url) are properly converted by
 	// autoConvert_v1alpha1_CTlog_To_v1_CTlog above. Do not restore them from storage.
 	// However, reconstruct Status.Url to include the active log prefix (which v1alpha1 strips)
