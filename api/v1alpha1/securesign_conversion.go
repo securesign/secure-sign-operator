@@ -38,7 +38,7 @@ func Convert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in *rhtasv1.
 	return nil
 }
 
-func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
+func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	dst := dstRaw.(*rhtasv1.Securesign)
 	if err := Convert_v1alpha1_Securesign_To_v1_Securesign(src, dst, nil); err != nil {
 		return err
@@ -84,7 +84,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	// keep it active and deactivate the converted v1alpha1 log.
 	// If v1alpha1 has no deprecated fields to project, preserve the stored v1alpha1 log unchanged.
 	for _, rlog := range restored.Spec.Ctlog.Logs {
-		if rlog.Prefix != "trusted-artifact-signer" {
+		if rlog.Prefix != "trusted-artifact-signer" { //nolint:goconst
 			// This is a v1-only log (not the legacy v1alpha1 log), append it
 			dst.Spec.Ctlog.Logs = append(dst.Spec.Ctlog.Logs, rlog)
 			// If this restored log was the original active log, deactivate the v1alpha1 log

@@ -216,7 +216,7 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	return nil
 }
 
-func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
+func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	dst := dstRaw.(*rhtasv1.CTlog)
 	if err := Convert_v1alpha1_CTlog_To_v1_CTlog(src, dst, nil); err != nil {
 		return err
