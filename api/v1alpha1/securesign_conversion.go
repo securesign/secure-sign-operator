@@ -8,6 +8,7 @@ import (
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -129,10 +130,21 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
 	// Merge restored logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
 	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
+	// Preserve the original active log selection: if a v1-only log was active before,
+	// keep it active and deactivate the converted v1alpha1 log.
 	for _, rlog := range restored.Spec.Ctlog.Logs {
 		if rlog.Prefix != "trusted-artifact-signer" {
 			// This is a v1-only log (not the legacy v1alpha1 log), append it
 			dst.Spec.Ctlog.Logs = append(dst.Spec.Ctlog.Logs, rlog)
+			// If this restored log was the original active log, deactivate the v1alpha1 log
+			if rlog.Active != nil && *rlog.Active {
+				for i := range dst.Spec.Ctlog.Logs {
+					if dst.Spec.Ctlog.Logs[i].Prefix == "trusted-artifact-signer" {
+						dst.Spec.Ctlog.Logs[i].Active = ptr.To(false)
+						break
+					}
+				}
+			}
 		}
 	}
 	if dst.Spec.Ctlog.Trillian.URL == "" {
