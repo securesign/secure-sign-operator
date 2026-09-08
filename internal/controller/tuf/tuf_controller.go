@@ -159,7 +159,7 @@ func (r *tufReconciler) enqueueTufForCTlog(ctx context.Context, ctlog client.Obj
 
 	// List all Tuf resources in the CTlog's namespace that reference this CTlog
 	tufList := &rhtasv1.TufList{}
-	if err := r.Client.List(ctx, tufList, client.InNamespace(ctlog.GetNamespace())); err != nil {
+	if err := r.List(ctx, tufList, client.InNamespace(ctlog.GetNamespace())); err != nil {
 		log.Error(err, "unable to list Tuf resources", "ctlog", client.ObjectKeyFromObject(ctlog))
 		return []reconcile.Request{}
 	}

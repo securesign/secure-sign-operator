@@ -3228,6 +3228,10 @@ spec:
             - message: exactly one log should be active
               rule: '!has(self.logs) || self.logs.filter(x, has(x.active) && x.active
                 == true).size() == 1'
+            - message: logId must be unique across all logs (duplicate logId would
+                cause secret data corruption)
+              rule: '!has(self.logs) || self.logs.filter(x, has(x.logId)).map(x, x.logId).size()
+                == self.logs.filter(x, has(x.logId)).map(x, x.logId).unique().size()'
           status:
             description: CTlogStatus defines the observed state of CTlog component
             properties:
