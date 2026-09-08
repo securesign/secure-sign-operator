@@ -16,6 +16,7 @@ linters:
     - gocyclo
     - govet
     - ineffassign
+    - kubeapilinter
     - misspell
     - nakedret
     - prealloc
@@ -28,6 +29,19 @@ linters:
       actionlint:
         type: "module"
         description: "Checks action framework patterns (PersistStatus errors, Spec mutations)"
+      kubeapilinter:
+        type: "module"
+        description: "Kube API Linter"
+        settings:
+          linters:
+            disable:
+              - nodurations
+              - nonpointerstructs
+              - optionalfields
+              - optionalorrequired
+              - requiredfields
+              - commentstart
+              - uniquemarkers
     staticcheck:
       dot-import-whitelist:
         - github.com/onsi/gomega
@@ -39,6 +53,9 @@ linters:
       - builtin$
       - examples$
     rules:
+      - linters:
+          - kubeapilinter
+        path-except: ^api/v1/
       # TODO: Migrate to GetEventRecorder - https://issues.redhat.com/browse/SECURESIGN-3651
       - linters:
           - staticcheck

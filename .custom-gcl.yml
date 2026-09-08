@@ -3,3 +3,5 @@ plugins:
   - module: 'github.com/securesign/operator/pkg/analyzer'
     import: 'github.com/securesign/operator/pkg/analyzer'
     path: ./pkg/analyzer
+  - module: 'sigs.k8s.io/kube-api-linter'
+    version: 'v0.0.0-20260416084302-2b3d1fe14578'
