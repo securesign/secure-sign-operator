@@ -75,13 +75,6 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Ctlog: rhtasv1.CTlogSpec{
-							Logs: []rhtasv1.CTLogConfig{
-								{
-									Prefix: "trusted-artifact-signer",
-									Active: ptr.To(true),
-									Signer: &rhtasv1.CTlogSigner{Type: "file"},
-								},
-							},
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
 								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -272,6 +265,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 							LogId:  ptr.To[int64](999),
 							Prefix: "trusted-artifact-signer",
 							Signer: &rhtasv1.CTlogSigner{Type: "file"},
+							Active: ptr.To(true),
 						},
 					},
 					MaxCertChainSize: ptr.To[int64](153600),
@@ -303,11 +297,6 @@ func TestCTlogConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: rhtasv1.CTlogSpec{
 					Trillian: rhtasv1.ServiceReference{URL: "dns:///trillian-logserver.ns.svc:8091"},
-					Logs: []rhtasv1.CTLogConfig{
-						{
-							Prefix: "trusted-artifact-signer",
-						},
-					},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -327,11 +316,6 @@ func TestCTlogConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: rhtasv1.CTlogSpec{
 					Trillian: rhtasv1.ServiceReference{URL: "dns://authority:53/trillian-logserver.ns.svc:8091"},
-					Logs: []rhtasv1.CTLogConfig{
-						{
-							Prefix: "trusted-artifact-signer",
-						},
-					},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -363,6 +347,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 							RootCerts: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
 							},
+							Active: ptr.To(true),
 						},
 					},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{

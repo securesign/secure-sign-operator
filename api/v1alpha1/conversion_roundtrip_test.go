@@ -647,6 +647,9 @@ func TestCTlogConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.CTlog{},
 		Spoke:  &CTlog{},
+		HubAfterMutation: func(hub conversion.Hub) {
+			migration.StripAll(hub.(*rhtasv1.CTlog))
+		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
