@@ -245,12 +245,21 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Status.Logs = append(dst.Status.Logs, rlog)
 		}
 	}
-	// Restore password refs from storage for backward compatibility with encrypted keys.
+	// Restore important status fields from storage for backward compatibility.
 	// Match each dst status log with its corresponding restored status log by prefix.
 	for i := range dst.Status.Logs {
 		for _, rlog := range restored.Status.Logs {
 			if rlog.Prefix == dst.Status.Logs[i].Prefix {
+				// Restore password refs for backward compatibility with encrypted keys
 				dst.Status.Logs[i].PrivateKeyPasswordRef = rlog.PrivateKeyPasswordRef
+				// Restore already-resolved public key data (needed for TUF trust material)
+				if dst.Status.Logs[i].PublicKey == "" {
+					dst.Status.Logs[i].PublicKey = rlog.PublicKey
+				}
+				// Restore signer type if not already set
+				if dst.Status.Logs[i].SignerType == "" {
+					dst.Status.Logs[i].SignerType = rlog.SignerType
+				}
 				break
 			}
 		}
