@@ -150,21 +150,22 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 				if log.Signer.PKCS11 == nil {
 					return fmt.Errorf("PKCS#11 config not yet resolved for log %s", log.Prefix)
 				}
-				// Validate that all PKCS#11 logs use the same module path
+				// Validate that all PKCS#11 logs use the same full module path
 				// (CTFE only supports a single process-wide --pkcs11_module_path)
-				currentPath := path.Base(log.Signer.PKCS11.ModulePath)
+				// Compare full paths to catch distinct source paths with the same basename
+				currentPath := log.Signer.PKCS11.ModulePath
 				if pkcs11ModulePath == "" {
 					pkcs11ModulePath = currentPath
 				} else if pkcs11ModulePath != currentPath {
 					return fmt.Errorf(
-						"conflicting PKCS#11 module paths: log %q uses %q but another log uses %q (all PKCS#11 logs must use the same module)",
+						"conflicting PKCS#11 module paths: log %q uses %q but another log uses %q (all PKCS#11 logs must use the same module path)",
 						log.Prefix, currentPath, pkcs11ModulePath)
 				}
 			}
 		}
 
 		if isPKCS11 && pkcs11ModulePath != "" {
-			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, pkcs11ModulePath)
+			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(pkcs11ModulePath))
 			appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
 		}
 
