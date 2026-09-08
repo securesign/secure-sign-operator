@@ -16,8 +16,13 @@ func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv
 	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
 		return err
 	}
+	// Only populate v1 status logs if v1alpha1 has actual status data to convert.
 	// v1alpha1 deprecated fields (TreeID, PrivateKeyRef, PublicKeyRef, RootCertificates) need to be
 	// converted to v1 Status.Logs. Find or create a log with the standard v1alpha1 prefix.
+	if in.TreeID == nil && in.PrivateKeyRef == nil && in.PublicKeyRef == nil && len(in.RootCertificates) == 0 {
+		// No v1alpha1 status fields to convert, don't create a log
+		return nil
+	}
 	idx := -1
 	for i := range out.Logs {
 		if out.Logs[i].Prefix == v1alpha1Prefix {
@@ -142,7 +147,12 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
+	// Only populate v1 logs if v1alpha1 has actual data to convert.
 	// v1alpha1 always uses the hardcoded "trusted-artifact-signer" prefix.
+	if in.TreeID == nil && in.PrivateKeyRef == nil && in.PublicKeyRef == nil && len(in.RootCertificates) == 0 {
+		// No v1alpha1 fields to convert, don't create a log
+		return nil
+	}
 	// Find the matching log by prefix, or append a new entry if not found.
 	idx := -1
 	for i := range out.Logs {
@@ -205,7 +215,14 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	// Restore v1-only Spec fields from storage (fields that don't exist in v1alpha1)
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
-	dst.Spec.Logs = restored.Spec.Logs
+	// Merge restored logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
+	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
+	for _, rlog := range restored.Spec.Logs {
+		if rlog.Prefix != v1alpha1Prefix {
+			// This is a v1-only log (not the legacy v1alpha1 log), append it
+			dst.Spec.Logs = append(dst.Spec.Logs, rlog)
+		}
+	}
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	if dst.Spec.Trillian.URL == "" {
 		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
@@ -218,7 +235,14 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Auth = restored.Spec.Auth
 	dst.Spec.Ingress = restored.Spec.Ingress
 	// Restore v1-only Status fields from storage (Status.Logs doesn't exist in v1alpha1)
-	dst.Status.Logs = restored.Status.Logs
+	// Merge restored status logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
+	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
+	for _, rlog := range restored.Status.Logs {
+		if rlog.Prefix != v1alpha1Prefix {
+			// This is a v1-only log (not the legacy v1alpha1 log), append it
+			dst.Status.Logs = append(dst.Status.Logs, rlog)
+		}
+	}
 	// Shared Status fields (Conditions, ServerConfigRef, Tls, Url) are properly converted by
 	// autoConvert_v1alpha1_CTlog_To_v1_CTlog above. Do not restore them from storage.
 	// However, reconstruct Status.Url to include the active log prefix (which v1alpha1 strips)
