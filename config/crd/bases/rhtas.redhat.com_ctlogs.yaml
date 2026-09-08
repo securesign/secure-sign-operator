@@ -3298,6 +3298,26 @@ spec:
                     prefix:
                       description: Prefix is the log's URL prefix.
                       type: string
+                    privateKeyPasswordRef:
+                      description: |-
+                        PrivateKeyPasswordRef points to the secret containing the password for encrypted private keys.
+                        This is retained for backward compatibility with existing deployments using encrypted keys.
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     privateKeyRef:
                       description: PrivateKeyRef points to the secret containing the
                         private key.
