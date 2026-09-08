@@ -2,12 +2,15 @@ package actions
 
 import (
 	"context"
+	"fmt"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NewAlignStatusLogsAction() action.Action[*rhtasv1.CTlog] {
@@ -28,6 +31,25 @@ func (a alignStatusLogs) CanHandle(_ context.Context, instance *rhtasv1.CTlog) b
 
 func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	desired := buildStatusLogs(instance)
+
+	// Validate unique logIds to prevent secret data corruption
+	logIds := make(map[int64]string)
+	for _, log := range desired {
+		if log.LogId != nil {
+			if prefix, exists := logIds[*log.LogId]; exists {
+				err := fmt.Errorf("duplicate logIds in spec - logs %q and %q both use logId %d (would cause secret data corruption)", prefix, log.Prefix, *log.LogId)
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:    constants.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  "InvalidLogConfiguration",
+					Message: err.Error(),
+				})
+				return a.Error(ctx, err, instance)
+			}
+			logIds[*log.LogId] = log.Prefix
+		}
+	}
+
 	if equality.Semantic.DeepEqual(desired, instance.Status.Logs) {
 		return a.Continue()
 	}
