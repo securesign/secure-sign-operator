@@ -4,6 +4,7 @@ func (s *Securesign) SetDefaults() {
 	// keep securesign minimal - component defaults are handled by sub-resource webhooks
 	// exception: irreversible fields defaulted to true must be defaulted here so
 	// CEL transition rules fire at the Securesign level, not only on the child resource
+	s.Spec.Ctlog.SetDefaults()
 	s.Spec.Rekor.Attestations.SetDefaults()
 	s.Spec.Rekor.BackFillRedis.SetDefaults()
 
