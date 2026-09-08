@@ -89,6 +89,9 @@ func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogC
 		rootPems = rootPemPaths(log.TreeID, len(log.RootCerts))
 	}
 
+	// Mirrors are always read-only. Map Mirror semantics to IsReadonly as well as suppressing the private key.
+	isReadonly := log.Readonly || log.Mirror
+
 	cfg := &configpb.LogConfig{
 		LogId:          log.TreeID,
 		Prefix:         log.Prefix,
@@ -96,7 +99,7 @@ func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogC
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
-		IsReadonly:     log.Readonly,
+		IsReadonly:     isReadonly,
 	}
 
 	// Mirrors (read-only mirrors without signing capability) do not have a private key.
