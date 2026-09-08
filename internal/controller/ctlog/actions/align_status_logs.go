@@ -31,6 +31,19 @@ func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *a
 	if equality.Semantic.DeepEqual(desired, instance.Status.Logs) {
 		return a.Continue()
 	}
+	// Warn if any logs are being removed from status
+	for _, statusLog := range instance.Status.Logs {
+		found := false
+		for _, desiredLog := range desired {
+			if desiredLog.Prefix == statusLog.Prefix {
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.Logger.Info("Log removed from status (was present but not in spec)", "prefix", statusLog.Prefix)
+		}
+	}
 	instance.Status.Logs = desired
 	return a.ReturnOnChange(a.PersistStatus)(ctx, instance)
 }
