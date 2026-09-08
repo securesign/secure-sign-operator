@@ -221,6 +221,10 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 			if specLog.Signer != nil {
 				return nil, fmt.Errorf("log %q: mirrors must not have signer configured", log.Prefix)
 			}
+			// Mirrors must have root certificates since they can't use Fulcio auto-discovery
+			if len(log.RootCertificates) == 0 {
+				return nil, fmt.Errorf("log %q: mirrors must have root certificates explicitly configured", log.Prefix)
+			}
 		} else if specLog.Signer == nil {
 			// Active or non-mirror logs without explicit signer: normalize to file mode
 			// and use generated keys from status

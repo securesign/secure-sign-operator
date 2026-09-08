@@ -55,11 +55,11 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 			logStatus.PublicKeyRef = existing.PublicKeyRef
 			logStatus.RootCertificates = existing.RootCertificates
 			logStatus.SignerType = existing.SignerType
+			logStatus.PrivateKeyPasswordRef = existing.PrivateKeyPasswordRef
 		}
 
-		if specLog.Active != nil && *specLog.Active {
-			logStatus.Active = true
-		}
+		// Sync Active status from spec (false if not explicitly marked active)
+		logStatus.Active = specLog.Active != nil && *specLog.Active
 
 		// Apply spec overrides for all logs (active and non-active).
 		// User-configured spec values always take priority over status.
