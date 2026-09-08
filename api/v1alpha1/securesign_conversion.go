@@ -127,8 +127,14 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
-	// Restore Logs array from storage
-	dst.Spec.Ctlog.Logs = restored.Spec.Ctlog.Logs
+	// Merge restored logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
+	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
+	for _, rlog := range restored.Spec.Ctlog.Logs {
+		if rlog.Prefix != "trusted-artifact-signer" {
+			// This is a v1-only log (not the legacy v1alpha1 log), append it
+			dst.Spec.Ctlog.Logs = append(dst.Spec.Ctlog.Logs, rlog)
+		}
+	}
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
 	}
