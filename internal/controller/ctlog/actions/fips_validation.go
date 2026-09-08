@@ -7,7 +7,6 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	fipsAction "github.com/securesign/operator/internal/action/fips"
-	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -68,12 +67,16 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 	}
 
 	// Also include auto-discovered root certificates from status (e.g., Fulcio-discovered roots)
-	// Find the active log in status and include its resolved root certificates
-	activeLogStatus := ctlogUtils.ActiveLogStatus(i.Status.Logs)
-	if activeLogStatus != nil && len(activeLogStatus.RootCertificates) > 0 {
-		for certIdx := range activeLogStatus.RootCertificates {
-			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &activeLogStatus.RootCertificates[certIdx],
-				fmt.Sprintf("status.logs[active].rootCertificates[%d]", certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
+	// Validate resolved root certificates from every status log that is serialized into the CTFE
+	// configuration, not only the active log. Status alignment may preserve existing resolved root
+	// selectors while changing active status, so all mounted roots must be validated.
+	for logIdx, log := range i.Status.Logs {
+		if len(log.RootCertificates) == 0 {
+			continue
+		}
+		for certIdx := range log.RootCertificates {
+			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &log.RootCertificates[certIdx],
+				fmt.Sprintf("status.logs[%d].rootCertificates[%d]", logIdx, certIdx), fipsutil.ValidateCertificateChainPEM, &refs); err != nil {
 				return nil, err
 			}
 		}
