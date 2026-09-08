@@ -85,8 +85,16 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 		if specLog.Signer != nil {
 			logStatus.SignerType = specLog.Signer.Type
 			if specLog.Signer.File != nil {
+				// Track if private key reference is actually changing
+				oldPrivateKeyRef := logStatus.PrivateKeyRef
 				if specLog.Signer.File.PrivateKeyRef != nil {
 					logStatus.PrivateKeyRef = specLog.Signer.File.PrivateKeyRef
+					// Private key changed: clear password ref since it won't match new key
+					if oldPrivateKeyRef == nil ||
+						oldPrivateKeyRef.Name != specLog.Signer.File.PrivateKeyRef.Name ||
+						oldPrivateKeyRef.Key != specLog.Signer.File.PrivateKeyRef.Key {
+						logStatus.PrivateKeyPasswordRef = nil
+					}
 				}
 				if specLog.Signer.File.PublicKeyRef != nil {
 					logStatus.PublicKeyRef = specLog.Signer.File.PublicKeyRef
@@ -96,6 +104,8 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				if specLog.Signer.PKCS11.PublicKeyRef != nil {
 					logStatus.PublicKeyRef = specLog.Signer.PKCS11.PublicKeyRef
 				}
+				// PKCS#11 doesn't use passwords
+				logStatus.PrivateKeyPasswordRef = nil
 			}
 		}
 
