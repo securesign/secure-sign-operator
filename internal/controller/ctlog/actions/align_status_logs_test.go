@@ -287,3 +287,78 @@ func TestAlignStatusLogs_NoChangeSkips(t *testing.T) {
 
 	g.Expect(result).To(Equal(testAction.Continue()))
 }
+
+func TestAlignStatusLogs_PreservesEncryptedKeyPassword(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	// Regression test: encrypted legacy keys preserve password refs during alignment
+	// when private key ref remains unchanged. This ensures password migration path
+	// doesn't lose the password during status reconciliation.
+	instance := &rhtasv1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+								Key:                  "private",
+							},
+						},
+					},
+				},
+			},
+		},
+		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(12345)),
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "private",
+					},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "public",
+					},
+					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
+					// Password ref from legacy encrypted key migration
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
+						Key:                  "password",
+					},
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
+					},
+				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(instance.Status.Logs).To(HaveLen(1))
+	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
+	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
+	// Private key ref unchanged: password ref should be preserved
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
+	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Key).To(Equal("private"))
+	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef).NotTo(BeNil())
+	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Name).To(Equal("keys"))
+	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Key).To(Equal("password"))
+}
