@@ -58,6 +58,16 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) 
 			defaulted := instance.Spec.Fulcio.DeepCopy()
 			defaulted.SetDefaults()
 			object.Spec = *defaulted
+			// Auto-wire CTlog binding if not explicitly set.
+			// Fulcio needs to reference CTlog to verify SCTs;
+			// the Ref must point to the CTlog resource for service discovery.
+			// ref and url are mutually exclusive, so replace URL with Ref.
+			if object.Spec.Ctlog.Ref == nil && object.Spec.Ctlog.URL != "" {
+				object.Spec.Ctlog.Ref = &rhtasv1.ServiceReferenceRef{
+					Name: instance.Name,
+				}
+				object.Spec.Ctlog.URL = ""
+			}
 			return nil
 		},
 	); err != nil {
