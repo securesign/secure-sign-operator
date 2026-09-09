@@ -1420,7 +1420,15 @@ func autoConvert_v1alpha1_NTPMonitoring_To_v1_NTPMonitoring(in *NTPMonitoring, o
 	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
 		return err
 	}
-	out.Config = (*v1.NtpMonitoringConfig)(unsafe.Pointer(in.Config))
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = new(v1.NtpMonitoringConfig)
+		if err := Convert_v1alpha1_NtpMonitoringConfig_To_v1_NtpMonitoringConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Config = nil
+	}
 	return nil
 }
 
@@ -1433,7 +1441,15 @@ func autoConvert_v1_NTPMonitoring_To_v1alpha1_NTPMonitoring(in *v1.NTPMonitoring
 	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
 		return err
 	}
-	out.Config = (*NtpMonitoringConfig)(unsafe.Pointer(in.Config))
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = new(NtpMonitoringConfig)
+		if err := Convert_v1_NtpMonitoringConfig_To_v1alpha1_NtpMonitoringConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Config = nil
+	}
 	return nil
 }
 
@@ -1444,12 +1460,12 @@ func Convert_v1_NTPMonitoring_To_v1alpha1_NTPMonitoring(in *v1.NTPMonitoring, ou
 
 func autoConvert_v1alpha1_NtpMonitoringConfig_To_v1_NtpMonitoringConfig(in *NtpMonitoringConfig, out *v1.NtpMonitoringConfig, s conversion.Scope) error {
 	out.NtpConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.NtpConfigRef))
-	out.RequestAttempts = in.RequestAttempts
-	out.RequestTimeout = in.RequestTimeout
-	out.NumServers = in.NumServers
-	out.MaxTimeDelta = in.MaxTimeDelta
-	out.ServerThreshold = in.ServerThreshold
-	out.Period = in.Period
+	out.RequestAttempts = int32(in.RequestAttempts)
+	out.RequestTimeout = int32(in.RequestTimeout)
+	out.NumServers = int32(in.NumServers)
+	out.MaxTimeDelta = int32(in.MaxTimeDelta)
+	out.ServerThreshold = int32(in.ServerThreshold)
+	out.Period = int32(in.Period)
 	out.Servers = *(*[]string)(unsafe.Pointer(&in.Servers))
 	return nil
 }
@@ -1461,12 +1477,12 @@ func Convert_v1alpha1_NtpMonitoringConfig_To_v1_NtpMonitoringConfig(in *NtpMonit
 
 func autoConvert_v1_NtpMonitoringConfig_To_v1alpha1_NtpMonitoringConfig(in *v1.NtpMonitoringConfig, out *NtpMonitoringConfig, s conversion.Scope) error {
 	out.NtpConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.NtpConfigRef))
-	out.RequestAttempts = in.RequestAttempts
-	out.RequestTimeout = in.RequestTimeout
-	out.NumServers = in.NumServers
-	out.MaxTimeDelta = in.MaxTimeDelta
-	out.ServerThreshold = in.ServerThreshold
-	out.Period = in.Period
+	out.RequestAttempts = int(in.RequestAttempts)
+	out.RequestTimeout = int(in.RequestTimeout)
+	out.NumServers = int(in.NumServers)
+	out.MaxTimeDelta = int(in.MaxTimeDelta)
+	out.ServerThreshold = int(in.ServerThreshold)
+	out.Period = int(in.Period)
 	out.Servers = *(*[]string)(unsafe.Pointer(&in.Servers))
 	return nil
 }

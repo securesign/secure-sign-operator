@@ -140,19 +140,19 @@ type NtpMonitoringConfig struct {
 	//Default configuration: https://github.com/securesign/timestamp-authority/blob/main/pkg/ntpmonitor/ntpsync.yaml
 	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
 	//Number of attempts to contact a ntp server before giving up.
-	RequestAttempts int `json:"requestAttempts,omitempty"`
+	RequestAttempts int32 `json:"requestAttempts,omitempty"`
 	//The timeout in seconds for a request to respond. This value must be
 	//smaller than max_time_delta.
-	RequestTimeout int `json:"requestTimeout,omitempty"`
+	RequestTimeout int32 `json:"requestTimeout,omitempty"`
 	//Number of randomly selected ntp servers to interrogate.
-	NumServers int `json:"numServers,omitempty"`
+	NumServers int32 `json:"numServers,omitempty"`
 	//Maximum number of seconds the local time is allowed to drift from the
 	//response of a ntp server
-	MaxTimeDelta int `json:"maxTimeDelta,omitempty"`
+	MaxTimeDelta int32 `json:"maxTimeDelta,omitempty"`
 	//Number of servers who must agree with local time.
-	ServerThreshold int `json:"serverThreshold,omitempty"`
+	ServerThreshold int32 `json:"serverThreshold,omitempty"`
 	//Period (in seconds) for polling ntp servers
-	Period int `json:"period,omitempty"`
+	Period int32 `json:"period,omitempty"`
 	//List of servers to contact. Many DNS names resolves to multiple A records.
 	// +listType=set
 	Servers []string `json:"servers,omitempty"`
