@@ -1120,6 +1120,7 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+                x-kubernetes-list-type: atomic
               ingress:
                 description: Define whether you want to export service or not
                 properties:
@@ -1156,11 +1157,13 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     command:
                       description: Entrypoint array. Not executed within a shell.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     env:
                       description: List of environment variables to set in the container.
                       items:
@@ -1373,6 +1376,7 @@ spec:
                             x-kubernetes-map-type: atomic
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     image:
                       description: Container image name.
                       minLength: 1
@@ -1969,6 +1973,7 @@ spec:
                       type: string
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               trustedCA:
                 description: ConfigMap with additional bundle of trusted CA
                 properties:

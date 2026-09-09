@@ -1120,6 +1120,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   tuf:
                     description: TUF service configuration
                     properties:
@@ -1175,6 +1176,7 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+                x-kubernetes-list-type: atomic
               trustedCA:
                 description: ConfigMap with additional bundle of trusted CA
                 properties:
@@ -2270,6 +2272,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                 type: object
             type: object
           status:

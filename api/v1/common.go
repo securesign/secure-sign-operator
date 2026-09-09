@@ -202,6 +202,7 @@ type ServiceAccountConfig struct {
 	// to use for pulling container images used by this component.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional
+	// +listType=atomic
 	ImagePullSecrets []core.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
@@ -218,9 +219,11 @@ type InitContainerSpec struct {
 	Image string `json:"image"`
 	// Entrypoint array. Not executed within a shell.
 	// +optional
+	// +listType=atomic
 	Command []string `json:"command,omitempty"`
 	// Arguments to the entrypoint.
 	// +optional
+	// +listType=atomic
 	Args []string `json:"args,omitempty"`
 	// List of environment variables to set in the container.
 	// +optional
@@ -229,6 +232,7 @@ type InitContainerSpec struct {
 	Env []core.EnvVar `json:"env,omitempty"`
 	// List of sources to populate environment variables in the container.
 	// +optional
+	// +listType=atomic
 	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty"`
 	// Pod volumes to mount into the container's filesystem.
 	// +optional
@@ -332,8 +336,9 @@ type PodRequirements struct {
 	// Number of desired pods.
 	// +optional
 	// +kubebuilder:validation:Minimum:=0
-	Replicas    *int32                     `json:"replicas,omitempty"`
-	Affinity    *core.Affinity             `json:"affinity,omitempty"`
-	Resources   *core.ResourceRequirements `json:"resources,omitempty"`
-	Tolerations []core.Toleration          `json:"tolerations,omitempty"`
+	Replicas  *int32                     `json:"replicas,omitempty"`
+	Affinity  *core.Affinity             `json:"affinity,omitempty"`
+	Resources *core.ResourceRequirements `json:"resources,omitempty"`
+	// +listType=atomic
+	Tolerations []core.Toleration `json:"tolerations,omitempty"`
 }
