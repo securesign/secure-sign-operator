@@ -49,7 +49,7 @@ type TufSpec struct {
 	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'))",message="url must follow the pattern scheme://host[:port]/path or //[:port]/path"
-	Ctlog []TrustRootBinding `json:"ctlog,omitempty"`
+	Ctlog []TrustRootBinding `json:"ctlog,omitempty"` //nolint:kubeapilinter // arrayofstruct: empty struct means autoload
 	// Fulcio service and trust material binding.
 	// +optional
 	// At most one entry is allowed today; this ceiling is deliberate and temporary,
@@ -57,7 +57,7 @@ type TufSpec struct {
 	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
-	Fulcio []TrustRootBindingWithOIDC `json:"fulcio,omitempty"`
+	Fulcio []TrustRootBindingWithOIDC `json:"fulcio,omitempty"` //nolint:kubeapilinter // arrayofstruct: empty struct means autoload
 	// Rekor service and trust material binding.
 	// +optional
 	// At most one entry is allowed today; this ceiling is deliberate and temporary,
@@ -65,7 +65,7 @@ type TufSpec struct {
 	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
-	Rekor []TrustRootBinding `json:"rekor,omitempty"`
+	Rekor []TrustRootBinding `json:"rekor,omitempty"` //nolint:kubeapilinter // arrayofstruct: empty struct means autoload
 	// TSA service and trust material binding. A nil value excludes TSA from the
 	// trust root entirely; a non-nil value (even an empty list, meaning
 	// autodiscover) includes it.
@@ -122,7 +122,7 @@ type TufStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	// +listType=map
 	// +listMapKey=name
-	Keys    []TufKeyStatus `json:"keys,omitempty"`
+	Keys    []TufKeyStatus `json:"keys,omitempty"` //nolint:kubeapilinter // arrayofstruct: status fields are operator-managed
 	PvcName string         `json:"pvcName,omitempty"`
 	Url     string         `json:"url,omitempty"`
 }

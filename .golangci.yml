@@ -42,6 +42,7 @@ linters:
               - requiredfields
               - commentstart
               - uniquemarkers
+              - duplicatemarkers
     staticcheck:
       dot-import-whitelist:
         - github.com/onsi/gomega

@@ -31,7 +31,7 @@ type SecuresignSpec struct {
 	Trillian           TrillianSpec            `json:"trillian,omitempty"`
 	Tuf                TufSpec                 `json:"tuf,omitempty"`
 	Ctlog              CTlogSpec               `json:"ctlog,omitempty"`
-	TimestampAuthority *TimestampAuthoritySpec `json:"tsa,omitempty"`
+	TimestampAuthority *TimestampAuthoritySpec `json:"tsa,omitempty"` //nolint:kubeapilinter // notimestamp: established API field name
 }
 
 // SecuresignStatus defines the observed state of Securesign
