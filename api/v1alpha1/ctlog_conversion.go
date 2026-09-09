@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"net/url"
+	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
@@ -16,40 +17,51 @@ func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv
 	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
 		return err
 	}
-	// Only populate v1 status logs if v1alpha1 has actual status data to convert.
-	// v1alpha1 deprecated fields (TreeID, PrivateKeyRef, PublicKeyRef, RootCertificates) need to be
-	// converted to v1 Status.Logs. Find or create a log with the standard v1alpha1 prefix.
-	if in.TreeID == nil && in.PrivateKeyRef == nil && in.PublicKeyRef == nil && len(in.RootCertificates) == 0 {
-		// No v1alpha1 status fields to convert, don't create a log
+
+	hasDataToConvert := in.TreeID != nil || in.PrivateKeyRef != nil || in.PublicKeyRef != nil || len(in.RootCertificates) > 0
+	if !hasDataToConvert {
 		return nil
 	}
-	idx := -1
-	for i := range out.Logs {
-		if out.Logs[i].Prefix == v1alpha1Prefix {
-			idx = i
-			break
-		}
+
+	activeIdx := slices.IndexFunc(out.Logs, func(l rhtasv1.CTlogLogStatus) bool { return l.Active })
+	idx := slices.IndexFunc(out.Logs, func(l rhtasv1.CTlogLogStatus) bool { return l.Prefix == v1alpha1Prefix })
+	var log *rhtasv1.CTlogLogStatus
+
+	if idx != -1 {
+		log = &out.Logs[idx]
+	} else {
+		out.Logs = append(out.Logs, rhtasv1.CTlogLogStatus{
+			Prefix: v1alpha1Prefix,
+		})
+		log = &out.Logs[len(out.Logs)-1]
 	}
-	if idx == -1 {
-		out.Logs = append(out.Logs, rhtasv1.CTlogLogStatus{Prefix: v1alpha1Prefix})
-		idx = len(out.Logs) - 1
+
+	log.LogId = in.TreeID
+	if activeIdx == -1 || activeIdx == idx {
+		log.Active = true
 	}
-	log := &out.Logs[idx]
-	if in.TreeID != nil {
-		log.LogId = in.TreeID
-	}
+
 	if in.PrivateKeyRef != nil {
 		log.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
 		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, log.PrivateKeyRef, s); err != nil {
 			return err
 		}
 	}
+
+	if in.PrivateKeyPasswordRef != nil {
+		log.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyPasswordRef, log.PrivateKeyPasswordRef, s); err != nil {
+			return err
+		}
+	}
+
 	if in.PublicKeyRef != nil {
 		log.PublicKeyRef = &rhtasv1.SecretKeySelector{}
 		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PublicKeyRef, log.PublicKeyRef, s); err != nil {
 			return err
 		}
 	}
+
 	if len(in.RootCertificates) > 0 {
 		log.RootCertificates = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
 		for i, root := range in.RootCertificates {
@@ -58,6 +70,7 @@ func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -71,6 +84,7 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out
 			return err
 		}
 	}
+
 	// Derive deprecated status fields from the active log in Status.Logs
 	for _, log := range in.Logs {
 		if log.Prefix == v1alpha1Prefix {
@@ -80,6 +94,12 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out
 			if log.PrivateKeyRef != nil {
 				out.PrivateKeyRef = &SecretKeySelector{}
 				if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(log.PrivateKeyRef, out.PrivateKeyRef, s); err != nil {
+					return err
+				}
+			}
+			if log.PrivateKeyPasswordRef != nil {
+				out.PrivateKeyPasswordRef = &SecretKeySelector{}
+				if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(log.PrivateKeyPasswordRef, out.PrivateKeyPasswordRef, s); err != nil {
 					return err
 				}
 			}
@@ -111,9 +131,7 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 	// v1alpha1 hardcodes this prefix, so we look for it in the v1 Logs array
 	for _, log := range in.Logs {
 		if log.Prefix == v1alpha1Prefix {
-			if log.LogId != nil {
-				out.TreeID = log.LogId
-			}
+			out.TreeID = log.LogId
 			if log.Signer != nil && log.Signer.File != nil {
 				if log.Signer.File.PrivateKeyRef != nil {
 					out.PrivateKeyRef = &SecretKeySelector{}
@@ -147,68 +165,92 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	// Find or create the v1alpha1-prefix log. Even if v1alpha1 has no deprecated fields to project,
-	// a valid active v1 log may intentionally omit tree ID, signer, and roots because the controller
-	// resolves them automatically. We must not delete such logs during conversion.
-	idx := -1
-	for i := range out.Logs {
-		if out.Logs[i].Prefix == v1alpha1Prefix {
-			idx = i
-			break
-		}
+
+	hasDataToConvert := in.TreeID != nil || in.PrivateKeyRef != nil || in.PublicKeyRef != nil || len(in.RootCertificates) > 0
+	if !hasDataToConvert {
+		return nil
 	}
 
-	// Only create a new log entry if v1alpha1 has actual data to convert
-	hasDataToConvert := in.TreeID != nil || in.PrivateKeyRef != nil || in.PublicKeyRef != nil || len(in.RootCertificates) > 0
+	activeIdx := slices.IndexFunc(out.Logs, func(l rhtasv1.CTLogConfig) bool { return ptr.Deref(l.Active, false) })
+	idx := slices.IndexFunc(out.Logs, func(l rhtasv1.CTLogConfig) bool { return l.Prefix == v1alpha1Prefix })
+	var log *rhtasv1.CTLogConfig
 
-	if idx == -1 && hasDataToConvert {
-		// Check if any existing log is already marked as active
-		hasActiveLog := false
-		for _, log := range out.Logs {
-			if log.Active != nil && *log.Active {
-				hasActiveLog = true
-				break
-			}
-		}
-		// Only set this log as active if no other log is currently active
+	if idx != -1 {
+		log = &out.Logs[idx]
+	} else {
 		out.Logs = append(out.Logs, rhtasv1.CTLogConfig{
 			Prefix: v1alpha1Prefix,
-			Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile},
-			Active: ptr.To(!hasActiveLog),
 		})
-		idx = len(out.Logs) - 1
+		log = &out.Logs[len(out.Logs)-1]
 	}
 
-	// Only update the log if we have data to convert or if the log already exists
-	if idx != -1 {
-		log := &out.Logs[idx]
-		if in.TreeID != nil {
-			log.LogId = in.TreeID
+	log.LogId = in.TreeID
+	log.Signer = &rhtasv1.CTlogSigner{
+		Type: rhtasv1.SignerTypeFile,
+	}
+	if activeIdx == -1 || activeIdx == idx {
+		log.Active = ptr.To(true)
+	}
+	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
+		log.Signer.File = &rhtasv1.CTlogFile{}
+	}
+
+	if in.PrivateKeyRef != nil {
+		log.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, log.Signer.File.PrivateKeyRef, s); err != nil {
+			return err
 		}
-		if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
-			if log.Signer == nil {
-				log.Signer = &rhtasv1.CTlogSigner{}
-			}
-			log.Signer.Type = rhtasv1.SignerTypeFile
-			log.Signer.File = &rhtasv1.CTlogFile{}
-			if in.PrivateKeyRef != nil {
-				log.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
-				if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, log.Signer.File.PrivateKeyRef, s); err != nil {
-					return err
-				}
-			}
-			if in.PublicKeyRef != nil {
-				log.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{}
-				if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PublicKeyRef, log.Signer.File.PublicKeyRef, s); err != nil {
-					return err
-				}
+	}
+
+	if in.PublicKeyRef != nil {
+		log.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PublicKeyRef, log.Signer.File.PublicKeyRef, s); err != nil {
+			return err
+		}
+	}
+
+	if len(in.RootCertificates) > 0 {
+		log.RootCerts = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
+		for i, root := range in.RootCertificates {
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &log.RootCerts[i], s); err != nil {
+				return err
 			}
 		}
-		if len(in.RootCertificates) > 0 {
-			log.RootCerts = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
-			for i, root := range in.RootCertificates {
-				if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &log.RootCerts[i], s); err != nil {
-					return err
+	}
+
+	return nil
+}
+
+func restore_v1_CTlog_spec(dst *rhtasv1.CTlogSpec, restored *rhtasv1.CTlogSpec) error {
+	dst.ImagePullSecrets = restored.ImagePullSecrets
+	dst.TrustedCA = restored.TrustedCA
+	dst.Monitoring.ServiceMonitor = restored.Monitoring.ServiceMonitor
+	dst.Monitoring.Tuf.Ref = restored.Monitoring.Tuf.Ref
+	dst.PodExtensions = restored.PodExtensions
+	dst.Auth = restored.Auth
+	dst.Ingress = restored.Ingress
+	dst.Fulcio = restored.Fulcio
+	dst.Trillian.Ref = restored.Trillian.Ref
+
+	// Restore spec logs
+	dstIdx := slices.IndexFunc(dst.Logs, func(l rhtasv1.CTLogConfig) bool { return l.Prefix == v1alpha1Prefix })
+	for _, rLog := range restored.Logs {
+		if rLog.Prefix != v1alpha1Prefix || dstIdx == -1 {
+			dst.Logs = append(dst.Logs, rLog)
+		} else {
+			dstLog := &dst.Logs[dstIdx]
+			dstLog.Active = rLog.Active
+			dstLog.FrozenSTH = rLog.FrozenSTH
+			dstLog.Readonly = rLog.Readonly
+			dstLog.Mirror = rLog.Mirror
+			dstLog.NotAfterStart = rLog.NotAfterStart
+			dstLog.NotAfterLimit = rLog.NotAfterLimit
+			if rLog.Signer != nil {
+				if dstLog.Signer == nil {
+					dstLog.Signer = rLog.Signer
+				} else {
+					dstLog.Signer.PKCS11 = rLog.Signer.PKCS11
+					dstLog.Signer.Type = rLog.Signer.Type
 				}
 			}
 		}
@@ -225,112 +267,22 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
-	// Restore v1-only Spec fields from storage (fields that don't exist in v1alpha1)
-	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
-	dst.Spec.TrustedCA = restored.Spec.TrustedCA
-	// Merge restored logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
-	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
-	// Preserve the original active log selection: if a v1-only log was active before,
-	// keep it active and deactivate the converted v1alpha1 log.
-	// If v1alpha1 has no deprecated fields to project, preserve the stored v1alpha1 log unchanged.
-	for _, rlog := range restored.Spec.Logs {
-		if rlog.Prefix != v1alpha1Prefix {
-			// This is a v1-only log (not the legacy v1alpha1 log), append it
-			dst.Spec.Logs = append(dst.Spec.Logs, rlog)
-			// If this restored log was the original active log, deactivate the v1alpha1 log
-			if rlog.Active != nil && *rlog.Active {
-				for i := range dst.Spec.Logs {
-					if dst.Spec.Logs[i].Prefix == v1alpha1Prefix {
-						dst.Spec.Logs[i].Active = ptr.To(false)
-						break
-					}
-				}
-			}
+	if err := restore_v1_CTlog_spec(&dst.Spec, &restored.Spec); err != nil {
+		return err
+	}
+
+	// Restore status
+	dstStatusIdx := slices.IndexFunc(dst.Status.Logs, func(l rhtasv1.CTlogLogStatus) bool { return l.Prefix == v1alpha1Prefix })
+	for _, rLog := range restored.Status.Logs {
+		if rLog.Prefix != v1alpha1Prefix || dstStatusIdx == -1 {
+			dst.Status.Logs = append(dst.Status.Logs, rLog)
+		} else {
+			dstLog := &dst.Status.Logs[dstStatusIdx]
+			dstLog.PublicKey = rLog.PublicKey
+			dstLog.SignerType = rLog.SignerType
 		}
 	}
-	// If src.Spec has no deprecated fields and a "trusted-artifact-signer" log exists in restored,
-	// overlay editable v1alpha1 fields onto the restored log rather than using the auto-converted one.
-	// This preserves a valid v1 log that intentionally omits auto-resolved fields.
-	if src.Spec.TreeID == nil && src.Spec.PrivateKeyRef == nil && src.Spec.PublicKeyRef == nil && len(src.Spec.RootCertificates) == 0 {
-		// v1alpha1 has no deprecated fields to project. Check if restored has the legacy log.
-		for _, rlog := range restored.Spec.Logs {
-			if rlog.Prefix == v1alpha1Prefix {
-				// Find and replace the auto-converted log with the restored one
-				for i := range dst.Spec.Logs {
-					if dst.Spec.Logs[i].Prefix == v1alpha1Prefix {
-						dst.Spec.Logs[i] = rlog
-						break
-					}
-				}
-				break
-			}
-		}
-	}
-	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
-	if dst.Spec.Trillian.URL == "" {
-		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
-	}
-	dst.Spec.Fulcio = restored.Spec.Fulcio
-	if dst.Spec.Monitoring.Tuf.URL == "" {
-		dst.Spec.Monitoring.Tuf.Ref = restored.Spec.Monitoring.Tuf.Ref
-	}
-	dst.Spec.PodExtensions = restored.Spec.PodExtensions
-	dst.Spec.Auth = restored.Spec.Auth
-	dst.Spec.Ingress = restored.Spec.Ingress
-	// Restore v1-only Status fields from storage (Status.Logs doesn't exist in v1alpha1)
-	// Merge restored status logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
-	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
-	for _, rlog := range restored.Status.Logs {
-		if rlog.Prefix != v1alpha1Prefix {
-			// This is a v1-only log (not the legacy v1alpha1 log), append it
-			dst.Status.Logs = append(dst.Status.Logs, rlog)
-		}
-	}
-	// Restore important status fields from storage for backward compatibility.
-	// Match each dst status log with its corresponding restored status log by prefix.
-	for i := range dst.Status.Logs {
-		for _, rlog := range restored.Status.Logs {
-			if rlog.Prefix == dst.Status.Logs[i].Prefix {
-				// Restore password refs for backward compatibility with encrypted keys
-				dst.Status.Logs[i].PrivateKeyPasswordRef = rlog.PrivateKeyPasswordRef
-				// Restore already-resolved public key data (needed for TUF trust material)
-				if dst.Status.Logs[i].PublicKey == "" {
-					dst.Status.Logs[i].PublicKey = rlog.PublicKey
-				}
-				// Restore signer type if not already set
-				if dst.Status.Logs[i].SignerType == "" {
-					dst.Status.Logs[i].SignerType = rlog.SignerType
-				}
-				break
-			}
-		}
-	}
-	// Also restore v1alpha1Prefix log's status fields if present in storage
-	for i := range dst.Status.Logs {
-		if dst.Status.Logs[i].Prefix == v1alpha1Prefix {
-			for _, rlog := range restored.Status.Logs {
-				if rlog.Prefix == v1alpha1Prefix {
-					// Restore password refs for backward compatibility
-					if dst.Status.Logs[i].PrivateKeyPasswordRef == nil {
-						dst.Status.Logs[i].PrivateKeyPasswordRef = rlog.PrivateKeyPasswordRef
-					}
-					// Restore already-resolved public key (critical for TUF trust material)
-					if dst.Status.Logs[i].PublicKey == "" {
-						dst.Status.Logs[i].PublicKey = rlog.PublicKey
-					}
-					// Restore signer type if not already set
-					if dst.Status.Logs[i].SignerType == "" {
-						dst.Status.Logs[i].SignerType = rlog.SignerType
-					}
-					break
-				}
-			}
-			break
-		}
-	}
-	// Shared Status fields (Conditions, ServerConfigRef, Tls, Url) are properly converted by
-	// autoConvert_v1alpha1_CTlog_To_v1_CTlog above. Do not restore them from storage.
-	// However, reconstruct Status.Url to include the active log prefix (which v1alpha1 strips)
+
 	if dst.Status.Url != "" && len(dst.Spec.Logs) > 0 {
 		// Find the active log, or use the first one if none are explicitly marked active
 		activeLog := dst.Spec.Logs[0]
@@ -347,6 +299,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 		u.Path = "/" + activeLog.Prefix
 		dst.Status.Url = u.String()
 	}
+
 	return nil
 }
 

@@ -8,7 +8,6 @@ import (
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -75,57 +74,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	if dst.Spec.Fulcio.Signer.Kms == nil {
 		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
 	}
-	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
-	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
-	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
-	// Merge restored logs with converted logs: keep all v1-only logs (non-v1alpha1-prefix)
-	// and preserve the converted "trusted-artifact-signer" log from the conversion above.
-	// Preserve the original active log selection: if a v1-only log was active before,
-	// keep it active and deactivate the converted v1alpha1 log.
-	// If v1alpha1 has no deprecated fields to project, preserve the stored v1alpha1 log unchanged.
-	for _, rlog := range restored.Spec.Ctlog.Logs {
-		if rlog.Prefix != "trusted-artifact-signer" { //nolint:goconst
-			// This is a v1-only log (not the legacy v1alpha1 log), append it
-			dst.Spec.Ctlog.Logs = append(dst.Spec.Ctlog.Logs, rlog)
-			// If this restored log was the original active log, deactivate the v1alpha1 log
-			if rlog.Active != nil && *rlog.Active {
-				for i := range dst.Spec.Ctlog.Logs {
-					if dst.Spec.Ctlog.Logs[i].Prefix == "trusted-artifact-signer" {
-						dst.Spec.Ctlog.Logs[i].Active = ptr.To(false)
-						break
-					}
-				}
-			}
-		}
+
+	if err := restore_v1_CTlog_spec(&dst.Spec.Ctlog, &restored.Spec.Ctlog); err != nil {
+		return err
 	}
-	// If src.Spec.Ctlog has no deprecated fields and a "trusted-artifact-signer" log exists in restored,
-	// overlay editable v1alpha1 fields onto the restored log rather than using the auto-converted one.
-	// This preserves a valid v1 log that intentionally omits auto-resolved fields.
-	if src.Spec.Ctlog.TreeID == nil && src.Spec.Ctlog.PrivateKeyRef == nil && src.Spec.Ctlog.PublicKeyRef == nil && len(src.Spec.Ctlog.RootCertificates) == 0 {
-		// v1alpha1 has no deprecated fields to project. Check if restored has the legacy log.
-		for _, rlog := range restored.Spec.Ctlog.Logs {
-			if rlog.Prefix == "trusted-artifact-signer" {
-				// Find and replace the auto-converted log with the restored one
-				for i := range dst.Spec.Ctlog.Logs {
-					if dst.Spec.Ctlog.Logs[i].Prefix == "trusted-artifact-signer" {
-						dst.Spec.Ctlog.Logs[i] = rlog
-						break
-					}
-				}
-				break
-			}
-		}
-	}
-	if dst.Spec.Ctlog.Trillian.URL == "" {
-		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
-	}
-	if dst.Spec.Ctlog.Monitoring.Tuf.URL == "" {
-		dst.Spec.Ctlog.Monitoring.Tuf.Ref = restored.Spec.Ctlog.Monitoring.Tuf.Ref
-	}
-	dst.Spec.Ctlog.Fulcio = restored.Spec.Ctlog.Fulcio
-	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
-	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
-	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions
