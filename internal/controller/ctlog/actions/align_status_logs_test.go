@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestAlignStatusLogs_CanHandle(t *testing.T) {
@@ -40,6 +41,50 @@ func TestAlignStatusLogs_CanHandle(t *testing.T) {
 			g.Expect(a.CanHandle(t.Context(), instance)).To(Equal(tt.canHandle))
 		})
 	}
+}
+
+func TestAlignStatusLogs_RejectsEmptySpecLogs(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := &rhtasv1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: true,
+					LogId:  ptr.To(int64(123456)),
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-test-xyz99"},
+						Key:                  "private",
+					},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-test-xyz99"},
+						Key:                  "public",
+					},
+				},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+	key := client.ObjectKeyFromObject(instance)
+	storedBefore := &rhtasv1.CTlog{}
+	g.Expect(c.Get(ctx, key, storedBefore)).To(Succeed())
+	instanceBefore := instance.DeepCopy()
+
+	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).NotTo(BeNil())
+	g.Expect(result.Err).To(MatchError("at least one log is required"))
+	g.Expect(instance).To(Equal(instanceBefore))
+	storedAfter := &rhtasv1.CTlog{}
+	g.Expect(c.Get(ctx, key, storedAfter)).To(Succeed())
+	g.Expect(storedAfter).To(Equal(storedBefore))
 }
 
 func TestAlignStatusLogs_ActiveLog(t *testing.T) {
