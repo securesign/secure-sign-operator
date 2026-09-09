@@ -27,6 +27,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/serviceresolver"
 )
@@ -57,7 +58,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
-	ctlogUrl, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Ctlog, instance.Namespace, &rhtasv1.CTlog{})
+	ctlogUrl, err := i.resolveCtlogUrl(ctx, instance)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not resolve CTLog url: %w", err), instance, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -127,6 +128,34 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 	} else {
 		return i.Continue()
 	}
+}
+
+// resolveCtlogUrl determines the CTLog URL for Fulcio using the active shard's prefix for internal communication.
+// When a CTLog ref is specified, it fetches the resource and uses the active shard's prefix to build
+// an internal HTTP URL: http://ctlog.{namespace}.svc:6963/{active-prefix}
+func (i deployAction) resolveCtlogUrl(ctx context.Context, instance *rhtasv1.Fulcio) (string, error) {
+	ref := instance.Spec.Ctlog.GetServiceRef()
+
+	// If an explicit URL is provided, use it
+	if ref.URL != "" {
+		return ref.URL, nil
+	}
+
+	// Fetch the CTLog resource (either via ref or via autodiscovery)
+	ctlog := &rhtasv1.CTlog{}
+	err := serviceresolver.PopulateInstance(ctx, i.Client, instance.Spec.Ctlog, instance.Namespace, ctlog)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve CTLog: %w", err)
+	}
+
+	// Find the active shard and get its prefix
+	activeLog := ctlogutils.ActiveLogStatus(ctlog.Status.Logs)
+	if activeLog == nil || activeLog.Prefix == "" {
+		return "", fmt.Errorf("no active shard or prefix found in CTLog")
+	}
+
+	// Build internal HTTP URL using the active shard's prefix
+	return fmt.Sprintf("http://ctlog.%s.svc:6963/%s", instance.Namespace, activeLog.Prefix), nil
 }
 
 // ensureCommonDeployment sets up the shared deployment scaffolding used by all signer modes:
