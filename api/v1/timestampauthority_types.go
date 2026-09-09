@@ -116,7 +116,7 @@ type TsaCertificateAuthority struct {
 type File struct {
 	//Reference to the signer's root private key
 	// +required
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef"`
+	PrivateKeyRef SecretKeySelector `json:"privateKeyRef"`
 }
 
 // TSA Tink signer config
@@ -127,7 +127,7 @@ type Tink struct {
 	KeyResource string `json:"keyResource"`
 	// +required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
-	KeysetRef *SecretKeySelector `json:"keysetRef"`
+	KeysetRef SecretKeySelector `json:"keysetRef"`
 }
 
 type NTPMonitoring struct {
@@ -231,7 +231,7 @@ type TimestampAuthority struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TimestampAuthoritySpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   TimestampAuthoritySpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status TimestampAuthorityStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 

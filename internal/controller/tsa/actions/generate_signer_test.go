@@ -94,7 +94,7 @@ func TestTSASigner_TinkDisabled(t *testing.T) {
 			},
 		},
 		Tink: &rhtasv1.Tink{
-			KeysetRef: &rhtasv1.SecretKeySelector{
+			KeysetRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-secret"},
 				Key:                  "keySet",
 			},
@@ -127,7 +127,7 @@ func TestTSASigner_UserProvidedRefs(t *testing.T) {
 			},
 		},
 		File: &rhtasv1.File{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			PrivateKeyRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-key-secret"},
 				Key:                  "leafPrivateKey",
 			},
@@ -169,7 +169,7 @@ func TestTSASigner_UserProvidedRefs_MissingCertChainSecret(t *testing.T) {
 			},
 		},
 		File: &rhtasv1.File{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			PrivateKeyRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-key-secret"},
 				Key:                  "leafPrivateKey",
 			},
@@ -298,7 +298,7 @@ func TestTSASigner_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 			},
 		},
 		File: &rhtasv1.File{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			PrivateKeyRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-key-secret"},
 				Key:                  "leafPrivateKey",
 			},
@@ -363,7 +363,7 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 					LeafCA:         &rhtasv1.TsaCertificateAuthority{OrganizationName: "Red Hat"},
 				},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						Key:                  "myKey",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: userSecret},
 					},
@@ -386,7 +386,7 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 					LeafCA:         &rhtasv1.TsaCertificateAuthority{OrganizationName: "Red Hat"},
 				},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						Key:                  "myKey",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: userSecret},
 					},
@@ -407,7 +407,7 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 					},
 				},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						Key:                  "key",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 					},
@@ -438,7 +438,7 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 			signer: rhtasv1.TimestampAuthoritySigner{
 				CertificateChain: rhtasv1.CertificateChain{},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						Key:                  "leafPrivateKey",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "same-key-secret"},
 					},
@@ -469,7 +469,7 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 			signer: rhtasv1.TimestampAuthoritySigner{
 				CertificateChain: rhtasv1.CertificateChain{},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						Key:                  "leafPrivateKey",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-key-secret"},
 					},
@@ -503,7 +503,7 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 					},
 				},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						Key:                  "key",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "external-secret"},
 					},

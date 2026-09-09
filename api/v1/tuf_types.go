@@ -147,7 +147,7 @@ type Tuf struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TufSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   TufSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status TufStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 

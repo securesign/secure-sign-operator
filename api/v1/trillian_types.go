@@ -126,7 +126,7 @@ type Trillian struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TrillianSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   TrillianSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status TrillianStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 

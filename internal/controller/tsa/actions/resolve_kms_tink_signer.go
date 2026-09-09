@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var ErrMissingKeysetRef = errors.New("missing keyset reference for Tink signer")
+var ErrMissingKeysetRef = errors.New("missing keyset reference")
 
 type resolveKMSTinkSignerAction struct {
 	action.BaseAction
@@ -53,18 +53,26 @@ func (a *resolveKMSTinkSignerAction) Handle(ctx context.Context, instance *rhtas
 	signer := &instance.Spec.Signer
 
 	if signer.Tink != nil {
-		if signer.Tink.KeysetRef == nil {
-			return a.Error(ctx, reconcile.TerminalError(ErrMissingKeysetRef), instance,
+		if signer.Tink.KeysetRef.Name == "" {
+			err := reconcile.TerminalError(ErrMissingKeysetRef)
+			return a.Error(ctx, err, instance,
 				metav1.Condition{
 					Type:               TSASignerCondition,
 					Status:             metav1.ConditionFalse,
 					Reason:             state.Failure.String(),
-					Message:            ErrMissingKeysetRef.Error(),
+					Message:            err.Error(),
+					ObservedGeneration: instance.GetGeneration(),
+				},
+				metav1.Condition{
+					Type:               constants.ReadyCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             state.Pending.String(),
+					Message:            err.Error(),
 					ObservedGeneration: instance.GetGeneration(),
 				},
 			)
 		}
-		if err := generateSigner.RequireSecret(ctx, a.Client, instance.Namespace, signer.Tink.KeysetRef); err != nil {
+		if err := generateSigner.RequireSecret(ctx, a.Client, instance.Namespace, &signer.Tink.KeysetRef); err != nil {
 			return a.Error(ctx, fmt.Errorf("tink keyset secret: %w", err), instance,
 				metav1.Condition{
 					Type:               TSASignerCondition,

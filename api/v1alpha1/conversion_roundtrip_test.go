@@ -220,12 +220,20 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.File = &File{}
 				c.FillNoCustom(s.File)
 				s.File.PasswordRef = nil
+				if s.File.PrivateKeyRef == nil {
+					s.File.PrivateKeyRef = &SecretKeySelector{}
+					c.FillNoCustom(s.File.PrivateKeyRef)
+				}
 			case 1:
 				s.Kms = &KMS{}
 				c.FillNoCustom(s.Kms)
 			case 2:
 				s.Tink = &Tink{}
 				c.FillNoCustom(s.Tink)
+				if s.Tink.KeysetRef == nil {
+					s.Tink.KeysetRef = &SecretKeySelector{}
+					c.FillNoCustom(s.Tink.KeysetRef)
+				}
 			}
 		},
 		func(s *rhtasv1.TimestampAuthoritySigner, c randfill.Continue) {

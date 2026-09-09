@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -30,8 +29,8 @@ func pkcs11Instance() *rhtasv1.Fulcio {
 			Signer: rhtasv1.FulcioSigner{
 				Type: rhtasv1.SignerTypePKCS11,
 				PKCS11: &rhtasv1.FulcioPKCS11Config{
-					KeyID: ptr.To(int64(1)),
-					ConfigRef: &rhtasv1.SecretKeySelector{
+					KeyID: 1,
+					ConfigRef: rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-config"},
 						Key:                  "crypto11.conf",
 					},
@@ -252,12 +251,12 @@ func TestCanHandle_PKCS11_StatePending(t *testing.T) {
 	g.Expect(a.CanHandle(ctx, instance)).To(BeFalse(), "should not handle in Pending state")
 }
 
-func TestHandle_NilConfigRef(t *testing.T) {
+func TestHandle_EmptyConfigRef(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 
 	instance := pkcs11Instance()
-	instance.Spec.Signer.PKCS11.ConfigRef = nil
+	instance.Spec.Signer.PKCS11.ConfigRef = rhtasv1.SecretKeySelector{}
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewEnsurePKCS11ConfigAction())
@@ -265,7 +264,6 @@ func TestHandle_NilConfigRef(t *testing.T) {
 
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(nil))).To(BeTrue())
 }
 
 func TestHandle_NilCertificateChainRef(t *testing.T) {

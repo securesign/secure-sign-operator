@@ -1069,7 +1069,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 						Tink: &rhtasv1.Tink{
 							KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
-							KeysetRef: &rhtasv1.SecretKeySelector{
+							KeysetRef: rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-keyset"},
 								Key:                  "keyset.json",
 							},

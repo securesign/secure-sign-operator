@@ -91,7 +91,7 @@ type Securesign struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   SecuresignSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   SecuresignSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status SecuresignStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 

@@ -343,7 +343,7 @@ type PodRequirements struct {
 	// Number of desired pods.
 	// +optional
 	// +kubebuilder:validation:Minimum:=0
-	Replicas  *int32                     `json:"replicas,omitempty"`
+	Replicas *int32 `json:"replicas,omitempty"`
 	// +optional
 	Affinity *core.Affinity `json:"affinity,omitempty"`
 	// +optional

@@ -102,10 +102,10 @@ type CTlogPKCS11Config struct {
 	TokenLabel string `json:"tokenLabel,omitempty"`
 	// Reference to a Secret key containing the HSM user PIN.
 	// +required
-	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
+	PinSecretRef SecretKeySelector `json:"pinSecretRef"`
 	// PEM-encoded public key matching the HSM-resident private key.
 	// +required
-	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
+	PublicKeyRef SecretKeySelector `json:"publicKeyRef"`
 }
 
 // CTlogSigner defines the desired state of the CTlog Signer
@@ -183,7 +183,7 @@ type CTlog struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   CTlogSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   CTlogSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status CTlogStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 

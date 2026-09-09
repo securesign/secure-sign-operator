@@ -18,7 +18,7 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.TimestampAuthority] {
 			CryptoMaterial: func(ctx context.Context, i *rhtasv1.TimestampAuthority, c client.Client) ([]fipsAction.CryptoRef, error) {
 				var refs []fipsAction.CryptoRef
 				if i.Spec.Signer.File != nil {
-					if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, i.Spec.Signer.File.PrivateKeyRef,
+					if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &i.Spec.Signer.File.PrivateKeyRef,
 						"spec.signer.file.privateKeyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
 						return nil, err
 					}

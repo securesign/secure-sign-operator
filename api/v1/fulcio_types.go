@@ -47,11 +47,11 @@ type FulcioSpec struct {
 type FulcioPKCS11Config struct {
 	// Reference to a Secret key holding a complete crypto11 JSON config for Fulcio.
 	// +required
-	ConfigRef *SecretKeySelector `json:"configRef,omitempty"`
+	ConfigRef SecretKeySelector `json:"configRef"`
 	// PKCS#11 CKA_ID of the root CA key on the HSM.
 	// +required
 	// +kubebuilder:validation:Minimum=0
-	KeyID *int64 `json:"keyID,omitempty"`
+	KeyID int64 `json:"keyID"`
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer
@@ -298,7 +298,7 @@ type Fulcio struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   FulcioSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   FulcioSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status FulcioStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 

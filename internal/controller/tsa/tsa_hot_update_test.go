@@ -200,7 +200,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 				}
 
 				found.Spec.Signer.File = &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "tsa-test-secret",
 						},

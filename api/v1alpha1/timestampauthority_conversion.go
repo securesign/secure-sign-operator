@@ -147,7 +147,23 @@ func Convert_v1alpha1_KMS_To_v1_KMS(in *KMS, out *rhtasv1.KMS, s apiconversion.S
 }
 
 func Convert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *rhtasv1.Tink, s apiconversion.Scope) error {
-	return autoConvert_v1alpha1_Tink_To_v1_Tink(in, out, s)
+	if err := autoConvert_v1alpha1_Tink_To_v1_Tink(in, out, s); err != nil {
+		return err
+	}
+	if in.KeysetRef != nil {
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.KeysetRef, &out.KeysetRef, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Convert_v1_Tink_To_v1alpha1_Tink(in *rhtasv1.Tink, out *Tink, s apiconversion.Scope) error {
+	if err := autoConvert_v1_Tink_To_v1alpha1_Tink(in, out, s); err != nil {
+		return err
+	}
+	out.KeysetRef = &SecretKeySelector{}
+	return Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(&in.KeysetRef, out.KeysetRef, s)
 }
 
 func Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in *TimestampAuthoritySigner, out *rhtasv1.TimestampAuthoritySigner, s apiconversion.Scope) error {

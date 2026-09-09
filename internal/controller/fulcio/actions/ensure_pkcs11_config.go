@@ -59,15 +59,8 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.Fulcio
 
 	pkcs11Cfg := instance.Spec.Signer.PKCS11
 
-	if pkcs11Cfg.ConfigRef == nil {
-		return a.Error(ctx,
-			reconcile.TerminalError(fmt.Errorf("spec.signer.pkcs11.configRef is required")),
-			instance,
-		)
-	}
-
 	// Validate ConfigRef secret exists
-	if _, err := kubernetes.GetSecretData(ctx, a.Client, instance.Namespace, pkcs11Cfg.ConfigRef); err != nil {
+	if _, err := kubernetes.GetSecretData(ctx, a.Client, instance.Namespace, &pkcs11Cfg.ConfigRef); err != nil {
 		return a.Error(ctx, fmt.Errorf("PKCS#11 config secret not available: %w", err), instance,
 			metav1.Condition{
 				Type:               PKCS11Condition,
@@ -153,14 +146,8 @@ func computePKCS11Hash(instance *rhtasv1.Fulcio) string {
 	h := sha256.New()
 	if instance.Spec.Signer.PKCS11 != nil {
 		cfg := instance.Spec.Signer.PKCS11
-		if cfg.ConfigRef != nil {
-			fmt.Fprintf(h, "configRef:%s/%s\n", cfg.ConfigRef.Name, cfg.ConfigRef.Key) //nolint:errcheck // hash.Hash.Write never returns an error
-		}
-		keyID := int64(0)
-		if cfg.KeyID != nil {
-			keyID = *cfg.KeyID
-		}
-		fmt.Fprintf(h, "keyID:%d\n", keyID) //nolint:errcheck
+		fmt.Fprintf(h, "configRef:%s/%s\n", cfg.ConfigRef.Name, cfg.ConfigRef.Key) //nolint:errcheck // hash.Hash.Write never returns an error
+		fmt.Fprintf(h, "keyID:%d\n", cfg.KeyID)                                    //nolint:errcheck
 	}
 	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
 		fmt.Fprintf(h, "certChainRef:%s/%s\n", ref.Name, ref.Key) //nolint:errcheck

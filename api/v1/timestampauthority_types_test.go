@@ -164,13 +164,13 @@ var _ = Describe("TSA", func() {
 				}
 				invalidObject.Spec.Signer.Tink = &Tink{
 					KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
-					KeysetRef: &SecretKeySelector{
+					KeysetRef: SecretKeySelector{
 						Key:                  "tink-resource",
 						LocalObjectReference: LocalObjectReference{Name: "tink-resource"},
 					},
 				}
 				invalidObject.Spec.Signer.File = &File{
-					PrivateKeyRef: &SecretKeySelector{
+					PrivateKeyRef: SecretKeySelector{
 						Key:                  "private",
 						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
 					},
@@ -183,7 +183,7 @@ var _ = Describe("TSA", func() {
 			It("signer requires certificateChainRef", func() {
 				invalidObject := generateMinimalTSA("signer-no-chainref")
 				invalidObject.Spec.Signer.File = &File{
-					PrivateKeyRef: &SecretKeySelector{
+					PrivateKeyRef: SecretKeySelector{
 						Key:                  "private",
 						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
 					},
@@ -213,7 +213,7 @@ var _ = Describe("TSA", func() {
 					LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
 				}
 				invalidObject.Spec.Signer.File = &File{
-					PrivateKeyRef: &SecretKeySelector{
+					PrivateKeyRef: SecretKeySelector{
 						Key:                  "private",
 						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
 					},
@@ -248,7 +248,7 @@ var _ = Describe("TSA", func() {
 						},
 					},
 					File: &File{
-						PrivateKeyRef: &SecretKeySelector{
+						PrivateKeyRef: SecretKeySelector{
 							Key:                  "private",
 							LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
 						},
@@ -302,7 +302,7 @@ var _ = Describe("TSA", func() {
 					},
 					Tink: &Tink{
 						KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
-						KeysetRef: &SecretKeySelector{
+						KeysetRef: SecretKeySelector{
 							Key:                  "keyset",
 							LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
 						},
@@ -342,7 +342,7 @@ var _ = Describe("TSA", func() {
 					},
 					Tink: &Tink{
 						KeyResource: "invalid://key",
-						KeysetRef: &SecretKeySelector{
+						KeysetRef: SecretKeySelector{
 							Key:                  "keyset",
 							LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
 						},
@@ -373,7 +373,7 @@ var _ = Describe("TSA", func() {
 						},
 					}
 					validObject.Spec.Signer.File = &File{
-						PrivateKeyRef: &SecretKeySelector{
+						PrivateKeyRef: SecretKeySelector{
 							Key:                  "private",
 							LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
 						},
@@ -427,7 +427,7 @@ var _ = Describe("TSA", func() {
 							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
 						},
 						File: &File{
-							PrivateKeyRef: &SecretKeySelector{
+							PrivateKeyRef: SecretKeySelector{
 								Key:                  "private",
 								LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
 							},
@@ -466,7 +466,7 @@ var _ = Describe("TSA", func() {
 					}
 					invalidObject.Spec.Signer.Tink = &Tink{
 						KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
-						KeysetRef: &SecretKeySelector{
+						KeysetRef: SecretKeySelector{
 							Key:                  "keyset",
 							LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
 						},

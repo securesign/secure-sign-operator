@@ -93,7 +93,7 @@ type Console struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   ConsoleSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Spec   ConsoleSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
 	Status ConsoleStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
