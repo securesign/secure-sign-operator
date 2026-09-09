@@ -134,6 +134,7 @@ If you have deployed the Timestamp Authority Service using a KMS provider follow
 4. Patch the securesign resource with updated references to the rotated keys and certificate chain:
     ```
     signer:
+      type: kms
       certificateChain:
         certificateChainRef:
           name: rotated-cert-chain
@@ -153,6 +154,7 @@ If you have deployed the Timestamp Authority Service using the Tink signer, foll
 5. Patch the securesign resource with updated references to the rotated keys and certificate chain:
     ```
     signer:
+      type: tink
       certificateChain:
         certificateChainRef:
           name: rotated-cert-chain

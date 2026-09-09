@@ -96,7 +96,22 @@ cosign initialize --mirror "$TUF_URL" --root "$TUF_URL/root.json"
 cosign sign --oidc-client-id trusted-artifact-signer <image>
 ```
 
+Inspect the certificate chain the running service is serving, which the operator resolves into the status for TUF and other components:
+```bash
+oc get fulcio <name> -n <namespace> -o jsonpath='{.status.certificateChain}'
+```
+
+## Rotating the KMS Key
+
+The operator fetches the trust bundle from the running service at `/api/v2/trustBundle` on every reconcile and caches it in `.status.certificateChain`. If the fetched chain ever differs from the cached one — for example after rotating the key in the KMS — the operator does **not** accept it automatically, because certificates issued under the old chain would no longer verify. Complete the [Fulcio certificate rotation procedure](fulcio-key-rotation.md), then acknowledge the new chain:
+
+```bash
+oc annotate fulcio <name> rhtas.redhat.com/refresh-trust-material=true --overwrite -n <namespace>
+```
+
 ## Related
 
+- [Rekor KMS Signer](rekor-kms.md) — KMS signer for the Rekor transparency log
+- [Timestamp Authority KMS Signer](tsa-kms.md) — KMS signer for the Timestamp Authority
 - [Fulcio Certificate Rotation](fulcio-key-rotation.md) — rotating KMS keys and certificate chains
 - [FIPS](fips.md) — KMS key FIPS compliance is the user's responsibility
