@@ -64,7 +64,8 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) 
 			// ref and url are mutually exclusive, so replace URL with Ref.
 			if object.Spec.Ctlog.Ref == nil && object.Spec.Ctlog.URL != "" {
 				object.Spec.Ctlog.Ref = &rhtasv1.ServiceReferenceRef{
-					Name: instance.Name,
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
 				}
 				object.Spec.Ctlog.URL = ""
 			}

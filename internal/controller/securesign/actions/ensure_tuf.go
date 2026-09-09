@@ -65,7 +65,8 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *ac
 			// ref and url are mutually exclusive, so clear URL when setting Ref.
 			if len(object.Spec.Ctlog) > 0 && object.Spec.Ctlog[0].Ref == nil && object.Spec.Ctlog[0].URL != "" {
 				object.Spec.Ctlog[0].Ref = &rhtasv1.ServiceReferenceRef{
-					Name: instance.Name,
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
 				}
 				object.Spec.Ctlog[0].URL = ""
 			}
