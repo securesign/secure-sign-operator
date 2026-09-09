@@ -292,6 +292,36 @@ func TestCTlogConversionUnit(t *testing.T) {
 			},
 		},
 		{
+			name: "multiple logs preserve active selection",
+			hub: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
+				Spec: rhtasv1.CTlogSpec{
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							LogId:  ptr.To[int64](999),
+							Prefix: v1alpha1Prefix,
+							Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile},
+							Active: ptr.To(false),
+						},
+						{
+							Prefix: "rotated-log",
+							Active: ptr.To(true),
+						},
+					},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
+				},
+			},
+			spoke: &CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
+				Spec: CTlogSpec{
+					TreeID: ptr.To[int64](999),
+				},
+			},
+		},
+		{
 			name: "grpc trillian with dns default authority",
 			hub: &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
@@ -400,6 +430,49 @@ func TestCTlogConversionUnit(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCTlogConversionRegressionLegacy tests conversion of legacy v1alpha1 CTlogs
+// that have empty Spec but populated Status (from years of auto-generated operation).
+// These objects don't have conversion-data annotations and would lose their signer
+// keys if not handled specially during conversion.
+func TestCTlogConversionRegressionLegacy(t *testing.T) {
+	// Simulate a legacy v1alpha1 object with an auto-generated tree and signer.
+	legacyV1Alpha1 := &CTlog{
+		ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
+		Spec:       CTlogSpec{},
+		Status: CTlogStatus{
+			TreeID: ptr.To(int64(123456)),
+			PrivateKeyRef: &SecretKeySelector{
+				LocalObjectReference: LocalObjectReference{Name: "ctlog-keys-ctlog-xyz99"},
+				Key:                  "private",
+			},
+			PublicKeyRef: &SecretKeySelector{
+				LocalObjectReference: LocalObjectReference{Name: "ctlog-keys-ctlog-xyz99"},
+				Key:                  "public",
+			},
+		},
+	}
+
+	// Convert without MarshalData annotation (simulating real legacy object)
+	v1Hub := &rhtasv1.CTlog{}
+	if err := legacyV1Alpha1.ConvertTo(v1Hub); err != nil {
+		t.Fatalf("ConvertTo failed: %v", err)
+	}
+	if len(v1Hub.Status.Logs) != 1 {
+		t.Fatalf("expected one converted status log, got %d", len(v1Hub.Status.Logs))
+	}
+	statusLog := v1Hub.Status.Logs[0]
+	if statusLog.LogId == nil || *statusLog.LogId != 123456 {
+		t.Errorf("TreeID was not preserved: %v", statusLog.LogId)
+	}
+	if statusLog.PrivateKeyRef == nil || statusLog.PrivateKeyRef.Name != "ctlog-keys-ctlog-xyz99" || statusLog.PrivateKeyRef.Key != "private" {
+		t.Errorf("private key reference was not preserved: %#v", statusLog.PrivateKeyRef)
+	}
+	if statusLog.PublicKeyRef == nil || statusLog.PublicKeyRef.Name != "ctlog-keys-ctlog-xyz99" || statusLog.PublicKeyRef.Key != "public" {
+		t.Errorf("public key reference was not preserved: %#v", statusLog.PublicKeyRef)
+	}
+
 }
 
 func TestRekorConversionUnit(t *testing.T) {
