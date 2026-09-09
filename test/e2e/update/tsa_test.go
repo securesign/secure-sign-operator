@@ -293,7 +293,7 @@ var _ = Describe("TSA update", Ordered, func() {
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: t.Status.NtpConfigRef.Name}, cm)).To(Succeed())
 			config := &tsaUtils.NtpConfig{}
 			Expect(yaml.Unmarshal([]byte(cm.Data["ntp-config.yaml"]), config)).To(Succeed())
-			Expect(config.Period).To(Equal(40))
+			Expect(config.Period).To(BeNumerically("==", 40))
 		})
 
 		It("verify by cosign", func(ctx SpecContext) {
