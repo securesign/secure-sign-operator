@@ -138,6 +138,12 @@ type CTlogFile struct {
 
 // CTlogStatus defines the observed state of CTlog component
 type CTlogStatus struct {
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions            []metav1.Condition    `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	ServerConfigRef       *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	PrivateKeyRef         *SecretKeySelector    `json:"privateKeyRef,omitempty"`
 	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
@@ -155,12 +161,6 @@ type CTlogStatus struct {
 	// Url is the CTlog endpoint URL including the log prefix path,
 	// e.g. http://ctlog.namespace.svc/trusted-artifact-signer.
 	Url string `json:"url,omitempty"`
-	// +listType=map
-	// +listMapKey=type
-	// +patchStrategy=merge
-	// +patchMergeKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +kubebuilder:object:root=true

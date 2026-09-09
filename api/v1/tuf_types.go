@@ -115,16 +115,16 @@ type TufKeyStatus struct {
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
 	// +listType=map
-	// +listMapKey=name
-	Keys    []TufKeyStatus `json:"keys,omitempty"`
-	PvcName string         `json:"pvcName,omitempty"`
-	Url     string         `json:"url,omitempty"`
-	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +listType=map
+	// +listMapKey=name
+	Keys    []TufKeyStatus `json:"keys,omitempty"`
+	PvcName string         `json:"pvcName,omitempty"`
+	Url     string         `json:"url,omitempty"`
 }
 
 // +kubebuilder:object:root=true

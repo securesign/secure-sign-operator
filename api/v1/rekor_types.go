@@ -178,6 +178,12 @@ type RekorSignerStatus struct {
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	// Reference to secret with Rekor's signer public key.
 	// Public key is automatically generated from signer private key.
 	PublicKeyRef    *SecretKeySelector    `json:"publicKeyRef,omitempty"`
@@ -193,12 +199,6 @@ type RekorStatus struct {
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
-	// +listType=map
-	// +listMapKey=type
-	// +patchStrategy=merge
-	// +patchMergeKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +kubebuilder:object:root=true

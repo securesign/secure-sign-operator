@@ -187,6 +187,12 @@ type FileSignerStatus struct {
 
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
 type TimestampAuthorityStatus struct {
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions   []metav1.Condition              `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	NtpConfigRef *LocalObjectReference           `json:"ntpConfigRef,omitempty"`
 	Signer       *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
 	// Url is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
@@ -195,12 +201,6 @@ type TimestampAuthorityStatus struct {
 	// PEM-encoded certificate chain resolved from the running TSA service API.
 	// +optional
 	CertificateChain string `json:"certificateChain,omitempty"`
-	// +listType=map
-	// +listMapKey=type
-	// +patchStrategy=merge
-	// +patchMergeKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +kubebuilder:object:root=true

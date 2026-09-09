@@ -1000,6 +1000,7 @@ func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *v1.CTl
 }
 
 func autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out *CTlogStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	out.PrivateKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
 	out.PrivateKeyPasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyPasswordRef))
@@ -1011,7 +1012,6 @@ func autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out 
 		return err
 	}
 	out.Url = in.Url
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -1317,6 +1317,7 @@ func Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *v1.
 }
 
 func autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *FulcioStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	if in.Certificate != nil {
 		in, out := &in.Certificate, &out.Certificate
@@ -1329,7 +1330,6 @@ func autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, o
 	}
 	out.Url = in.Url
 	// WARNING: in.CertificateChain requires manual conversion: does not exist in peer-type
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -1799,6 +1799,7 @@ func autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1
 }
 
 func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out *RekorStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.PublicKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PublicKeyRef))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	if err := Convert_v1_RekorSignerStatus_To_v1alpha1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
@@ -1812,7 +1813,6 @@ func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out 
 	out.Url = in.Url
 	// WARNING: in.PublicKey requires manual conversion: does not exist in peer-type
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -2375,6 +2375,7 @@ func autoConvert_v1alpha1_TimestampAuthorityStatus_To_v1_TimestampAuthorityStatu
 }
 
 func autoConvert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatus(in *v1.TimestampAuthorityStatus, out *TimestampAuthorityStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	// WARNING: in.NtpConfigRef requires manual conversion: does not exist in peer-type
 	if in.Signer != nil {
 		in, out := &in.Signer, &out.Signer
@@ -2387,7 +2388,6 @@ func autoConvert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatu
 	}
 	out.Url = in.Url
 	// WARNING: in.CertificateChain requires manual conversion: does not exist in peer-type
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -2660,6 +2660,7 @@ func Convert_v1alpha1_TrillianStatus_To_v1_TrillianStatus(in *TrillianStatus, ou
 }
 
 func autoConvert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(in *v1.TrillianStatus, out *TrillianStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	if err := Convert_v1_TrillianDBStatus_To_v1alpha1_TrillianDB(&in.Db, &out.Db, s); err != nil {
 		return err
 	}
@@ -2669,7 +2670,6 @@ func autoConvert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(in *v1.TrillianSta
 	if err := Convert_v1_TrillianServiceStatus_To_v1alpha1_TrillianLogSigner(&in.LogSigner, &out.LogSigner, s); err != nil {
 		return err
 	}
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -2820,10 +2820,10 @@ func Convert_v1alpha1_TufStatus_To_v1_TufStatus(in *TufStatus, out *v1.TufStatus
 }
 
 func autoConvert_v1_TufStatus_To_v1alpha1_TufStatus(in *v1.TufStatus, out *TufStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.Keys = *(*[]TufKey)(unsafe.Pointer(&in.Keys))
 	out.PvcName = in.PvcName
 	out.Url = in.Url
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 

@@ -65,14 +65,14 @@ type ConsoleUIStatus struct {
 
 // ConsoleStatus defines the observed state of the Console
 type ConsoleStatus struct {
-	Api ConsoleAPIStatus `json:"api,omitempty"`
-	UI  ConsoleUIStatus  `json:"ui,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Api        ConsoleAPIStatus   `json:"api,omitempty"`
+	UI         ConsoleUIStatus    `json:"ui,omitempty"`
 }
 
 // +kubebuilder:object:root=true

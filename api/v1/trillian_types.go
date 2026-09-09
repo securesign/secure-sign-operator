@@ -92,15 +92,15 @@ type TrillianServiceStatus struct {
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Db        TrillianDBStatus      `json:"database,omitempty"`
-	LogServer TrillianServiceStatus `json:"server,omitempty"`
-	LogSigner TrillianServiceStatus `json:"signer,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions []metav1.Condition    `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Db         TrillianDBStatus      `json:"database,omitempty"`
+	LogServer  TrillianServiceStatus `json:"server,omitempty"`
+	LogSigner  TrillianServiceStatus `json:"signer,omitempty"`
 }
 
 // +kubebuilder:object:root=true
