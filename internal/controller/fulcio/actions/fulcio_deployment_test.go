@@ -725,6 +725,12 @@ func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "test-prefix",
+					Active: true,
+				},
+			},
 			Conditions: []v1.Condition{
 				{
 					Type:   ctlogActions.TLSCondition,
@@ -739,7 +745,7 @@ func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
-	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc/test-prefix"
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc:6963/test-prefix"
 	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
 }
 
@@ -763,6 +769,12 @@ func TestDeployAction_Handle_AutodiscoveryCtlogAddress(t *testing.T) {
 			},
 		},
 		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: true,
+				},
+			},
 			Conditions: []v1.Condition{
 				{
 					Type:   ctlogActions.TLSCondition,
@@ -777,6 +789,6 @@ func TestDeployAction_Handle_AutodiscoveryCtlogAddress(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
-	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc/trusted-artifact-signer"
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc:6963/trusted-artifact-signer"
 	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
 }
