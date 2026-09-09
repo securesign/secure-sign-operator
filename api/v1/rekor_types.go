@@ -28,7 +28,7 @@ type RekorSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// ID of Merkle tree in Trillian backend
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
-	//+optional
+	// +optional
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Trillian service configuration
 	Trillian ServiceReference `json:"trillian,omitempty"`
@@ -51,14 +51,14 @@ type RekorSpec struct {
 	// +patchMergeKey=treeID
 	Sharding []RekorLogRange `json:"sharding,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
-	//+optional
+	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 	//Configuration for authentication for key management services
-	//+optional
+	// +optional
 	Auth *Auth `json:"auth,omitempty"`
 
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max_request_body_size.
-	//+optional
+	// +optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 	PodExtensions      `json:",inline"`
 }
@@ -68,10 +68,10 @@ type RekorAttestations struct {
 	// Enabled specifies whether the rich attestation storage feature should be enabled.
 	// When set to true, the system will store detailed attestations.
 	// This feature cannot be disabled once enabled to maintain data integrity.
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled once enabled.
+	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled once enabled.
 	Enabled *bool `json:"enabled,omitempty"`
 
-	/// Url specifies the storage location for attestations, supporting go-cloud blob URLs.
+	// Url specifies the storage location for attestations, supporting go-cloud blob URLs.
 	// The "file:///var/run/attestations" path is specifically for local storage
 	// that relies on a mounted Persistent Volume Claim (PVC) for data persistence.
 	// Other valid protocols include s3://, gs://, azblob://, and mem://.
@@ -103,12 +103,12 @@ type RekorAttestations struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || !(self.type == 'kms' || self.type == 'memory') || !has(self.keyRef)",message="keyRef should not be configured when type is 'kms' or 'memory'"
 type RekorSigner struct {
 	// Type of the signer backend.
-	//+kubebuilder:validation:Enum=secret;memory;kms
-	//+optional
+	// +kubebuilder:validation:Enum=secret;memory;kms
+	// +optional
 	Type string `json:"type,omitempty"`
 
 	// Configuration for KMS-based signer.
-	//+optional
+	// +optional
 	Kms *KMS `json:"kms,omitempty"`
 
 	// Reference to the signer private key.
@@ -123,13 +123,13 @@ type RekorSigner struct {
 // +kubebuilder:validation:XValidation:rule=(!(has(self.provider) && self.provider != "") || (self.url != "")),message=URL must be provided if provider is specified
 type SearchIndex struct {
 	// Create Database if a database. If create=true provider and url fields are not taken into account, otherwise url field must be specified.
-	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	// +kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
-	//+optional
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 	// DB provider. Supported are redis and mysql.
-	//+kubebuilder:validation:Enum={redis,mysql}
+	// +kubebuilder:validation:Enum={redis,mysql}
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
 	Url string `json:"url,omitempty"`
@@ -137,10 +137,10 @@ type SearchIndex struct {
 
 type BackFillRedis struct {
 	//Enable the BackFillRedis CronJob
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
 	//Schedule for the BackFillRedis CronJob
-	//+kubebuilder:validation:Pattern:="^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+\\s){4}(\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+)$"
+	// +kubebuilder:validation:Pattern:="^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+\\s){4}(\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+)$"
 	Schedule string `json:"schedule,omitempty"`
 }
 
@@ -201,11 +201,11 @@ type RekorStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
-//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Rekor is the Schema for the rekors API
 // +kubebuilder:validation:XValidation:rule="(has(self.spec.attestations.enabled) && !self.spec.attestations.enabled) || !self.spec.attestations.url.startsWith('file://') || !has(self.spec.replicas) || !(self.spec.replicas > 1) || (has(self.spec.attestations.pvc.accessModes) && 'ReadWriteMany' in self.spec.attestations.pvc.accessModes)",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
@@ -217,7 +217,7 @@ type Rekor struct {
 	Status RekorStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // RekorList contains a list of Rekor
 type RekorList struct {

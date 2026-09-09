@@ -34,8 +34,8 @@ type TufSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
+	// +kubebuilder:validation:Minimum:=1
+	// +kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
 	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
@@ -43,38 +43,38 @@ type TufSpec struct {
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service and trust material binding.
-	//+optional
+	// +optional
 	// At most one entry is allowed today; this ceiling is deliberate and temporary,
 	// pending future multi-instance support.
-	//+kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
-	//+kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'))",message="url must follow the pattern scheme://host[:port]/path or //[:port]/path"
+	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'))",message="url must follow the pattern scheme://host[:port]/path or //[:port]/path"
 	Ctlog []TrustRootBinding `json:"ctlog,omitempty"`
 	// Fulcio service and trust material binding.
-	//+optional
+	// +optional
 	// At most one entry is allowed today; this ceiling is deliberate and temporary,
 	// pending future multi-instance support.
-	//+kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
-	//+kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
+	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Fulcio []TrustRootBindingWithOIDC `json:"fulcio,omitempty"`
 	// Rekor service and trust material binding.
-	//+optional
+	// +optional
 	// At most one entry is allowed today; this ceiling is deliberate and temporary,
 	// pending future multi-instance support.
-	//+kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
-	//+kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
+	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Rekor []TrustRootBinding `json:"rekor,omitempty"`
 	// TSA service and trust material binding. A nil value excludes TSA from the
 	// trust root entirely; a non-nil value (even an empty list, meaning
 	// autodiscover) includes it.
-	//+optional
+	// +optional
 	// At most one entry is allowed today; this ceiling is deliberate and temporary,
 	// pending future multi-instance support.
-	//+kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=1
 	// +listType=atomic
-	//+kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
+	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Tsa *[]TrustRootBinding `json:"tsa,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
@@ -91,7 +91,7 @@ type TufSpec struct {
 // +kubebuilder:validation:XValidation:rule="!(has(self.ref) && has(self.secretRef))",message="ref and secretRef are mutually exclusive"
 type TrustRootBinding struct {
 	ServiceReference `json:",inline"`
-	//+optional
+	// +optional
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }
 
@@ -101,9 +101,9 @@ type TrustRootBindingWithOIDC struct {
 	TrustRootBinding `json:",inline"`
 	// OIDCIssuers is a list of OIDC issuer URLs to include in the Fulcio signing configuration.
 	// Use for manual configuration; when specified, these values take precedence over auto-loaded OIDC configuration from the Fulcio service reference.
-	//+optional
-	//+listType=set
-	//+kubebuilder:validation:items:Pattern=`^[a-zA-Z][a-zA-Z0-9+.-]*://.+$`
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:Pattern=`^[a-zA-Z][a-zA-Z0-9+.-]*://.+$`
 	OIDCIssuers []string `json:"oidcIssuers,omitempty"`
 }
 
@@ -127,11 +127,11 @@ type TufStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
-//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Tuf is the Schema for the tufs API
 // +kubebuilder:validation:XValidation:rule="!has(self.spec.replicas) || !(self.spec.replicas > 1) || (has(self.spec.pvc.accessModes) && 'ReadWriteMany' in self.spec.pvc.accessModes)",message="For deployments with more than 1 replica, pvc.accessModes must include 'ReadWriteMany'."
@@ -143,7 +143,7 @@ type Tuf struct {
 	Status TufStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // TufList contains a list of Tuf
 type TufList struct {

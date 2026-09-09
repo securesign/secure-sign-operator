@@ -9,7 +9,7 @@ import (
 
 type RekorDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-rekor,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=rekors,verbs=create;update,versions=v1,name=mrekor.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
+// +kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-rekor,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=rekors,verbs=create;update,versions=v1,name=mrekor.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
 
 func SetupRekorWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Rekor{}).

@@ -9,7 +9,7 @@ import (
 
 type TimestampAuthorityDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-timestampauthority,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=timestampauthorities,verbs=create;update,versions=v1,name=mtimestampauthority.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
+// +kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-timestampauthority,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=timestampauthorities,verbs=create;update,versions=v1,name=mtimestampauthority.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
 
 func SetupTimestampAuthorityWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &TimestampAuthority{}).

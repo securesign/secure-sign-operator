@@ -64,13 +64,13 @@ type SecuresignTSAStatus struct {
 	Url string `json:"url,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The Deployment status"
-//+kubebuilder:printcolumn:name="Rekor URL",type=string,JSONPath=`.status.rekor.url`,description="The rekor url"
-//+kubebuilder:printcolumn:name="Fulcio URL",type=string,JSONPath=`.status.fulcio.url`,description="The fulcio url"
-//+kubebuilder:printcolumn:name="Tuf URL",type=string,JSONPath=`.status.tuf.url`,description="The tuf url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The Deployment status"
+// +kubebuilder:printcolumn:name="Rekor URL",type=string,JSONPath=`.status.rekor.url`,description="The rekor url"
+// +kubebuilder:printcolumn:name="Fulcio URL",type=string,JSONPath=`.status.fulcio.url`,description="The fulcio url"
+// +kubebuilder:printcolumn:name="Tuf URL",type=string,JSONPath=`.status.tuf.url`,description="The tuf url"
 
 // Securesign is the Schema for the securesigns API
 type Securesign struct {
@@ -81,7 +81,7 @@ type Securesign struct {
 	Status SecuresignStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // SecuresignList contains a list of Securesign
 type SecuresignList struct {

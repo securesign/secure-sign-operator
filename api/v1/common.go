@@ -18,24 +18,24 @@ const (
 type Ingress struct {
 	// If set to true, the Operator will create a Kubernetes Ingress resource.
 	// On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
 	// Set hostname for your Ingress.
 	Host string `json:"host,omitempty"`
 	// Set labels applied to the created Ingress, e.g. for ingress-controller/route selection when sharding ingress traffic.
-	//+kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=Labels can't be modified
+	// +kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=Labels can't be modified
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // TlogMonitoring configures monitoring for the Rekor transparency log.
 type TlogMonitoring struct {
 	// If true, the Operator will create the Rekor log monitor resources
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
 	// Interval between log monitoring checks.
 	// Minimum interval is 10 seconds to avoid excessive load on the log server.
-	//+kubebuilder:validation:XValidation:rule="duration(self) >= duration('10s')",message=Interval must be at least 10 seconds
-	//+optional
+	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('10s')",message=Interval must be at least 10 seconds
+	// +optional
 	Interval *metav1.Duration `json:"interval,omitempty"`
 }
 
@@ -76,10 +76,10 @@ type MonitoringWithTLogConfig struct {
 	// Base monitoring configuration
 	MonitoringConfig `json:",inline"`
 	// Configuration for Rekor transparency log monitoring
-	//+optional
+	// +optional
 	TLog TlogMonitoring `json:"tlog,omitempty"`
 	// TUF service configuration
-	//+optional
+	// +optional
 	Tuf ServiceReference `json:"tuf,omitempty"`
 }
 
@@ -88,13 +88,13 @@ type MonitoringWithTLogConfig struct {
 // +kubebuilder:validation:XValidation:rule="!(has(self.ref) && has(self.url) && size(self.url) > 0)",message="ref and url are mutually exclusive"
 type ServiceReference struct {
 	// In-cluster reference to a component CR.
-	//+optional
+	// +optional
 	Ref *ServiceReferenceRef `json:"ref,omitempty"`
 	// Direct URL for an external or cross-namespace service.
 	// Accepts: host:port, dns:///host:port, http(s)://host/path
-	//+optional
-	//+kubebuilder:validation:MinLength=1
-	//+kubebuilder:validation:MaxLength=2048
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
 	URL string `json:"url,omitempty"`
 }
 
@@ -103,12 +103,12 @@ func (s ServiceReference) GetServiceRef() ServiceReference { return s }
 // ServiceReferenceRef identifies a component CR by name and namespace.
 type ServiceReferenceRef struct {
 	// Name of the referenced CR.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Namespace of the referenced CR.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
 }
 
@@ -128,8 +128,8 @@ type SecretKeySelector struct {
 	// The name of the secret in the pod's namespace to select from.
 	LocalObjectReference `json:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
 	// The key of the secret to select from. Must be a valid secret key.
-	//+required
-	//+kubebuilder:validation:Pattern:="^[-._a-zA-Z0-9]+$"
+	// +required
+	// +kubebuilder:validation:Pattern:="^[-._a-zA-Z0-9]+$"
 	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
@@ -146,19 +146,19 @@ type Pvc struct {
 	Size *k8sresource.Quantity `json:"size,omitempty"`
 
 	// Retain policy for the PVC
-	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	// +kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Retain *bool `json:"retain,omitempty"`
 	// Name of the PVC
-	//+optional
-	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-	//+kubebuilder:validation:MinLength=1
-	//+kubebuilder:validation:MaxLength=253
+	// +optional
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name,omitempty"`
 	// The name of the StorageClass to claim a PersistentVolume from.
-	//+optional
+	// +optional
 	StorageClass string `json:"storageClass,omitempty"`
 	// PVC AccessModes
-	//+kubebuilder:validation:MinItems:=1
+	// +kubebuilder:validation:MinItems:=1
 	// +listType=set
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
@@ -167,18 +167,18 @@ type Pvc struct {
 // +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')",message="keyResource must be a valid KMS URI (gcpkms://, azurekms://, hashivault://, openbao://, or awskms://)"
 type KMS struct {
 	// KMS key resource URI. Valid schemes: gcpkms://, azurekms://, hashivault://, openbao://, awskms://
-	//+required
+	// +required
 	KeyResource string `json:"keyResource"`
 }
 
 type Auth struct {
 	// Environmental variables used to define authentication parameters
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	Env []core.EnvVar `json:"env,omitempty"`
 	// Secret ref to be mounted inside a pod, Mount path defaults to /var/run/secrets/tas/auth
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	// +listMapKey=key
@@ -189,10 +189,10 @@ type Auth struct {
 // +kubebuilder:validation:XValidation:rule=(!has(self.certificateRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type TLS struct {
 	// Reference to the private key secret used for TLS encryption.
-	//+optional
+	// +optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// Reference to the certificate secret used for TLS encryption.
-	//+optional
+	// +optional
 	CertRef *SecretKeySelector `json:"certificateRef,omitempty"`
 }
 
@@ -209,40 +209,40 @@ type ServiceAccountConfig struct {
 // These containers run before the main server to perform vendor-specific initialization.
 type InitContainerSpec struct {
 	// Name of the init container. Must be unique within the pod.
-	//+required
-	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	// +required
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 	Name string `json:"name"`
 	// Container image name.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	Image string `json:"image"`
 	// Entrypoint array. Not executed within a shell.
-	//+optional
+	// +optional
 	Command []string `json:"command,omitempty"`
 	// Arguments to the entrypoint.
-	//+optional
+	// +optional
 	Args []string `json:"args,omitempty"`
 	// List of environment variables to set in the container.
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	Env []core.EnvVar `json:"env,omitempty"`
 	// List of sources to populate environment variables in the container.
-	//+optional
+	// +optional
 	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty"`
 	// Pod volumes to mount into the container's filesystem.
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
 	// Compute Resources required by this container.
-	//+optional
+	// +optional
 	Resources *core.ResourceRequirements `json:"resources,omitempty"`
 	// SecurityContext defines the security options the container should be run with.
-	//+optional
+	// +optional
 	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
 	// Image pull policy.
-	//+optional
+	// +optional
 	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
 	// Restart policy for the init container. Set to "Always" to create a
 	// native sidecar container (Kubernetes 1.29+) that starts before the
@@ -257,18 +257,18 @@ type InitContainerSpec struct {
 // at the spec level (e.g. spec.initContainers, not spec.podExtensions.initContainers).
 type PodExtensions struct {
 	// InitContainers to run before the main server container.
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	InitContainers []InitContainerSpec `json:"initContainers,omitempty"`
 	// Additional volumes to attach to the deployment pods.
 	// Only a curated set of volume source types is permitted.
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	Volumes []AdditionalVolume `json:"volumes,omitempty"`
 	// Additional volume mounts for the main server container.
-	//+optional
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
@@ -283,8 +283,8 @@ type PodExtensions struct {
 // +kubebuilder:validation:MaxProperties=2
 type AdditionalVolume struct {
 	// Name of the volume. Must be unique within the pod.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Source of the volume.
 	AdditionalVolumeSource `json:",inline"`
@@ -294,22 +294,22 @@ type AdditionalVolume struct {
 // for operator extensions: Secret, ConfigMap, EmptyDir, PVC, CSI, and Projected.
 type AdditionalVolumeSource struct {
 	// Secret represents a secret that should populate this volume.
-	//+optional
+	// +optional
 	Secret *core.SecretVolumeSource `json:"secret,omitempty"`
 	// ConfigMap represents a configMap that should populate this volume.
-	//+optional
+	// +optional
 	ConfigMap *core.ConfigMapVolumeSource `json:"configMap,omitempty"`
 	// EmptyDir represents a temporary directory that shares a pod's lifetime.
-	//+optional
+	// +optional
 	EmptyDir *core.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 	// PersistentVolumeClaim represents a reference to a PersistentVolumeClaim.
-	//+optional
+	// +optional
 	PersistentVolumeClaim *core.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 	// CSI represents ephemeral storage provided by external CSI drivers.
-	//+optional
+	// +optional
 	CSI *core.CSIVolumeSource `json:"csi,omitempty"`
 	// Projected items for all in one resources secrets, configmaps, and downward API.
-	//+optional
+	// +optional
 	Projected *core.ProjectedVolumeSource `json:"projected,omitempty"`
 }
 

@@ -30,21 +30,21 @@ type TimestampAuthoritySpec struct {
 	//Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
 	//Signer configuration
-	//+required
+	// +required
 	Signer TimestampAuthoritySigner `json:"signer"`
 	//Enable Service monitors for Timestamp Authority
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	//ConfigMap with additional bundle of trusted CA
-	//+optional
+	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 	//Configuration for authentication for key management services
-	//+optional
+	// +optional
 	Auth *Auth `json:"auth,omitempty"`
 	//Configuration for NTP monitoring
-	//+optional
+	// +optional
 	NTPMonitoring NTPMonitoring `json:"ntpMonitoring,omitempty"`
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max-request-body-size.
-	//+optional
+	// +optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 	PodExtensions      `json:",inline"`
 }
@@ -59,20 +59,20 @@ type TimestampAuthoritySpec struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || (!has(self.kms) && !has(self.tink))",message="file signer must not set kms or tink"
 type TimestampAuthoritySigner struct {
 	//Type of the signer backend
-	//+kubebuilder:validation:Enum=file;kms;tink
-	//+optional
+	// +kubebuilder:validation:Enum=file;kms;tink
+	// +optional
 	Type string `json:"type,omitempty"`
 	//Configuration for the Certificate Chain
-	//+required
+	// +required
 	CertificateChain CertificateChain `json:"certificateChain"`
 	//Configuration for file-based signer
-	//+optional
+	// +optional
 	File *File `json:"file,omitempty"`
 	//Configuration for KMS based signer
-	//+optional
+	// +optional
 	Kms *KMS `json:"kms,omitempty"`
 	//Configuration for Tink based signer
-	//+optional
+	// +optional
 	Tink *Tink `json:"tink,omitempty"`
 }
 
@@ -81,17 +81,17 @@ type TimestampAuthoritySigner struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.certificateChainRef) || (!has(self.rootCA) && !has(self.leafCA) && !has(self.intermediateCA))",message="rootCA/leafCA/intermediateCA must not be set when certificateChainRef is provided"
 type CertificateChain struct {
 	//Reference to the certificate chain
-	//+optional
+	// +optional
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
 	//Root Certificate Authority Config
-	//+optional
+	// +optional
 	RootCA *TsaCertificateAuthority `json:"rootCA,omitempty"`
 	//Intermediate Certificate Authority Config
-	//+optional
+	// +optional
 	// +listType=atomic
 	IntermediateCA []*TsaCertificateAuthority `json:"intermediateCA,omitempty"`
 	//Leaf Certificate Authority Config
-	//+optional
+	// +optional
 	LeafCA *TsaCertificateAuthority `json:"leafCA,omitempty"`
 }
 
@@ -99,13 +99,13 @@ type CertificateChain struct {
 type TsaCertificateAuthority struct {
 	//CommonName specifies the common name for the TimeStampAuthorities cert chain.
 	//If not provided, the common name will default to the host name.
-	//+optional
+	// +optional
 	CommonName string `json:"commonName,omitempty"`
 	//OrganizationName specifies the Organization Name for the TimeStampAuthorities cert chain.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	OrganizationName string `json:"organizationName"`
-	//+optional
+	// +optional
 	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
 }
@@ -113,7 +113,7 @@ type TsaCertificateAuthority struct {
 // TSA File signer configuration
 type File struct {
 	//Reference to the signer's root private key
-	//+required
+	// +required
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef"`
 }
 
@@ -121,9 +121,9 @@ type File struct {
 // +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcp-kms|aws-kms|hcvault)://.+$')",message="keyResource must be a valid Tink KMS URI (gcp-kms://, aws-kms://, or hcvault://)"
 type Tink struct {
 	//KMS key for signing timestamp responses for Tink keysets. Valid options include: [gcp-kms://resource, aws-kms://resource, hcvault://]"
-	//+required
+	// +required
 	KeyResource string `json:"keyResource"`
-	//+required
+	// +required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
 	KeysetRef *SecretKeySelector `json:"keysetRef"`
 }
@@ -203,11 +203,11 @@ type TimestampAuthorityStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
-//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // TimestampAuthority is the Schema for the timestampauthorities API
 type TimestampAuthority struct {
@@ -218,7 +218,7 @@ type TimestampAuthority struct {
 	Status TimestampAuthorityStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // TimestampAuthorityList contains a list of TimestampAuthority
 type TimestampAuthorityList struct {

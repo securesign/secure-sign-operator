@@ -27,17 +27,17 @@ type CTlogSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// The ID of a Trillian tree that stores the log data.
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
-	//+optional
-	//+kubebuilder:validation:Minimum=1
+	// +optional
+	// +kubebuilder:validation:Minimum=1
 	TreeID *int64 `json:"treeID,omitempty"`
 
 	// Signer configuration
-	//+required
+	// +required
 	Signer CTlogSigner `json:"signer"`
 
 	// List of secrets containing root certificates that are acceptable to the log.
 	// The certs are served through get-roots endpoint. Optional in mirrors.
-	//+optional
+	// +optional
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 
@@ -53,22 +53,22 @@ type CTlogSpec struct {
 	// Secret holding Certificate Transparency server config in text proto format
 	// If it is set then any setting of treeID, signer, rootCertificates and
 	// trillian will be overridden.
-	//+optional
+	// +optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 
 	// Prefix is the name of the log. The prefix cannot be empty and can
 	// contain "/" path separator characters to define global override handler prefix.
-	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
-	//+optional
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
+	// +optional
 	Prefix string `json:"prefix,omitempty"`
 
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
-	//+optional
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 
 	// Max certificate chain size in bytes. Passed as --max_cert_chain_size.
-	//+optional
-	//+kubebuilder:validation:Minimum=1
+	// +optional
+	// +kubebuilder:validation:Minimum=1
 	MaxCertChainSize *int64 `json:"maxCertChainSize,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
@@ -76,7 +76,7 @@ type CTlogSpec struct {
 	TrustedCA     *LocalObjectReference `json:"trustedCA,omitempty"`
 	PodExtensions `json:",inline"`
 	// Authentication configuration for the signer backend.
-	//+optional
+	// +optional
 	Auth *Auth `json:"auth,omitempty"`
 }
 
@@ -89,19 +89,19 @@ type CTlogSpec struct {
 // +kubebuilder:validation:XValidation:rule="has(self.pinSecretRef)",message="pinSecretRef is required for CTLog PKCS#11 signer"
 type CTlogPKCS11Config struct {
 	// Absolute path to the PKCS#11 module (.so).
-	//+required
-	//+kubebuilder:validation:MinLength=1
-	//+kubebuilder:validation:Pattern=`^/.+\..+$`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^/.+\..+$`
 	ModulePath string `json:"modulePath,omitempty"`
 	// Token label identifying the HSM slot.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	TokenLabel string `json:"tokenLabel,omitempty"`
 	// Reference to a Secret key containing the HSM user PIN.
-	//+required
+	// +required
 	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
 	// PEM-encoded public key matching the HSM-resident private key.
-	//+required
+	// +required
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
 }
 
@@ -111,14 +111,14 @@ type CTlogPKCS11Config struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"
 type CTlogSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file;pkcs11
-	//+optional
+	// +kubebuilder:validation:Enum=file;pkcs11
+	// +optional
 	Type string `json:"type,omitempty"`
 	// Configuration for file-based signer
-	//+optional
+	// +optional
 	File *CTlogFile `json:"file,omitempty"`
 	// Configuration for PKCS#11/HSM-based signer
-	//+optional
+	// +optional
 	PKCS11 *CTlogPKCS11Config `json:"pkcs11,omitempty"`
 }
 
@@ -126,13 +126,13 @@ type CTlogSigner struct {
 // +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type CTlogFile struct {
 	// The private key used for signing STHs etc.
-	//+optional
+	// +optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 
 	// The public key matching the private key (if both are present). It is
 	// used only by mirror logs for verifying the source log's signatures, but can
 	// be specified for regular logs as well for the convenience of test tools.
-	//+optional
+	// +optional
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
 }
 
@@ -150,7 +150,7 @@ type CTlogStatus struct {
 	// The ID of a Trillian tree that stores the log data.
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
-	//+optional
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 	// Url is the CTlog endpoint URL including the log prefix path,
 	// e.g. http://ctlog.namespace.svc/trusted-artifact-signer.
@@ -163,10 +163,10 @@ type CTlogStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 
 // CTlog is the Schema for the ctlogs API
 type CTlog struct {
@@ -177,7 +177,7 @@ type CTlog struct {
 	Status CTlogStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // CTlogList contains a list of CTlog
 type CTlogList struct {

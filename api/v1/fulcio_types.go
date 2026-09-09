@@ -18,26 +18,26 @@ type FulcioSpec struct {
 	// Service account configuration for the Fulcio deployment
 	ServiceAccountConfig `json:",inline"`
 	// Define whether you want to export service or not
-	//+optional
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
 	// Ctlog service configuration
-	//+optional
+	// +optional
 	Ctlog ServiceReference `json:"ctlog,omitempty"`
 	// Fulcio Configuration
-	//+required
+	// +required
 	Config FulcioConfig `json:"config"`
 	// Signer configuration
-	//+required
+	// +required
 	Signer FulcioSigner `json:"signer"`
 	//Enable Service monitors for fulcio
-	//+optional
+	// +optional
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
-	//+optional
+	// +optional
 	TrustedCA     *LocalObjectReference `json:"trustedCA,omitempty"`
 	PodExtensions `json:",inline"`
 	// Authentication configuration for the signer backend.
-	//+optional
+	// +optional
 	Auth *Auth `json:"auth,omitempty"`
 }
 
@@ -46,11 +46,11 @@ type FulcioSpec struct {
 // +kubebuilder:validation:XValidation:rule="has(self.keyID)",message="keyID is required for Fulcio PKCS#11 signer"
 type FulcioPKCS11Config struct {
 	// Reference to a Secret key holding a complete crypto11 JSON config for Fulcio.
-	//+required
+	// +required
 	ConfigRef *SecretKeySelector `json:"configRef,omitempty"`
 	// PKCS#11 CKA_ID of the root CA key on the HSM.
-	//+required
-	//+kubebuilder:validation:Minimum=0
+	// +required
+	// +kubebuilder:validation:Minimum=0
 	KeyID *int64 `json:"keyID,omitempty"`
 }
 
@@ -67,27 +67,27 @@ type FulcioPKCS11Config struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is 'kms'"
 type FulcioSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file;kms;pkcs11
-	//+optional
+	// +kubebuilder:validation:Enum=file;kms;pkcs11
+	// +optional
 	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
-	//+required
+	// +required
 	CertificateChain FulcioCertificateChain `json:"certificateChain"`
 	// Configuration for file-based signer
-	//+optional
+	// +optional
 	File *FulcioFile `json:"file,omitempty"`
 	// Configuration for PKCS#11/HSM-based signer
-	//+optional
+	// +optional
 	PKCS11 *FulcioPKCS11Config `json:"pkcs11,omitempty"`
 	// Configuration for KMS-based signer
-	//+optional
+	// +optional
 	Kms *KMS `json:"kms,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer
 type FulcioFile struct {
 	// Reference to CA private key
-	//+optional
+	// +optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
@@ -95,16 +95,16 @@ type FulcioFile struct {
 // +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || has(self.organizationName) && self.organizationName != ""),message=organizationName cannot be empty
 type FulcioCertificateChain struct {
 	// Reference to CA certificate chain
-	//+optional
+	// +optional
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
 
-	//+optional
+	// +optional
 	// CommonName specifies the common name for the Fulcio certificate.
 	// If not provided, the common name will default to the host name.
 	CommonName string `json:"commonName,omitempty"`
-	//+optional
+	// +optional
 	OrganizationName string `json:"organizationName,omitempty"`
-	//+optional
+	// +optional
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
 }
 
@@ -143,16 +143,16 @@ type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
 	IssuerURL string `json:"issuerURL,omitempty"`
 	// The expected issuer of an OIDC token
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	Issuer string `json:"issuer"`
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	ClientID string `json:"clientID"`
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
-	//+required
-	//+kubebuilder:validation:Enum=buildkite-job;email;github-workflow;codefresh-workflow;gitlab-pipeline;chainguard-identity;kubernetes;spiffe;uri;username;ci-provider
+	// +required
+	// +kubebuilder:validation:Enum=buildkite-job;email;github-workflow;codefresh-workflow;gitlab-pipeline;chainguard-identity;kubernetes;spiffe;uri;username;ci-provider
 	Type string `json:"type"`
 	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
 	CIProvider string `json:"ciProvider,omitempty"`
@@ -172,8 +172,8 @@ type OIDCIssuer struct {
 
 type CIIssuerMetadata struct {
 	// Name of the issuer
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	IssuerName string `json:"issuerName"`
 	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
 	// If a key cannot be found on the token claims, the template will use the defaults
@@ -257,11 +257,11 @@ type FulcioStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
-//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Fulcio is the Schema for the fulcios API
 type Fulcio struct {
@@ -272,7 +272,7 @@ type Fulcio struct {
 	Status FulcioStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // FulcioList contains a list of Fulcio
 type FulcioList struct {

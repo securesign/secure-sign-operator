@@ -34,15 +34,15 @@ type TrillianSpec struct {
 	LogSigner TrillianLogSigner `json:"signer,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
-	//+optional
+	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 
 	// MaxRecvMessageSize sets the maximum size in bytes for incoming gRPC messages handled by the Trillian logserver and logsigner.
-	//+optional
-	//+kubebuilder:validation:Minimum=0
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
 	//Configuration for authentication for key management services
-	//+optional
+	// +optional
 	Auth          *Auth `json:"auth,omitempty"`
 	PodExtensions `json:",inline"`
 }
@@ -52,7 +52,7 @@ type TrillianSpec struct {
 type trillianService struct {
 	PodRequirements `json:",inline"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
-	//+optional
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 }
 
@@ -63,20 +63,20 @@ type TrillianLogSigner trillianService
 // +kubebuilder:validation:XValidation:rule="!has(self.create) || self.create != true || !has(self.provider) || self.provider == 'mysql'",message="When database is managed by the operator (create=true) provider must be mysql"
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
-	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	// +kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create,omitempty"`
 	// PVC configuration
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
-	//+optional
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 	// DB provider. Supported are mysql, postgresql.
-	//+kubebuilder:validation:Enum={mysql, postgresql}
-	//+optional
-	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	// +kubebuilder:validation:Enum={mysql, postgresql}
+	// +optional
+	// +kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
-	//+optional
+	// +optional
 	Uri string `json:"uri,omitempty"`
 }
 
@@ -103,10 +103,10 @@ type TrillianStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 
 // Trillian is the Schema for the trillians API
 type Trillian struct {
@@ -117,7 +117,7 @@ type Trillian struct {
 	Status TrillianStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // TrillianList contains a list of Trillian
 type TrillianList struct {
