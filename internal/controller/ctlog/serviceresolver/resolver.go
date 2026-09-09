@@ -24,11 +24,14 @@ func init() {
 			} else {
 				protocol = "http"
 			}
-			prefix := ctlogutils.ActiveLogPrefix(obj.Spec.Logs)
+			activeLog := ctlogutils.ActiveLogStatus(obj.Status.Logs)
+			if activeLog == nil || activeLog.Prefix == "" {
+				return "", fmt.Errorf("no active shard or prefix found in CTLog status")
+			}
 			u := url.URL{
 				Scheme: protocol,
 				Host:   fmt.Sprintf("%s.%s.svc", actions.DeploymentName, obj.Namespace),
-				Path:   prefix,
+				Path:   activeLog.Prefix,
 			}
 			return u.String(), nil
 		})
