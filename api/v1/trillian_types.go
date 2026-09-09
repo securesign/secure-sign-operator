@@ -25,12 +25,16 @@ import (
 type TrillianSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// Define your database connection
+	// +optional
 	Db TrillianDB `json:"database,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
+	// +optional
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// Configuration for Trillian log server service
+	// +optional
 	LogServer TrillianLogServer `json:"server,omitempty"`
 	// Configuration for Trillian log signer service
+	// +optional
 	LogSigner TrillianLogSigner `json:"signer,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
@@ -63,9 +67,11 @@ type TrillianLogSigner trillianService
 // +kubebuilder:validation:XValidation:rule="!has(self.create) || self.create != true || !has(self.provider) || self.provider == 'mysql'",message="When database is managed by the operator (create=true) provider must be mysql"
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
+	// +optional
 	// +kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create,omitempty"`
 	// PVC configuration
+	// +optional
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
 	// +optional
@@ -81,12 +87,16 @@ type TrillianDB struct {
 }
 
 type TrillianDBStatus struct {
-	PvcName           string                `json:"pvcName,omitempty"`
+	// +optional
+	PvcName string `json:"pvcName,omitempty"`
+	// +optional
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
-	TLS               TLS                   `json:"tls,omitempty"`
+	// +optional
+	TLS TLS `json:"tls,omitempty"`
 }
 
 type TrillianServiceStatus struct {
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 }
 
@@ -97,10 +107,13 @@ type TrillianStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions []metav1.Condition    `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	Db         TrillianDBStatus      `json:"database,omitempty"`
-	LogServer  TrillianServiceStatus `json:"server,omitempty"`
-	LogSigner  TrillianServiceStatus `json:"signer,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
+	Db TrillianDBStatus `json:"database,omitempty"`
+	// +optional
+	LogServer TrillianServiceStatus `json:"server,omitempty"`
+	// +optional
+	LogSigner TrillianServiceStatus `json:"signer,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -111,10 +124,10 @@ type TrillianStatus struct {
 // Trillian is the Schema for the trillians API
 type Trillian struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TrillianSpec   `json:"spec,omitempty"`
-	Status TrillianStatus `json:"status,omitempty"`
+	Spec   TrillianSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status TrillianStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true

@@ -25,8 +25,10 @@ import (
 type ConsoleSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// Configuration for Console UI service
+	// +optional
 	UI ConsoleUI `json:"ui,omitempty"`
 	// Configuration for Console Api service
+	// +optional
 	Api ConsoleAPI `json:"api,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
@@ -37,6 +39,7 @@ type ConsoleSpec struct {
 type ConsoleUI struct {
 	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
 	// Rekor service configuration
 	// +optional
@@ -56,10 +59,12 @@ type ConsoleAPI struct {
 }
 
 type ConsoleAPIStatus struct {
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 }
 
 type ConsoleUIStatus struct {
+	// +optional
 	Url string `json:"url,omitempty"`
 }
 
@@ -71,8 +76,10 @@ type ConsoleStatus struct {
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	Api        ConsoleAPIStatus   `json:"api,omitempty"`
-	UI         ConsoleUIStatus    `json:"ui,omitempty"`
+	// +optional
+	Api ConsoleAPIStatus `json:"api,omitempty"`
+	// +optional
+	UI ConsoleUIStatus `json:"ui,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -84,10 +91,10 @@ type ConsoleStatus struct {
 // Console is the Schema for the consoles API
 type Console struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   ConsoleSpec   `json:"spec,omitempty"`
-	Status ConsoleStatus `json:"status,omitempty"`
+	Spec   ConsoleSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status ConsoleStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true

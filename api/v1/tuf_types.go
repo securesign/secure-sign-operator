@@ -33,14 +33,18 @@ type TufSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
 	// Define whether you want to export service or not
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
+	// +optional
 	// +kubebuilder:validation:Minimum:=1
 	// +kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
+	// +optional
 	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
 	// Pvc configuration of the persistent storage claim for deployment in the cluster.
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
+	// +optional
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service and trust material binding.
 	// +optional
@@ -108,7 +112,9 @@ type TrustRootBindingWithOIDC struct {
 }
 
 type TufKeyStatus struct {
-	Name      string             `json:"name"`
+	// +required
+	Name string `json:"name"`
+	// +optional
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }
 
@@ -122,9 +128,11 @@ type TufStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	// +listType=map
 	// +listMapKey=name
-	Keys    []TufKeyStatus `json:"keys,omitempty"` //nolint:kubeapilinter // arrayofstruct: status fields are operator-managed
-	PvcName string         `json:"pvcName,omitempty"`
-	Url     string         `json:"url,omitempty"`
+	Keys []TufKeyStatus `json:"keys,omitempty"` //nolint:kubeapilinter // arrayofstruct: status fields are operator-managed
+	// +optional
+	PvcName string `json:"pvcName,omitempty"`
+	// +optional
+	Url string `json:"url,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -137,10 +145,10 @@ type TufStatus struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.spec.replicas) || !(self.spec.replicas > 1) || (has(self.spec.pvc.accessModes) && 'ReadWriteMany' in self.spec.pvc.accessModes)",message="For deployments with more than 1 replica, pvc.accessModes must include 'ReadWriteMany'."
 type Tuf struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TufSpec   `json:"spec,omitempty"`
-	Status TufStatus `json:"status,omitempty"`
+	Spec   TufSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status TufStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true

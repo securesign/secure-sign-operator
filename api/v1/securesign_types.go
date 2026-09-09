@@ -26,11 +26,17 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(self.tuf.replicas) || !(self.tuf.replicas > 1) || (has(self.tuf.pvc.accessModes) && 'ReadWriteMany' in self.tuf.pvc.accessModes)",message="For tuf deployments with more than 1 replica, pvc.accessModes must include 'ReadWriteMany'."
 // +kubebuilder:validation:XValidation:rule="(has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled) || !self.rekor.attestations.url.startsWith('file://') || !has(self.rekor.replicas) || !(self.rekor.replicas > 1) || (has(self.rekor.attestations.pvc.accessModes) && 'ReadWriteMany' in self.rekor.attestations.pvc.accessModes)",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then rekor pvc.accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 type SecuresignSpec struct {
-	Rekor              RekorSpec               `json:"rekor,omitempty"`
-	Fulcio             FulcioSpec              `json:"fulcio"`
-	Trillian           TrillianSpec            `json:"trillian,omitempty"`
-	Tuf                TufSpec                 `json:"tuf,omitempty"`
-	Ctlog              CTlogSpec               `json:"ctlog,omitempty"`
+	// +optional
+	Rekor RekorSpec `json:"rekor,omitempty"`
+	// +required
+	Fulcio FulcioSpec `json:"fulcio"`
+	// +optional
+	Trillian TrillianSpec `json:"trillian,omitempty"`
+	// +optional
+	Tuf TufSpec `json:"tuf,omitempty"`
+	// +optional
+	Ctlog CTlogSpec `json:"ctlog,omitempty"`
+	// +optional
 	TimestampAuthority *TimestampAuthoritySpec `json:"tsa,omitempty"` //nolint:kubeapilinter // notimestamp: established API field name
 }
 
@@ -41,26 +47,34 @@ type SecuresignStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions   []metav1.Condition     `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	RekorStatus  SecuresignRekorStatus  `json:"rekor,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
+	RekorStatus SecuresignRekorStatus `json:"rekor,omitempty"`
+	// +optional
 	FulcioStatus SecuresignFulcioStatus `json:"fulcio,omitempty"`
-	TufStatus    SecuresignTufStatus    `json:"tuf,omitempty"`
-	TSAStatus    SecuresignTSAStatus    `json:"tsa,omitempty"`
+	// +optional
+	TufStatus SecuresignTufStatus `json:"tuf,omitempty"`
+	// +optional
+	TSAStatus SecuresignTSAStatus `json:"tsa,omitempty"`
 }
 
 type SecuresignRekorStatus struct {
+	// +optional
 	Url string `json:"url,omitempty"`
 }
 
 type SecuresignFulcioStatus struct {
+	// +optional
 	Url string `json:"url,omitempty"`
 }
 
 type SecuresignTufStatus struct {
+	// +optional
 	Url string `json:"url,omitempty"`
 }
 
 type SecuresignTSAStatus struct {
+	// +optional
 	Url string `json:"url,omitempty"`
 }
 
@@ -75,10 +89,10 @@ type SecuresignTSAStatus struct {
 // Securesign is the Schema for the securesigns API
 type Securesign struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   SecuresignSpec   `json:"spec,omitempty"`
-	Status SecuresignStatus `json:"status,omitempty"`
+	Spec   SecuresignSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status SecuresignStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true

@@ -28,11 +28,13 @@ type TimestampAuthoritySpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
 	//Define whether you want to export service or not
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
 	//Signer configuration
 	// +required
 	Signer TimestampAuthoritySigner `json:"signer"`
 	//Enable Service monitors for Timestamp Authority
+	// +optional
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	//ConfigMap with additional bundle of trusted CA
 	// +optional
@@ -130,30 +132,40 @@ type Tink struct {
 
 type NTPMonitoring struct {
 	//Enable or disable NTP(Network Time Protocol) Monitoring, Enabled by default
+	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 	//Configuration for Network time protocol monitoring
+	// +optional
 	Config *NtpMonitoringConfig `json:"config,omitempty"`
 }
 
 type NtpMonitoringConfig struct {
 	//ConfigMap containing YAML configuration for NTP monitoring
 	//Default configuration: https://github.com/securesign/timestamp-authority/blob/main/pkg/ntpmonitor/ntpsync.yaml
+	// +optional
 	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
 	//Number of attempts to contact a ntp server before giving up.
+	// +optional
 	RequestAttempts int32 `json:"requestAttempts,omitempty"`
 	//The timeout in seconds for a request to respond. This value must be
 	//smaller than max_time_delta.
+	// +optional
 	RequestTimeout int32 `json:"requestTimeout,omitempty"`
 	//Number of randomly selected ntp servers to interrogate.
+	// +optional
 	NumServers int32 `json:"numServers,omitempty"`
 	//Maximum number of seconds the local time is allowed to drift from the
 	//response of a ntp server
+	// +optional
 	MaxTimeDelta int32 `json:"maxTimeDelta,omitempty"`
 	//Number of servers who must agree with local time.
+	// +optional
 	ServerThreshold int32 `json:"serverThreshold,omitempty"`
 	//Period (in seconds) for polling ntp servers
+	// +optional
 	Period int32 `json:"period,omitempty"`
 	//List of servers to contact. Many DNS names resolves to multiple A records.
+	// +optional
 	// +listType=set
 	Servers []string `json:"servers,omitempty"`
 }
@@ -172,8 +184,10 @@ func (i *TimestampAuthority) RemoveCondition(conditionType string) {
 
 // TimestampAuthoritySignerStatus holds the resolved secret references for the signer.
 type TimestampAuthoritySignerStatus struct {
+	// +optional
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
-	FileSigner          *FileSignerStatus  `json:"fileSigner,omitempty"`
+	// +optional
+	FileSigner *FileSignerStatus `json:"fileSigner,omitempty"`
 }
 
 // FileSignerStatus holds resolved secret references for a file-based signer.
@@ -192,11 +206,14 @@ type TimestampAuthorityStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions   []metav1.Condition              `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	NtpConfigRef *LocalObjectReference           `json:"ntpConfigRef,omitempty"`
-	Signer       *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
+	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
+	// +optional
+	Signer *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
 	// Url is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
 	// e.g. http://tsa-server.namespace.svc:3000/api/v1/timestamp.
+	// +optional
 	Url string `json:"url,omitempty"`
 	// PEM-encoded certificate chain resolved from the running TSA service API.
 	// +optional
@@ -212,10 +229,10 @@ type TimestampAuthorityStatus struct {
 // TimestampAuthority is the Schema for the timestampauthorities API
 type TimestampAuthority struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TimestampAuthoritySpec   `json:"spec,omitempty"`
-	Status TimestampAuthorityStatus `json:"status,omitempty"`
+	Spec   TimestampAuthoritySpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status TimestampAuthorityStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true

@@ -38,7 +38,6 @@ linters:
               - nodurations
               - nonpointerstructs
               - optionalfields
-              - optionalorrequired
               - requiredfields
               - commentstart
               - uniquemarkers

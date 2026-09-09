@@ -42,12 +42,15 @@ type CTlogSpec struct {
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 
 	// Define whether you want to export service or not
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
 
 	//Enable Service monitors for ctlog
+	// +optional
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 
 	// Trillian service configuration
+	// +optional
 	Trillian ServiceReference `json:"trillian,omitempty"`
 
 	// Secret holding Certificate Transparency server config in text proto format
@@ -143,23 +146,30 @@ type CTlogStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions            []metav1.Condition    `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	ServerConfigRef       *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	PrivateKeyRef         *SecretKeySelector    `json:"privateKeyRef,omitempty"`
-	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
-	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
+	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	// +optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// +optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	// +optional
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+	// +optional
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 	// PEM-encoded public key resolved from the CTlog signer secret.
 	// +optional
 	PublicKey string `json:"publicKey,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
+	// +optional
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	// +optional
 	TLS TLS `json:"tls,omitempty"`
 	// Url is the CTlog endpoint URL including the log prefix path,
 	// e.g. http://ctlog.namespace.svc/trusted-artifact-signer.
+	// +optional
 	Url string `json:"url,omitempty"`
 }
 
@@ -171,10 +181,10 @@ type CTlogStatus struct {
 // CTlog is the Schema for the ctlogs API
 type CTlog struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   CTlogSpec   `json:"spec,omitempty"`
-	Status CTlogStatus `json:"status,omitempty"`
+	Spec   CTlogSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status CTlogStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true

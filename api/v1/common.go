@@ -18,11 +18,14 @@ const (
 type Ingress struct {
 	// If set to true, the Operator will create a Kubernetes Ingress resource.
 	// On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
+	// +optional
 	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
 	// Set hostname for your Ingress.
+	// +optional
 	Host string `json:"host,omitempty"`
 	// Set labels applied to the created Ingress, e.g. for ingress-controller/route selection when sharding ingress traffic.
+	// +optional
 	// +kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=Labels can't be modified
 	Labels map[string]string `json:"labels,omitempty"`
 }
@@ -30,6 +33,7 @@ type Ingress struct {
 // TlogMonitoring configures monitoring for the Rekor transparency log.
 type TlogMonitoring struct {
 	// If true, the Operator will create the Rekor log monitor resources
+	// +optional
 	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
 	// Interval between log monitoring checks.
@@ -143,9 +147,11 @@ type Pvc struct {
 	// The requested size of the persistent volume attached to Pod.
 	// The format of this field matches that defined by kubernetes/apimachinery.
 	// See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+	// +optional
 	Size *k8sresource.Quantity `json:"size,omitempty"`
 
 	// Retain policy for the PVC
+	// +optional
 	// +kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Retain *bool `json:"retain,omitempty"`
 	// Name of the PVC
@@ -158,6 +164,7 @@ type Pvc struct {
 	// +optional
 	StorageClass string `json:"storageClass,omitempty"`
 	// PVC AccessModes
+	// +optional
 	// +kubebuilder:validation:MinItems:=1
 	// +listType=set
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
@@ -337,8 +344,11 @@ type PodRequirements struct {
 	// +optional
 	// +kubebuilder:validation:Minimum:=0
 	Replicas  *int32                     `json:"replicas,omitempty"`
-	Affinity  *core.Affinity             `json:"affinity,omitempty"`
+	// +optional
+	Affinity *core.Affinity `json:"affinity,omitempty"`
+	// +optional
 	Resources *core.ResourceRequirements `json:"resources,omitempty"`
+	// +optional
 	// +listType=atomic
 	Tolerations []core.Toleration `json:"tolerations,omitempty"`
 }

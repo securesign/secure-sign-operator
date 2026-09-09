@@ -136,11 +136,13 @@ type FulcioConfig struct {
 	// Metadata used for the CIProvider identity provider principal
 	// +listType=map
 	// +listMapKey=issuerName
+	// +optional
 	CIIssuerMetadata []CIIssuerMetadata `json:"ciIssuerMetadata,omitempty"`
 }
 
 type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
+	// +optional
 	IssuerURL string `json:"issuerURL,omitempty"`
 	// The expected issuer of an OIDC token
 	// +required
@@ -155,18 +157,23 @@ type OIDCIssuer struct {
 	// +kubebuilder:validation:Enum=buildkite-job;email;github-workflow;codefresh-workflow;gitlab-pipeline;chainguard-identity;kubernetes;spiffe;uri;username;ci-provider
 	Type string `json:"type"`
 	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
+	// +optional
 	CIProvider string `json:"ciProvider,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
+	// +optional
 	IssuerClaim string `json:"issuerClaim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
 	// Also used to create an email for 'username' issuer types
+	// +optional
 	SubjectDomain string `json:"subjectDomain,omitempty"`
 	// SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
 	// issue ID tokens for. Tokens with a different trust domain will be
 	// rejected.
+	// +optional
 	SPIFFETrustDomain string `json:"spiffeTrustDomain,omitempty"`
 	// Optional, the challenge claim expected for the issuer
 	// Set if using a custom issuer
+	// +optional
 	ChallengeClaim string `json:"challengeClaim,omitempty"`
 }
 
@@ -177,67 +184,87 @@ type CIIssuerMetadata struct {
 	IssuerName string `json:"issuerName"`
 	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
 	// If a key cannot be found on the token claims, the template will use the defaults
+	// +optional
 	DefaultTemplateValues map[string]string `json:"defaultTemplateValues,omitempty"`
 	// ExtensionTemplates contains a mapping between certificate extension and token claim
 	// Provide either strings following https://pkg.go.dev/text/template syntax,
 	// e.g "{{ .url }}/{{ .repository }}"
 	// or non-templated strings with token claim keys to be replaced,
 	// e.g "job_workflow_sha"
+	// +optional
 	ExtensionTemplates Extensions `json:"extensionTemplates,omitempty"`
 	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
+	// +optional
 	SubjectAlternativeNameTemplate string `json:"subjectAlternativeNameTemplate,omitempty"`
 }
 
 // Extensions contains all custom x509 extensions defined by Fulcio
 type Extensions struct {
 	// Reference to specific build instructions that are responsible for signing.
+	// +optional
 	BuildSignerURI string `json:"buildSignerURI,omitempty"` // 1.3.6.1.4.1.57264.1.9
 
 	// Immutable reference to the specific version of the build instructions that is responsible for signing.
+	// +optional
 	BuildSignerDigest string `json:"buildSignerDigest,omitempty"` // 1.3.6.1.4.1.57264.1.10
 
 	// Specifies whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure.
+	// +optional
 	RunnerEnvironment string `json:"runnerEnvironment,omitempty"` // 1.3.6.1.4.1.57264.1.11
 
 	// Source repository URL that the build was based on.
+	// +optional
 	SourceRepositoryURI string `json:"sourceRepositoryURI,omitempty"` // 1.3.6.1.4.1.57264.1.12
 
 	// Immutable reference to a specific version of the source code that the build was based upon.
+	// +optional
 	SourceRepositoryDigest string `json:"sourceRepositoryDigest,omitempty"` // 1.3.6.1.4.1.57264.1.13
 
 	// Source Repository Ref that the build run was based upon.
+	// +optional
 	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"` // 1.3.6.1.4.1.57264.1.14
 
 	// Immutable identifier for the source repository the workflow was based upon.
+	// +optional
 	SourceRepositoryIdentifier string `json:"sourceRepositoryIdentifier,omitempty"` // 1.3.6.1.4.1.57264.1.15
 
 	// Source repository owner URL of the owner of the source repository that the build was based on.
+	// +optional
 	SourceRepositoryOwnerURI string `json:"sourceRepositoryOwnerURI,omitempty"` // 1.3.6.1.4.1.57264.1.16
 
 	// Immutable identifier for the owner of the source repository that the workflow was based upon.
+	// +optional
 	SourceRepositoryOwnerIdentifier string `json:"sourceRepositoryOwnerIdentifier,omitempty"` // 1.3.6.1.4.1.57264.1.17
 
 	// Build Config URL to the top-level/initiating build instructions.
+	// +optional
 	BuildConfigURI string `json:"buildConfigURI,omitempty"` // 1.3.6.1.4.1.57264.1.18
 
 	// Immutable reference to the specific version of the top-level/initiating build instructions.
+	// +optional
 	BuildConfigDigest string `json:"buildConfigDigest,omitempty"` // 1.3.6.1.4.1.57264.1.19
 
 	// Event or action that initiated the build.
+	// +optional
 	BuildTrigger string `json:"buildTrigger,omitempty"` // 1.3.6.1.4.1.57264.1.20
 
 	// Run Invocation URL to uniquely identify the build execution.
+	// +optional
 	RunInvocationURI string `json:"runInvocationURI,omitempty"` // 1.3.6.1.4.1.57264.1.21
 
 	// Source repository visibility at the time of signing the certificate.
+	// +optional
 	SourceRepositoryVisibilityAtSigning string `json:"sourceRepositoryVisibilityAtSigning,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
 type FulcioCertStatus struct {
-	PrivateKeyRef         *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// +optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
-	CARef                 *SecretKeySelector `json:"caRef,omitempty"`
+	// +optional
+	CARef *SecretKeySelector `json:"caRef,omitempty"`
 }
 
 // FulcioStatus defines the observed state of Fulcio
@@ -247,10 +274,13 @@ type FulcioStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions      []metav1.Condition    `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Certificate     *FulcioCertStatus     `json:"certificate,omitempty"`
-	Url             string                `json:"url,omitempty"`
+	// +optional
+	Certificate *FulcioCertStatus `json:"certificate,omitempty"`
+	// +optional
+	Url string `json:"url,omitempty"`
 	// PEM-encoded certificate chain (trust bundle) resolved from the running Fulcio service API.
 	// Contains the signing certificate followed by any intermediate and root CA certificates.
 	// +optional
@@ -266,10 +296,10 @@ type FulcioStatus struct {
 // Fulcio is the Schema for the fulcios API
 type Fulcio struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   FulcioSpec   `json:"spec,omitempty"`
-	Status FulcioStatus `json:"status,omitempty"`
+	Spec   FulcioSpec   `json:"spec,omitempty"` //nolint:kubeapilinter
+	Status FulcioStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
 // +kubebuilder:object:root=true
