@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
@@ -14,545 +15,395 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func keyRef(name, key string) *rhtasv1.SecretKeySelector {
+	return &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: name},
+		Key:                  key,
+	}
+}
+
 func TestAlignStatusLogs_CanHandle(t *testing.T) {
 	tests := []struct {
-		name      string
-		phase     state.State
-		canHandle bool
+		name string
+		state.State
+		want bool
 	}{
-		{"pending", state.Pending, false},
-		{"creating", state.Creating, true},
-		{"initialize", state.Initialize, true},
-		{"ready", state.Ready, true},
+		{name: "pending", State: state.Pending},
+		{name: "creating", State: state.Creating, want: true},
+		{name: "initialize", State: state.Initialize, want: true},
+		{name: "ready", State: state.Ready, want: true},
 	}
+
+	a := NewAlignStatusLogsAction()
+	NewWithT(t).Expect(a.Name()).To(Equal("align-status-logs"))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-			instance := &rhtasv1.CTlog{
-				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-				Status: rhtasv1.CTlogStatus{
-					Conditions: []metav1.Condition{
-						{Type: constants.ReadyCondition, Reason: tt.phase.String()},
-					},
-				},
-			}
-			c := testAction.FakeClientBuilder().Build()
-			a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-			g.Expect(a.CanHandle(t.Context(), instance)).To(Equal(tt.canHandle))
+			instance := &rhtasv1.CTlog{Status: rhtasv1.CTlogStatus{
+				Conditions: []metav1.Condition{{Type: constants.ReadyCondition, Reason: tt.String()}},
+			}}
+			NewWithT(t).Expect(a.CanHandle(t.Context(), instance)).To(Equal(tt.want))
 		})
 	}
 }
 
-func TestAlignStatusLogs_RejectsEmptySpecLogs(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
+func TestAlignStatusLogs_Handle(t *testing.T) {
+	type want struct {
+		result          *action.Result
+		err             string
+		logs            []rhtasv1.CTlogLogStatus
+		unchanged       bool
+		storedUnchanged bool
+		verify          func(Gomega, *rhtasv1.CTlog)
+	}
+
+	tests := []struct {
+		name     string
+		instance *rhtasv1.CTlog
+		want     want
+	}{
+		{
+			name: "reject empty spec without mutation",
+			instance: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+				Status: rhtasv1.CTlogStatus{Logs: []rhtasv1.CTlogLogStatus{{
+					Prefix:        "trusted-artifact-signer",
+					Active:        true,
+					LogId:         ptr.To(int64(123456)),
+					PrivateKeyRef: keyRef("ctlog-keys-test", "private"),
+					PublicKeyRef:  keyRef("ctlog-keys-test", "public"),
+				}}},
+			},
+			want: want{
+				err:             "at least one log is required",
+				unchanged:       true,
+				storedUnchanged: true,
+			},
+		},
+		{
+			name: "continue when status is aligned",
+			instance: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+				Spec: rhtasv1.CTlogSpec{Logs: []rhtasv1.CTLogConfig{{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+				}}},
+				Status: rhtasv1.CTlogStatus{Logs: []rhtasv1.CTlogLogStatus{{
 					Prefix: "trusted-artifact-signer",
 					Active: true,
-					LogId:  ptr.To(int64(123456)),
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-test-xyz99"},
-						Key:                  "private",
-					},
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-keys-test-xyz99"},
-						Key:                  "public",
-					},
-				},
-			},
-		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	key := client.ObjectKeyFromObject(instance)
-	storedBefore := &rhtasv1.CTlog{}
-	g.Expect(c.Get(ctx, key, storedBefore)).To(Succeed())
-	instanceBefore := instance.DeepCopy()
-
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result).NotTo(BeNil())
-	g.Expect(result.Err).To(MatchError("at least one log is required"))
-	g.Expect(instance).To(Equal(instanceBefore))
-	storedAfter := &rhtasv1.CTlog{}
-	g.Expect(c.Get(ctx, key, storedAfter)).To(Succeed())
-	g.Expect(storedAfter).To(Equal(storedBefore))
-}
-
-func TestAlignStatusLogs_ActiveLog(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix: "trusted-artifact-signer",
-					Active: ptr.To(true),
-					Signer: &rhtasv1.CTlogSigner{Type: "file"},
-				},
-			},
-		},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
-					Prefix: "trusted-artifact-signer",
 					LogId:  ptr.To(int64(12345)),
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "private",
-					},
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "public",
-					},
-					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
-					},
+				}}},
+			},
+			want: want{
+				result:          testAction.Continue(),
+				unchanged:       true,
+				storedUnchanged: true,
+			},
+		},
+		{
+			name: "align multiple logs in spec order and remove stale status",
+			instance: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+				Spec: rhtasv1.CTlogSpec{Logs: []rhtasv1.CTLogConfig{
+					{Prefix: "active", Active: ptr.To(true)},
+					{Prefix: "new", LogId: ptr.To(int64(2)), Active: ptr.To(false)},
+				}},
+				Status: rhtasv1.CTlogStatus{Logs: []rhtasv1.CTlogLogStatus{
+					{Prefix: "removed", LogId: ptr.To(int64(3))},
+					{Prefix: "active", LogId: ptr.To(int64(1)), PublicKey: "public-key"},
+				}},
+			},
+			want: want{
+				result: testAction.Return(),
+				logs: []rhtasv1.CTlogLogStatus{
+					{Prefix: "active", Active: true, LogId: ptr.To(int64(1)), PublicKey: "public-key"},
+					{Prefix: "new", LogId: ptr.To(int64(2))},
 				},
 			},
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
+		},
+		{
+			name: "reject duplicate log IDs without persisting",
+			instance: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+				Spec: rhtasv1.CTlogSpec{Logs: []rhtasv1.CTLogConfig{
+					{Prefix: "first", LogId: ptr.To(int64(7))},
+					{Prefix: "second", LogId: ptr.To(int64(7))},
+				}},
+			},
+			want: want{
+				err:             "duplicate logIds",
+				storedUnchanged: true,
+				verify: func(g Gomega, instance *rhtasv1.CTlog) {
+					condition := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+					g.Expect(condition).NotTo(BeNil())
+					g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(condition.Reason).To(Equal("InvalidLogConfiguration"))
+					g.Expect(condition.Message).To(ContainSubstring("first"))
+					g.Expect(condition.Message).To(ContainSubstring("second"))
+				},
 			},
 		},
 	}
 
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			ctx := t.Context()
+			c := testAction.FakeClientBuilder().
+				WithObjects(tt.instance).
+				WithStatusSubresource(tt.instance).
+				Build()
+			key := client.ObjectKeyFromObject(tt.instance)
+			storedBefore := &rhtasv1.CTlog{}
+			g.Expect(c.Get(ctx, key, storedBefore)).To(Succeed())
+			before := tt.instance.DeepCopy()
 
-	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.Logs).To(HaveLen(1))
-	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].PublicKey).To(ContainSubstring("PUBLIC KEY"))
-	g.Expect(instance.Status.Logs[0].RootCertificates).To(HaveLen(1))
+			result := testAction.PrepareAction(c, NewAlignStatusLogsAction()).Handle(ctx, tt.instance)
+			if tt.want.err != "" {
+				g.Expect(result).NotTo(BeNil())
+				g.Expect(result.Err).To(MatchError(ContainSubstring(tt.want.err)))
+			} else {
+				g.Expect(result).To(Equal(tt.want.result))
+			}
+			if tt.want.unchanged {
+				g.Expect(tt.instance).To(Equal(before))
+			} else if tt.want.logs != nil {
+				g.Expect(tt.instance.Status.Logs).To(Equal(tt.want.logs))
+			}
+			if tt.want.verify != nil {
+				tt.want.verify(g, tt.instance)
+			}
+
+			storedAfter := &rhtasv1.CTlog{}
+			g.Expect(c.Get(ctx, key, storedAfter)).To(Succeed())
+			if tt.want.storedUnchanged {
+				g.Expect(storedAfter).To(Equal(storedBefore))
+			} else {
+				g.Expect(storedAfter.Status.Logs).To(Equal(tt.want.logs))
+			}
+		})
+	}
 }
 
-func TestAlignStatusLogs_ActiveAndReadonlyShards(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix: "trusted-artifact-signer",
-					Active: ptr.To(true),
-					Signer: &rhtasv1.CTlogSigner{Type: "file"},
-				},
-				{
-					Prefix:   "shard-2024",
-					Readonly: ptr.To(true),
-					LogId:    ptr.To(int64(99999)),
-					Signer: &rhtasv1.CTlogSigner{
-						Type: "file",
-						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
-							PublicKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "public",
-							},
-						},
-					},
-					RootCerts: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
-					},
-				},
-			},
+func TestBuildStatusLogs(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     []rhtasv1.CTLogConfig
+		status   []rhtasv1.CTlogLogStatus
+		expected []rhtasv1.CTlogLogStatus
+	}{
+		{
+			name:     "new log defaults inactive",
+			spec:     []rhtasv1.CTLogConfig{{Prefix: "new"}},
+			expected: []rhtasv1.CTlogLogStatus{{Prefix: "new"}},
 		},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
-					Prefix: "trusted-artifact-signer",
-					LogId:  ptr.To(int64(12345)),
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "private",
-					},
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "public",
-					},
-					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
-					},
-				},
-			},
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
-			},
+		{
+			name: "preserve existing status fields",
+			spec: []rhtasv1.CTLogConfig{{Prefix: "log", Active: ptr.To(true)}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				LogId:                 ptr.To(int64(1)),
+				PublicKey:             "public-key",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PublicKeyRef:          keyRef("keys", "public"),
+				RootCertificates:      []rhtasv1.SecretKeySelector{*keyRef("root", "cert")},
+				SignerType:            rhtasv1.SignerTypePKCS11,
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				Active:                true,
+				LogId:                 ptr.To(int64(1)),
+				PublicKey:             "public-key",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PublicKeyRef:          keyRef("keys", "public"),
+				RootCertificates:      []rhtasv1.SecretKeySelector{*keyRef("root", "cert")},
+				SignerType:            rhtasv1.SignerTypePKCS11,
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
 		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.Logs).To(HaveLen(2))
-
-	// Active log
-	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
-
-	// Readonly shard
-	g.Expect(instance.Status.Logs[1].Prefix).To(Equal("shard-2024"))
-	g.Expect(instance.Status.Logs[1].LogId).To(Equal(ptr.To(int64(99999))))
-	g.Expect(instance.Status.Logs[1].PrivateKeyRef.Name).To(Equal("shard-keys"))
-	g.Expect(instance.Status.Logs[1].PublicKeyRef.Name).To(Equal("shard-keys"))
-	g.Expect(instance.Status.Logs[1].RootCertificates).To(HaveLen(1))
-	g.Expect(instance.Status.Logs[1].RootCertificates[0].Name).To(Equal("shard-root"))
-}
-
-func TestAlignStatusLogs_SpecOverride(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix: "trusted-artifact-signer",
-					Active: ptr.To(true),
-					Signer: &rhtasv1.CTlogSigner{
-						Type: "file",
-						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-								Key:                  "new-key",
-							},
-						},
+		{
+			name: "spec overrides status",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix:    "log",
+				LogId:     ptr.To(int64(2)),
+				RootCerts: []rhtasv1.SecretKeySelector{*keyRef("new-root", "cert")},
+				Signer: &rhtasv1.CTlogSigner{
+					Type: rhtasv1.SignerTypeFile,
+					File: &rhtasv1.CTlogFile{
+						PrivateKeyRef: keyRef("new-keys", "private"),
+						PublicKeyRef:  keyRef("new-keys", "public"),
 					},
-					LogId: ptr.To(int64(54321)),
 				},
-			},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				LogId:                 ptr.To(int64(1)),
+				PublicKey:             "public-key",
+				PrivateKeyRef:         keyRef("old-keys", "private"),
+				PublicKeyRef:          keyRef("old-keys", "public"),
+				RootCertificates:      []rhtasv1.SecretKeySelector{*keyRef("old-root", "cert")},
+				SignerType:            rhtasv1.SignerTypePKCS11,
+				PrivateKeyPasswordRef: keyRef("old-keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:           "log",
+				LogId:            ptr.To(int64(2)),
+				PublicKey:        "public-key",
+				PrivateKeyRef:    keyRef("new-keys", "private"),
+				PublicKeyRef:     keyRef("new-keys", "public"),
+				RootCertificates: []rhtasv1.SecretKeySelector{*keyRef("new-root", "cert")},
+				SignerType:       rhtasv1.SignerTypeFile,
+			}},
 		},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
-					Prefix: "trusted-artifact-signer",
-					LogId:  ptr.To(int64(12345)),
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "private",
-					},
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "public",
-					},
-					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
-					},
-				},
-			},
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
-			},
+		{
+			name: "unchanged file key preserves password and derives public key",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix: "log",
+				Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile, File: &rhtasv1.CTlogFile{
+					PrivateKeyRef: keyRef("keys", "private"),
+				}},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PublicKeyRef:          keyRef("keys", "public"),
+				SignerType:            rhtasv1.SignerTypeFile,
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
 		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.Logs).To(HaveLen(1))
-	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(54321))))
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Key).To(Equal("new-key"))
-	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].PublicKey).To(ContainSubstring("PUBLIC KEY"))
-	g.Expect(instance.Status.Logs[0].RootCertificates).To(HaveLen(1))
-}
-
-func TestAlignStatusLogs_NoChangeSkips(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix: "trusted-artifact-signer",
-					Active: ptr.To(true),
-				},
-			},
+		{
+			name: "new file key clears password and derives public key",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix: "log",
+				Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile, File: &rhtasv1.CTlogFile{
+					PrivateKeyRef: keyRef("keys", "private"),
+				}},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyPasswordRef: keyRef("old-keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:        "log",
+				PrivateKeyRef: keyRef("keys", "private"),
+				PublicKeyRef:  keyRef("keys", "public"),
+				SignerType:    rhtasv1.SignerTypeFile,
+			}},
 		},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
-					Prefix: "trusted-artifact-signer",
-					LogId:  ptr.To(int64(12345)),
-					Active: true,
-				},
-			},
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
-			},
+		{
+			name: "changed file key clears password",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix: "log",
+				Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile, File: &rhtasv1.CTlogFile{
+					PrivateKeyRef: keyRef("keys", "new-private"),
+				}},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyRef:         keyRef("keys", "old-private"),
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:        "log",
+				PrivateKeyRef: keyRef("keys", "new-private"),
+				PublicKeyRef:  keyRef("keys", "public"),
+				SignerType:    rhtasv1.SignerTypeFile,
+			}},
 		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result).To(Equal(testAction.Continue()))
-}
-
-func TestAlignStatusLogs_PreservesEncryptedKeyPassword(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	// Regression test: encrypted legacy keys preserve password refs during alignment
-	// when private key ref remains unchanged. This ensures password migration path
-	// doesn't lose the password during status reconciliation.
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix: "trusted-artifact-signer",
-					Active: ptr.To(true),
-					Signer: &rhtasv1.CTlogSigner{
-						Type: "file",
-						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-								Key:                  "private",
-							},
-						},
-					},
-				},
-			},
+		{
+			name: "file signer derives public key from existing private key",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix: "log",
+				Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile, File: &rhtasv1.CTlogFile{}},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PublicKeyRef:          keyRef("keys", "public"),
+				SignerType:            rhtasv1.SignerTypeFile,
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
 		},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
-					Prefix: "trusted-artifact-signer",
-					LogId:  ptr.To(int64(12345)),
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "private",
-					},
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "public",
-					},
-					PublicKey: "-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-					// Password ref from legacy encrypted key migration
-					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"},
-						Key:                  "password",
-					},
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
-					},
+		{
+			name: "PKCS11 public key overrides status and clears password",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix: "log",
+				Signer: &rhtasv1.CTlogSigner{
+					Type:   rhtasv1.SignerTypePKCS11,
+					PKCS11: &rhtasv1.CTlogPKCS11Config{PublicKeyRef: keyRef("hsm", "public")},
 				},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PrivateKeyRef:         keyRef("keys", "private"),
+				PublicKeyRef:          keyRef("keys", "public"),
+				SignerType:            rhtasv1.SignerTypeFile,
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:        "log",
+				PrivateKeyRef: keyRef("keys", "private"),
+				PublicKeyRef:  keyRef("hsm", "public"),
+				SignerType:    rhtasv1.SignerTypePKCS11,
+			}},
+		},
+		{
+			name: "PKCS11 without public key preserves status public key and clears password",
+			spec: []rhtasv1.CTLogConfig{{
+				Prefix: "log",
+				Signer: &rhtasv1.CTlogSigner{
+					Type:   rhtasv1.SignerTypePKCS11,
+					PKCS11: &rhtasv1.CTlogPKCS11Config{},
+				},
+			}},
+			status: []rhtasv1.CTlogLogStatus{{
+				Prefix:                "log",
+				PublicKeyRef:          keyRef("keys", "public"),
+				PrivateKeyPasswordRef: keyRef("keys", "password"),
+			}},
+			expected: []rhtasv1.CTlogLogStatus{{
+				Prefix:       "log",
+				PublicKeyRef: keyRef("keys", "public"),
+				SignerType:   rhtasv1.SignerTypePKCS11,
+			}},
+		},
+		{
+			name: "multiple logs follow spec order and stale status is removed",
+			spec: []rhtasv1.CTLogConfig{
+				{Prefix: "second", Active: ptr.To(true)},
+				{Prefix: "new"},
+				{Prefix: "first", Active: ptr.To(false)},
 			},
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
+			status: []rhtasv1.CTlogLogStatus{
+				{Prefix: "first", LogId: ptr.To(int64(1))},
+				{Prefix: "removed", LogId: ptr.To(int64(3))},
+				{Prefix: "second", LogId: ptr.To(int64(2))},
+			},
+			expected: []rhtasv1.CTlogLogStatus{
+				{Prefix: "second", Active: true, LogId: ptr.To(int64(2))},
+				{Prefix: "new"},
+				{Prefix: "first", LogId: ptr.To(int64(1))},
 			},
 		},
 	}
 
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.Logs).To(HaveLen(1))
-	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(12345))))
-	// Private key ref unchanged: password ref should be preserved
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Key).To(Equal("private"))
-	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef).NotTo(BeNil())
-	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Name).To(Equal("keys"))
-	g.Expect(instance.Status.Logs[0].PrivateKeyPasswordRef.Key).To(Equal("password"))
-}
-
-func TestAlignStatusLogs_RejectsDuplicateLogIds(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	// Regression test: duplicate logIds would cause secret data corruption
-	// since logId is used as part of the secret key name (log-{logId}-root-{idx}).
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix: "trusted-artifact-signer",
-					Active: ptr.To(true),
-					Signer: &rhtasv1.CTlogSigner{Type: "file"},
-				},
-				{
-					Prefix:   "shard-2024",
-					Readonly: ptr.To(true),
-					LogId:    ptr.To(int64(99999)),
-					Signer: &rhtasv1.CTlogSigner{
-						Type: "file",
-						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
-						},
-					},
-					RootCerts: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
-					},
-				},
-				{
-					Prefix:   "shard-2025",
-					Readonly: ptr.To(true),
-					LogId:    ptr.To(int64(99999)), // DUPLICATE!
-					Signer: &rhtasv1.CTlogSigner{
-						Type: "file",
-						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
-						},
-					},
-					RootCerts: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
-					},
-				},
-			},
-		},
-		Status: rhtasv1.CTlogStatus{
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
-			},
-		},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := &rhtasv1.CTlog{
+				Spec:   rhtasv1.CTlogSpec{Logs: tt.spec},
+				Status: rhtasv1.CTlogStatus{Logs: tt.status},
+			}
+			NewWithT(t).Expect(buildStatusLogs(instance)).To(Equal(tt.expected))
+		})
 	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	// Should return error due to duplicate logIds
-	g.Expect(result).NotTo(BeNil())
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(result.Err.Error()).To(ContainSubstring("duplicate logIds"))
-	g.Expect(result.Err.Error()).To(ContainSubstring("99999"))
-	// Status should be updated with error condition
-	g.Expect(instance.Status.Conditions).NotTo(BeEmpty())
-	readyCondition := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-	g.Expect(readyCondition).NotTo(BeNil())
-	g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
-	g.Expect(readyCondition.Reason).To(Equal("InvalidLogConfiguration"))
-}
-
-func TestAlignStatusLogs_DerivesPublicKeyForFrozenShards(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	// Regression test: frozen/readonly shards with only private key reference
-	// must have public key derived automatically. This ensures non-active file-backed
-	// logs can serialize correctly in CTFE config without requiring explicit public key.
-	instance := &rhtasv1.CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: rhtasv1.CTlogSpec{
-			Logs: []rhtasv1.CTLogConfig{
-				{
-					Prefix:   "shard-2024",
-					LogId:    ptr.To(int64(99999)),
-					Readonly: ptr.To(true),
-					Signer: &rhtasv1.CTlogSigner{
-						Type: "file",
-						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
-							// No explicit public key ref
-						},
-					},
-					RootCerts: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
-					},
-				},
-			},
-		},
-		Status: rhtasv1.CTlogStatus{
-			Logs: []rhtasv1.CTlogLogStatus{
-				{
-					Prefix: "shard-2024",
-					LogId:  ptr.To(int64(99999)),
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-						Key:                  "private",
-					},
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-root"}, Key: "cert"},
-					},
-					// No public key initially
-				},
-			},
-			Conditions: []metav1.Condition{
-				{Type: constants.ReadyCondition, Reason: state.Initialize.String()},
-			},
-		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-	a := testAction.PrepareAction(c, NewAlignStatusLogsAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result).To(Equal(testAction.Return()))
-	g.Expect(instance.Status.Logs).To(HaveLen(1))
-	g.Expect(instance.Status.Logs[0].Prefix).To(Equal("shard-2024"))
-	g.Expect(instance.Status.Logs[0].LogId).To(Equal(ptr.To(int64(99999))))
-	g.Expect(instance.Status.Logs[0].PrivateKeyRef.Name).To(Equal("shard-keys"))
-	// Public key should be derived from private key reference
-	g.Expect(instance.Status.Logs[0].PublicKeyRef).NotTo(BeNil())
-	g.Expect(instance.Status.Logs[0].PublicKeyRef.Name).To(Equal("shard-keys"))
-	g.Expect(instance.Status.Logs[0].PublicKeyRef.Key).To(Equal("public"))
 }
