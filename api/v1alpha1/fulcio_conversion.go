@@ -141,7 +141,20 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	if restored.Spec.Ctlog.URL == "" && dst.Spec.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
 		dst.Spec.Ctlog.URL = ""
 	}
-	if dst.Spec.Ctlog.URL == "" {
+	// For fresh v1alpha1 conversions (not restored from prior v1), create a Ref to the
+	// local CTlog resource using the SecureSign name if the URL is the default pattern.
+	// This enables Fulcio to verify SCTs against the local CTlog.
+	switch dst.Spec.Ctlog.URL { //nolint:goconst
+	case "///trusted-artifact-signer":
+		if restored.Spec.Ctlog.Ref == nil {
+			// Fresh conversion: set Ref using the source Fulcio's name and namespace
+			dst.Spec.Ctlog.Ref = &rhtasv1.ServiceReferenceRef{
+				Name:      src.Name,
+				Namespace: src.Namespace,
+			}
+			dst.Spec.Ctlog.URL = ""
+		}
+	case "":
 		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
 	}
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
