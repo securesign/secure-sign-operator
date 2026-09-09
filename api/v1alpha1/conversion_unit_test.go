@@ -402,56 +402,6 @@ func TestCTlogConversionUnit(t *testing.T) {
 	}
 }
 
-// TestCTlogConversionRegressionLegacy tests conversion of legacy v1alpha1 CTlogs
-// that have empty Spec but populated Status (from years of auto-generated operation).
-// These objects don't have conversion-data annotations and would lose their signer
-// keys if not handled specially during conversion.
-func TestCTlogConversionRegressionLegacy(t *testing.T) {
-	// Simulate a legacy v1alpha1 object that ran for years with auto-generated signers.
-	// It has no explicit Spec entries (TreeID, PrivateKeyRef, etc) but has Status.
-	// When converted without special handling, it would lose its signer keys.
-	legacyV1Alpha1 := &CTlog{
-		ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
-		Spec:       CTlogSpec{}, // Empty: no TreeID, PrivateKeyRef, etc
-		Status: CTlogStatus{
-			Url: "http://ctlog.default.svc", // Has operational URL but no conversion-data annotation
-		},
-	}
-
-	// Convert without MarshalData annotation (simulating real legacy object)
-	v1Hub := &rhtasv1.CTlog{}
-	if err := legacyV1Alpha1.ConvertTo(v1Hub); err != nil {
-		t.Fatalf("ConvertTo failed: %v", err)
-	}
-
-	// Verify the fix: Spec.Logs should be populated from Status to prevent data loss
-	if len(v1Hub.Spec.Logs) == 0 {
-		t.Errorf("BUG: Spec.Logs is empty. Legacy object lost its signer key references.")
-		t.Errorf("  align_status_logs would delete Status.Logs during reconciliation.")
-		return
-	}
-
-	// Check that we created a log entry for the legacy object
-	hasLegacyLog := false
-	for _, log := range v1Hub.Spec.Logs {
-		if log.Prefix == "trusted-artifact-signer" {
-			hasLegacyLog = true
-			if log.Signer == nil {
-				t.Errorf("Created log entry but Signer is nil - align_status_logs may fail")
-			}
-			break
-		}
-	}
-	if !hasLegacyLog {
-		t.Errorf("No legacy log entry created - signer keys at risk of deletion")
-	}
-
-	// Verify Status is preserved
-	if v1Hub.Status.Url == "" {
-		t.Errorf("Status.Url lost during conversion")
-	}
-}
-
 func TestRekorConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string

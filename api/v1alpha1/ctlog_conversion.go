@@ -222,13 +222,9 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 		return err
 	}
 	restored := &rhtasv1.CTlog{}
-	hasConversionData, err := utilconversion.UnmarshalData(src, restored)
-	if err != nil {
+	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
-	// If UnmarshalData returns false (no conversion-data annotation), it means this is a legacy object.
-	// This is normal for objects that predate the v1 storage format.
-	// We'll apply legacy handlers below if needed.
 	// Restore v1-only Spec fields from storage (fields that don't exist in v1alpha1)
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
@@ -330,37 +326,6 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 				}
 			}
 			break
-		}
-	}
-	// For legacy objects with empty Spec but with operational Status, create minimal entries.
-	// This preserves signer keys that were auto-generated during years of operation.
-	// Without matching spec entries, align_status_logs would delete the status data,
-	// causing keys to be regenerated (data loss and signature invalidation during upgrade).
-	// Only apply this for objects without conversion-data (true legacy objects).
-	// Legacy objects may have either Status.Logs (if status conversion succeeded) or just Status.Url.
-	if !hasConversionData && len(dst.Spec.Logs) == 0 && (len(dst.Status.Logs) > 0 || dst.Status.Url != "") {
-		// If Status.Logs is already populated from status conversion, use it to create Spec entries
-		if len(dst.Status.Logs) > 0 {
-			for _, statusLog := range dst.Status.Logs {
-				dst.Spec.Logs = append(dst.Spec.Logs, rhtasv1.CTLogConfig{
-					Prefix: statusLog.Prefix,
-					Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile},
-					Active: ptr.To(statusLog.Active),
-				})
-			}
-		} else if dst.Status.Url != "" {
-			// Legacy object has URL but no per-log status data. Create a default entry.
-			// Use the v1alpha1 prefix convention since this is a legacy object.
-			dst.Spec.Logs = append(dst.Spec.Logs, rhtasv1.CTLogConfig{
-				Prefix: v1alpha1Prefix,
-				Signer: &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile},
-				Active: ptr.To(true),
-			})
-			// Create a matching Status.Logs entry to hold auto-generated signer data
-			dst.Status.Logs = append(dst.Status.Logs, rhtasv1.CTlogLogStatus{
-				Prefix: v1alpha1Prefix,
-				Active: true,
-			})
 		}
 	}
 	// Shared Status fields (Conditions, ServerConfigRef, Tls, Url) are properly converted by
