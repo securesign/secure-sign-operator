@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -30,6 +31,10 @@ func (a alignStatusLogs) CanHandle(_ context.Context, instance *rhtasv1.CTlog) b
 }
 
 func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
+	if len(instance.Spec.Logs) == 0 {
+		return a.Error(ctx, errors.New("at least one log is required"), instance)
+	}
+
 	desired := buildStatusLogs(instance)
 
 	// Validate unique logIds to prevent secret data corruption
