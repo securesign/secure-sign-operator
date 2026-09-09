@@ -431,7 +431,7 @@ func TestAlignStatusLogs_RejectsDuplicateLogIds(t *testing.T) {
 
 	// Should return error due to duplicate logIds
 	g.Expect(result).NotTo(BeNil())
-	g.Expect(result.Err).NotTo(BeNil())
+	g.Expect(result.Err).To(HaveOccurred())
 	g.Expect(result.Err.Error()).To(ContainSubstring("duplicate logIds"))
 	g.Expect(result.Err.Error()).To(ContainSubstring("99999"))
 	// Status should be updated with error condition
