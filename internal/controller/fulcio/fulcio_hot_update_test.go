@@ -176,6 +176,12 @@ var _ = Describe("Fulcio hot update", func() {
 				},
 			}
 			Expect(suite.Client().Create(ctx, ctlog)).To(Succeed())
+			ctlog.Status.Logs = []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "log",
+					Active: true,
+				},
+			}
 			meta.SetStatusCondition(&ctlog.Status.Conditions, metav1.Condition{
 				Type:   ctlogActions.TLSCondition,
 				Status: metav1.ConditionTrue,
