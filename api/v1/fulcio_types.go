@@ -280,7 +280,7 @@ type FulcioStatus struct {
 	// +optional
 	Certificate *FulcioCertStatus `json:"certificate,omitempty"`
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 	// PEM-encoded certificate chain (trust bundle) resolved from the running Fulcio service API.
 	// Contains the signing certificate followed by any intermediate and root CA certificates.
 	// +optional
@@ -338,5 +338,5 @@ func (i *Fulcio) GetTrustedCA() *LocalObjectReference {
 }
 
 func (i *Fulcio) GetServiceURL() string {
-	return i.Status.Url
+	return i.Status.URL
 }

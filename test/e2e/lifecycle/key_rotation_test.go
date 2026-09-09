@@ -107,7 +107,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Use cosign cli", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		})
 	})
 
@@ -205,7 +205,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 				return freezePod.Status.Phase == v1.PodSucceeded
 			}).Should(BeTrue())
 
-			logLength, err := rekorTreeLength(rekor.Get(ctx, cli, namespace.Name, s.Name).Status.Url)
+			logLength, err := rekorTreeLength(rekor.Get(ctx, cli, namespace.Name, s.Name).Status.URL)
 			Expect(err).ToNot(HaveOccurred())
 
 			createPod := createTree(namespace.Name, "rekor-tree")
@@ -405,7 +405,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					}}
 
 				f.Spec.TimestampAuthority.Signer.File = &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
@@ -456,25 +456,25 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Resolve service URLs", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(s.Status.FulcioStatus.Url).ToNot(BeEmpty())
-			Expect(s.Status.RekorStatus.Url).ToNot(BeEmpty())
-			Expect(s.Status.TufStatus.Url).ToNot(BeEmpty())
-			Expect(s.Status.TSAStatus.Url).ToNot(BeEmpty())
+			Expect(s.Status.FulcioStatus.URL).ToNot(BeEmpty())
+			Expect(s.Status.RekorStatus.URL).ToNot(BeEmpty())
+			Expect(s.Status.TufStatus.URL).ToNot(BeEmpty())
+			Expect(s.Status.TSAStatus.URL).ToNot(BeEmpty())
 		})
 
 		It("Rotate fulcio certs", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-fulcio.cert.pem", newFulcioCert.Data["cert"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/fulcio_v1.crt.pem", oldFulcioCert, 0644)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("fulcio", "fulcio_v1.crt.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("fulcio", "new-fulcio.cert.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("fulcio", "fulcio_v1.crt.pem", s.Status.FulcioStatus.URL, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("fulcio", "new-fulcio.cert.pem", s.Status.FulcioStatus.URL, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate rekor signer ", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-rekor.pub", newRekorSigner.Data["public"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/rekor.pub", oldRekorPub, 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("rekor", "rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("rekor", "new-rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("rekor", "rekor.pub", s.Status.RekorStatus.URL, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("rekor", "new-rekor.pub", s.Status.RekorStatus.URL, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate transparency log ", func(ctx SpecContext) {
@@ -489,8 +489,8 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(os.WriteFile(certs+"/new-tsa.certchain.pem", newTsaSecret.Data["certificateChain"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/tsa.certchain.pem", oldTsa, 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("tsa", "tsa.certchain.pem", s.Status.TSAStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("tsa", "new-tsa.certchain.pem", s.Status.TSAStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("tsa", "tsa.certchain.pem", s.Status.TSAStatus.URL, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("tsa", "new-tsa.certchain.pem", s.Status.TSAStatus.URL, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 	})
 
@@ -546,10 +546,10 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 	It("Use cosign cli", func(ctx SpecContext) {
 		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-		tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		newImage := support.PrepareImage(ctx)
 		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-		tas.VerifyByCosign(ctx, newImage, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		tas.VerifyByCosign(ctx, newImage, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 	})
 
 })

@@ -80,7 +80,7 @@ type RekorAttestations struct {
 	// +kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled once enabled.
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Url specifies the storage location for attestations, supporting go-cloud blob URLs.
+	// URL specifies the storage location for attestations, supporting go-cloud blob URLs.
 	// The "file:///var/run/attestations" path is specifically for local storage
 	// that relies on a mounted Persistent Volume Claim (PVC) for data persistence.
 	// Other valid protocols include s3://, gs://, azblob://, and mem://.
@@ -96,7 +96,7 @@ type RekorAttestations struct {
 	// +kubebuilder:validation:XValidation:rule="(self.startsWith(\"file://\") || self.startsWith(\"s3://\") || self.startsWith(\"gs://\") || self.startsWith(\"azblob://\") || self.startsWith(\"mem://\"))",message="URL must use a supported protocol (file://, s3://, gs://, azblob://, mem://)."
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="(!self.startsWith(\"file://\") || self.startsWith(\"file:///var/run/attestations\"))",message="If using 'file://' protocol, the URL must start with 'file:///var/run/attestations'."
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 
 	// MaxSize defines the maximum allowed size for an individual attestation.
 	// This helps prevent excessively large attestations from being stored.
@@ -147,7 +147,7 @@ type SearchIndex struct {
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 type BackFillRedis struct {
@@ -218,7 +218,7 @@ type RekorStatus struct {
 	// +optional
 	MonitorPvcName string `json:"monitorPvcName,omitempty"`
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 	// PEM-encoded public key resolved from the running Rekor service API.
 	// +optional
 	PublicKey string `json:"publicKey,omitempty"`
@@ -280,5 +280,5 @@ func (i *Rekor) GetTrustedCA() *LocalObjectReference {
 }
 
 func (i *Rekor) GetServiceURL() string {
-	return i.Status.Url
+	return i.Status.URL
 }

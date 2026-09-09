@@ -283,7 +283,7 @@ func TestResolveExternalServiceUrl_SchemelessMergesPortAndPath(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "my-rekor", Namespace: "ns"},
 		}
 		cl := fake.NewClientBuilder().WithScheme(testScheme()).WithStatusSubresource(rekor).WithObjects(rekor).Build()
-		rekor.Status.Url = "https://rekor.apps.cluster.example.com/default-path"
+		rekor.Status.URL = "https://rekor.apps.cluster.example.com/default-path"
 		rekor.Status.Conditions = []metav1.Condition{
 			{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
 		}
@@ -324,7 +324,7 @@ func TestResolveExternalServiceUrl_FromStatus(t *testing.T) {
 	}
 	cl := fake.NewClientBuilder().WithScheme(testScheme()).WithStatusSubresource(rekor).WithObjects(rekor).Build()
 
-	rekor.Status.Url = "http://rekor.internal.svc"
+	rekor.Status.URL = "http://rekor.internal.svc"
 	rekor.Status.Conditions = []metav1.Condition{
 		{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
 	}
@@ -346,7 +346,7 @@ func TestResolveExternalServiceUrl_NotReady(t *testing.T) {
 	}
 	cl := fake.NewClientBuilder().WithScheme(testScheme()).WithStatusSubresource(rekor).WithObjects(rekor).Build()
 
-	rekor.Status.Url = "http://rekor.internal.svc"
+	rekor.Status.URL = "http://rekor.internal.svc"
 	rekor.Status.Conditions = []metav1.Condition{
 		{Type: "Ready", Status: metav1.ConditionFalse, Reason: "Creating", LastTransitionTime: metav1.Now()},
 	}

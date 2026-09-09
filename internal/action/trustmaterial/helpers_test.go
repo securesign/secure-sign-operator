@@ -271,7 +271,7 @@ func TestResolveBaseURL(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Status: v1.FulcioStatus{
-			Url: "https://fulcio.external.example.com:300/withPath",
+			URL: "https://fulcio.external.example.com:300/withPath",
 		},
 	}
 	t.Run("in-container uses internal service URL and keep only host part of the URL", func(t *testing.T) {
@@ -306,7 +306,7 @@ func TestResolveBaseURL(t *testing.T) {
 	})
 	t.Run("outside container with empty statusUrl falls back to internal", func(t *testing.T) {
 		t.Setenv("KUBECONFIG", "/some/config")
-		fulcio.Status.Url = ""
+		fulcio.Status.URL = ""
 		got, err := ResolveBaseURL(fulcio)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

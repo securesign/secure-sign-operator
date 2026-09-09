@@ -65,7 +65,7 @@ func newTestRekor(publicKey string, conditions ...metav1.Condition) *rhtasv1.Rek
 	return &rhtasv1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-rekor", Namespace: "default"},
 		Status: rhtasv1.RekorStatus{
-			Url:        "http://rekor-server.default.svc",
+			URL:        "http://rekor-server.default.svc",
 			PublicKey:  publicKey,
 			Conditions: conditions,
 		},
@@ -351,7 +351,7 @@ func newDriftTestRekor(publicKey string, anns map[string]string, conditions ...m
 	return &rhtasv1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-rekor", Namespace: "default", Annotations: anns},
 		Status: rhtasv1.RekorStatus{
-			Url:        "http://rekor-server.default.svc",
+			URL:        "http://rekor-server.default.svc",
 			PublicKey:  publicKey,
 			Conditions: conditions,
 		},

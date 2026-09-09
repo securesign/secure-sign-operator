@@ -30,13 +30,13 @@ func EnsureSearchIndex(instance *rhtasv1.Rekor, redisOpts func(options *redis.Re
 
 		switch instance.Spec.SearchIndex.Provider {
 		case "redis":
-			options, err = redis.Parse(instance.Spec.SearchIndex.Url)
+			options, err = redis.Parse(instance.Spec.SearchIndex.URL)
 			if err != nil {
 				return fmt.Errorf("can't parse redis searchIndex url: %w", err)
 			}
 			redisOpts(options, container)
 		case "mysql":
-			mysqlOpts(instance.Spec.SearchIndex.Url, container)
+			mysqlOpts(instance.Spec.SearchIndex.URL, container)
 		default:
 			return fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
 		}

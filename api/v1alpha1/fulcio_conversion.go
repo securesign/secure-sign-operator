@@ -7,8 +7,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *rhtasv1.FulcioStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
 func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *rhtasv1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
-	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
+	if err := autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
 }
 
 func Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *rhtasv1.FulcioSpec, s apiconversion.Scope) error {

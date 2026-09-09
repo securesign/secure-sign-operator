@@ -128,7 +128,7 @@ var _ = Describe("Rekor", func() {
 			Expect(fetched.Spec.Attestations.Pvc.Size).To(Equal(ptr.To(k8sresource.MustParse("5Gi"))))
 			Expect(fetched.Spec.Attestations.Pvc.Retain).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
-			Expect(fetched.Spec.Attestations.Url).To(Equal("file:///var/run/attestations?no_tmp_dir=true"))
+			Expect(fetched.Spec.Attestations.URL).To(Equal("file:///var/run/attestations?no_tmp_dir=true"))
 			Expect(fetched.Spec.Monitoring.Metrics.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Monitoring.ServiceMonitor.Enabled).To(Equal(ptr.To(false)))
 			Expect(fetched.Spec.Monitoring.TLog.Enabled).To(Equal(ptr.To(false)))

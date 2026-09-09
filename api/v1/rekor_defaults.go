@@ -19,7 +19,7 @@ func (s *RekorSpec) SetDefaults() {
 
 func (s *RekorAttestations) SetDefaults() {
 	setDefault(&s.Enabled, ptr.To(true))
-	setDefault(&s.Url, "file:///var/run/attestations?no_tmp_dir=true")
+	setDefault(&s.URL, "file:///var/run/attestations?no_tmp_dir=true")
 	if s.MaxSize == nil {
 		s.MaxSize = ptr.To(k8sresource.MustParse("100Ki"))
 	}

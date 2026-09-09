@@ -306,7 +306,7 @@ func (i deployAction) ensureAttestation(instance *rhtasv1.Rekor) func(*v2.Deploy
 		// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
 		container.Args = append(container.Args, fmt.Sprintf("--enable_attestation_storage=%t", enabled))
 
-		bucketUrl := instance.Spec.Attestations.Url
+		bucketUrl := instance.Spec.Attestations.URL
 		if bucketUrl == "" {
 			bucketUrl = "file:///var/run/attestations?no_tmp_dir=true"
 		}

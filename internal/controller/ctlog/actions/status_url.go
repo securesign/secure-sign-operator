@@ -38,16 +38,16 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *a
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving URL: %w", err), instance)
 	}
-	if resolvedUrl == instance.Status.Url {
+	if resolvedUrl == instance.Status.URL {
 		return i.Continue()
 	}
-	instance.Status.Url = resolvedUrl
+	instance.Status.URL = resolvedUrl
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
 
 // ResolveUrl returns CTlog's externally reachable URL when ingress is
 // enabled, otherwise its internal cluster-DNS URL. Used for both
-// Status.Url and the ctlog-monitor's own dial target, which must match
+// Status.URL and the ctlog-monitor's own dial target, which must match
 // exactly or the monitor can't find itself in the trusted root.
 func ResolveUrl(ctx context.Context, cli client.Client, instance *rhtasv1.CTlog) (string, error) {
 	if utils.IsEnabled(instance.Spec.Ingress.Enabled) {

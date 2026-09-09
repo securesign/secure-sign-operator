@@ -48,7 +48,7 @@ func noTSA() *rhtasv1.Tuf {
 func readyRekor(ns string) *rhtasv1.Rekor {
 	r := &rhtasv1.Rekor{ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: ns}}
 	r.Status.PublicKey = testPEM
-	r.Status.Url = "https://rekor.internal.svc"
+	r.Status.URL = "https://rekor.internal.svc"
 	r.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
 	}
@@ -58,7 +58,7 @@ func readyRekor(ns string) *rhtasv1.Rekor {
 func readyCTlog() *rhtasv1.CTlog {
 	c := &rhtasv1.CTlog{ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"}}
 	c.Status.PublicKey = testPEM
-	c.Status.Url = "https://ctlog.internal.svc"
+	c.Status.URL = "https://ctlog.internal.svc"
 	c.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
 	}
@@ -74,7 +74,7 @@ func readyFulcio(ns string) *rhtasv1.Fulcio {
 		},
 	}
 	f.Status.CertificateChain = testPEM
-	f.Status.Url = "https://fulcio.internal.svc"
+	f.Status.URL = "https://fulcio.internal.svc"
 	f.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
 	}
@@ -84,7 +84,7 @@ func readyFulcio(ns string) *rhtasv1.Fulcio {
 func readyTSA(ns string) *rhtasv1.TimestampAuthority {
 	t := &rhtasv1.TimestampAuthority{ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: ns}}
 	t.Status.CertificateChain = testPEM
-	t.Status.Url = "https://tsa.internal.svc"
+	t.Status.URL = "https://tsa.internal.svc"
 	t.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
 	}
@@ -301,7 +301,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: ns},
 					Status: rhtasv1.RekorStatus{
 						PublicKey: "",
-						Url:       "https://rekor.internal.svc",
+						URL:       "https://rekor.internal.svc",
 						Conditions: []metav1.Condition{
 							{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
 						},

@@ -9,5 +9,5 @@ import (
 
 func enabledFileAttestationStorage(instance *rhtasv1.Rekor) bool {
 	return utils.IsEnabled(instance.Spec.Attestations.Enabled) &&
-		(strings.HasPrefix(instance.Spec.Attestations.Url, "file://") || instance.Spec.Attestations.Url == "")
+		(strings.HasPrefix(instance.Spec.Attestations.URL, "file://") || instance.Spec.Attestations.URL == "")
 }

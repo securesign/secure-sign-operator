@@ -299,7 +299,7 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
-// ctlogFuzzerFuncs constrains CTlog spec/status so Status.Url stays consistent with
+// ctlogFuzzerFuncs constrains CTlog spec/status so Status.URL stays consistent with
 // the Prefix suffix it's built from and Trillian ServiceReference uses gRPC URLs.
 func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
@@ -307,9 +307,9 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
 			s.Spec.Prefix = urlfuzz.URLPath(c)
-			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.Status.Url != "" {
-				s.Status.Url += "/" + s.Spec.Prefix
+			s.Status.URL = urlfuzz.HTTPURL(c, c.Bool(), false)
+			if s.Status.URL != "" {
+				s.Status.URL += "/" + s.Spec.Prefix
 			}
 
 		},
@@ -378,9 +378,9 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.TimestampAuthorityStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.Url != "" {
-				s.Url += rhtasv1.TimestampPath
+			s.URL = urlfuzz.HTTPURL(c, c.Bool(), false)
+			if s.URL != "" {
+				s.URL += rhtasv1.TimestampPath
 			}
 		},
 		func(s *TimestampAuthorityStatus, c randfill.Continue) {
@@ -497,18 +497,18 @@ func trillianStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 }
 
 // securesignStatusFuzzerFuncs constrains SecuresignStatus URL fields to valid HTTP
-// URLs; v1 TSAStatus.Url also carries the TimestampPath suffix conversion adds/removes.
+// URLs; v1 TSAStatus.URL also carries the TimestampPath suffix conversion adds/removes.
 func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.SecuresignStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.TSAStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.TSAStatus.Url != "" {
-				s.TSAStatus.Url += rhtasv1.TimestampPath
+			s.TSAStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), false)
+			if s.TSAStatus.URL != "" {
+				s.TSAStatus.URL += rhtasv1.TimestampPath
 			}
-			s.RekorStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
-			s.FulcioStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
-			s.TufStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.RekorStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.FulcioStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.TufStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
 		},
 		func(s *SecuresignStatus, c randfill.Continue) {
 			c.FillNoCustom(s)

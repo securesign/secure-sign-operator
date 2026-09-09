@@ -220,7 +220,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 						},
 					},
 					File: &rhtasv1.File{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
@@ -363,11 +363,11 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		})
 
 		It("Create TUF instance", func(ctx SpecContext) {
-			tufObject.Spec.Fulcio[0].URL = fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name).Status.Url
+			tufObject.Spec.Fulcio[0].URL = fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name).Status.URL
 			tufObject.Spec.Fulcio[0].OIDCIssuers = []string{support.OidcIssuerUrl()}
-			tufObject.Spec.Rekor[0].URL = rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name).Status.Url
-			(*tufObject.Spec.Tsa)[0].URL = tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name).Status.Url
-			tufObject.Spec.Ctlog[0].URL = ctlog.Get(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name).Status.Url
+			tufObject.Spec.Rekor[0].URL = rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name).Status.URL
+			(*tufObject.Spec.Tsa)[0].URL = tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name).Status.URL
+			tufObject.Spec.Ctlog[0].URL = ctlog.Get(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name).Status.URL
 			Expect(cli.Create(ctx, tufObject)).To(Succeed())
 			tuf.Verify(ctx, cli, namespaces["tuf"].Name, tufObject.Name)
 		})
@@ -385,7 +385,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			ts := tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name)
 			Expect(ts).ToNot(BeNil())
 
-			tas.VerifyByCosign(ctx, targetImageName, t.Status.Url, f.Status.Url, r.Status.Url, ts.Status.Url)
+			tas.VerifyByCosign(ctx, targetImageName, t.Status.URL, f.Status.URL, r.Status.URL, ts.Status.URL)
 		})
 	})
 })

@@ -52,10 +52,10 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *
 		}
 	}
 
-	if url == instance.Status.Url {
+	if url == instance.Status.URL {
 		return i.Continue()
 	}
 
-	instance.Status.Url = url
+	instance.Status.URL = url
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

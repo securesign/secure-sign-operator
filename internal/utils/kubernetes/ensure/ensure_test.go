@@ -222,7 +222,7 @@ func Test_Ensure(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 						Status: rhtasv1.SecuresignStatus{
 							RekorStatus: rhtasv1.SecuresignRekorStatus{
-								Url: "old status",
+								URL: "old status",
 							},
 						},
 					},
@@ -232,7 +232,7 @@ func Test_Ensure(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 				Status: rhtasv1.SecuresignStatus{
 					RekorStatus: rhtasv1.SecuresignRekorStatus{
-						Url: "new status",
+						URL: "new status",
 					},
 				},
 			},
@@ -245,7 +245,7 @@ func Test_Ensure(t *testing.T) {
 				}
 				obj := &rhtasv1.Securesign{}
 				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
-				g.Expect(obj.Status.RekorStatus.Url).To(Equal("old status"))
+				g.Expect(obj.Status.RekorStatus.URL).To(Equal("old status"))
 			},
 		},
 		{

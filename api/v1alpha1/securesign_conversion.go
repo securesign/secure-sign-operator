@@ -14,9 +14,10 @@ func Convert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(in *Securesi
 	if err := autoConvert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(in, out, s); err != nil {
 		return err
 	}
-	if out.Url != "" {
+	out.URL = in.Url
+	if out.URL != "" {
 		var err error
-		if out.Url, err = buildURL(out.Url, nil, rhtasv1.TimestampPath); err != nil {
+		if out.URL, err = buildURL(out.URL, nil, rhtasv1.TimestampPath); err != nil {
 			return err
 		}
 	}
@@ -27,12 +28,61 @@ func Convert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in *rhtasv1.
 	if err := autoConvert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in, out, s); err != nil {
 		return err
 	}
+	out.Url = in.URL
 	if out.Url != "" {
 		var err error
 		if out.Url, _, err = splitURLPath(out.Url); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func Convert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(in *SecuresignRekorStatus, out *rhtasv1.SecuresignRekorStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
+func Convert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(in *rhtasv1.SecuresignRekorStatus, out *SecuresignRekorStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
+}
+
+func Convert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(in *SecuresignFulcioStatus, out *rhtasv1.SecuresignFulcioStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
+func Convert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(in *rhtasv1.SecuresignFulcioStatus, out *SecuresignFulcioStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
+}
+
+func Convert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(in *SecuresignTufStatus, out *rhtasv1.SecuresignTufStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
+func Convert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(in *rhtasv1.SecuresignTufStatus, out *SecuresignTufStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
 	return nil
 }
 

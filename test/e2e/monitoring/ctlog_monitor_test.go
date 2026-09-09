@@ -158,12 +158,12 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 			Expect(found).To(BeTrue(), "Expected --url parameter to be present in container command")
 			Expect(ctlogServerUrl).ToNot(BeEmpty(), "Expected URL to not be empty")
 
-			// Must match Status.Url exactly: the monitor looks itself up in
+			// Must match Status.URL exactly: the monitor looks itself up in
 			// the trusted root by exact base_url match.
 			ctlogInstance := &rhtasv1.CTlog{}
 			Expect(cli.Get(ctx, ctrl.ObjectKey{Namespace: namespace.Name, Name: s.Name}, ctlogInstance)).To(Succeed())
-			Expect(ctlogServerUrl).To(Equal(ctlogInstance.Status.Url),
-				fmt.Sprintf("Expected URL to be %s, but got %s", ctlogInstance.Status.Url, ctlogServerUrl))
+			Expect(ctlogServerUrl).To(Equal(ctlogInstance.Status.URL),
+				fmt.Sprintf("Expected URL to be %s, but got %s", ctlogInstance.Status.URL, ctlogServerUrl))
 		})
 	})
 })

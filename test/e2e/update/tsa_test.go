@@ -98,7 +98,7 @@ var _ = Describe("TSA update", Ordered, func() {
 						},
 					},
 					File: &rhtasv1.File{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-tsa-secret",
 							},
@@ -223,7 +223,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("verify by cosign", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		})
 	})
 
@@ -298,7 +298,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("verify by cosign", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		})
 	})
 })

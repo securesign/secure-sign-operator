@@ -211,7 +211,7 @@ var _ = Describe("Rekor controller", func() {
 					},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
-						Url:     "mem://",
+						URL:     "mem://",
 					},
 				},
 			}

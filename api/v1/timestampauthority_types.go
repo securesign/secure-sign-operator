@@ -211,10 +211,10 @@ type TimestampAuthorityStatus struct {
 	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
 	// +optional
 	Signer *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
-	// Url is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
+	// URL is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
 	// e.g. http://tsa-server.namespace.svc:3000/api/v1/timestamp.
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 	// PEM-encoded certificate chain resolved from the running TSA service API.
 	// +optional
 	CertificateChain string `json:"certificateChain,omitempty"`
@@ -259,5 +259,5 @@ func (i *TimestampAuthority) GetTrustedCA() *LocalObjectReference {
 }
 
 func (i *TimestampAuthority) GetServiceURL() string {
-	return i.Status.Url
+	return i.Status.URL
 }

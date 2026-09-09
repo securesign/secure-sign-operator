@@ -64,8 +64,8 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			Expect(v1Obj.Spec.TimestampAuthority).ToNot(BeNil())
 			Expect(v1Obj.Spec.TimestampAuthority.Signer.CertificateChain.RootCA.OrganizationName).
 				To(Equal(v1alpha1Obj.Spec.TimestampAuthority.Signer.CertificateChain.RootCA.OrganizationName))
-			Expect(v1Obj.Status.RekorStatus.Url).ToNot(BeEmpty())
-			Expect(v1Obj.Status.RekorStatus.Url).To(Equal(v1alpha1Obj.Status.RekorStatus.Url))
+			Expect(v1Obj.Status.RekorStatus.URL).ToNot(BeEmpty())
+			Expect(v1Obj.Status.RekorStatus.URL).To(Equal(v1alpha1Obj.Status.RekorStatus.Url))
 		})
 	})
 
@@ -110,8 +110,8 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			Expect(v1Obj.Status.Signer.KeyRef.Name).To(Equal(v1alpha1Obj.Status.Signer.KeyRef.Name))
 			Expect(v1Obj.Status.Signer.KeyRef.Key).To(Equal(v1alpha1Obj.Status.Signer.KeyRef.Key))
 
-			Expect(v1Obj.Status.Url).ToNot(BeEmpty())
-			Expect(v1Obj.Status.Url).To(Equal(v1alpha1Obj.Status.Url))
+			Expect(v1Obj.Status.URL).ToNot(BeEmpty())
+			Expect(v1Obj.Status.URL).To(Equal(v1alpha1Obj.Status.Url))
 		})
 	})
 

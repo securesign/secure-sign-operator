@@ -84,7 +84,7 @@
 //	func (r rekorResolver) GetTrustMaterial(i *rhtasv1.Rekor) string { return i.Status.PublicKey }
 //	func (r rekorResolver) SetTrustMaterial(i *rhtasv1.Rekor, pem string) { i.Status.PublicKey = pem }
 //	func (r rekorResolver) Resolve(ctx context.Context, cli client.Client, i *rhtasv1.Rekor) ([]byte, error) {
-//	    baseURL := trustmaterial.ResolveBaseURL("rekor-server", i.Namespace, i.Status.Url)
+//	    baseURL := trustmaterial.ResolveBaseURL("rekor-server", i.Namespace, i.Status.URL)
 //	    u, err := url.JoinPath(baseURL, "/api/v1/log/publicKey")
 //	    if err != nil {
 //	        return nil, err

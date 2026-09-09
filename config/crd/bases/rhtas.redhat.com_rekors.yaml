@@ -1032,7 +1032,7 @@ spec:
                         || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
                   url:
                     description: |-
-                      Url specifies the storage location for attestations, supporting go-cloud blob URLs.
+                      URL specifies the storage location for attestations, supporting go-cloud blob URLs.
                       The "file:///var/run/attestations" path is specifically for local storage
                       that relies on a mounted Persistent Volume Claim (PVC) for data persistence.
                       Other valid protocols include s3://, gs://, azblob://, and mem://.

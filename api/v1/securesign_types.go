@@ -60,22 +60,22 @@ type SecuresignStatus struct {
 
 type SecuresignRekorStatus struct {
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 type SecuresignFulcioStatus struct {
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 type SecuresignTufStatus struct {
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 type SecuresignTSAStatus struct {
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // +kubebuilder:object:root=true

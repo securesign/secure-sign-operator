@@ -65,7 +65,7 @@ type ConsoleAPIStatus struct {
 
 type ConsoleUIStatus struct {
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // ConsoleStatus defines the observed state of the Console

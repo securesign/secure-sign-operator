@@ -132,7 +132,7 @@ type TufStatus struct {
 	// +optional
 	PvcName string `json:"pvcName,omitempty"`
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -187,5 +187,5 @@ func (i *Tuf) GetTrustedCA() *LocalObjectReference {
 }
 
 func (i *Tuf) GetServiceURL() string {
-	return i.Status.Url
+	return i.Status.URL
 }

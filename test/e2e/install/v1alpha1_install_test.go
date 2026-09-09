@@ -144,7 +144,7 @@ var _ = Describe("Securesign install with v1alpha1 API", Ordered, func() {
 		It("Use cosign cli", func(ctx SpecContext) {
 			v1Instance := securesign.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(v1Instance).ToNot(BeNil())
-			tas.VerifyByCosign(ctx, targetImageName, v1Instance.Status.TufStatus.Url, v1Instance.Status.FulcioStatus.Url, v1Instance.Status.RekorStatus.Url, v1Instance.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, targetImageName, v1Instance.Status.TufStatus.URL, v1Instance.Status.FulcioStatus.URL, v1Instance.Status.RekorStatus.URL, v1Instance.Status.TSAStatus.URL)
 		})
 
 		It("v1alpha1 status is populated", func(ctx SpecContext) {
@@ -160,10 +160,10 @@ var _ = Describe("Securesign install with v1alpha1 API", Ordered, func() {
 			Expect(cli.Get(ctx, nsName(namespace.Name, s.Name), v1Instance)).To(Succeed())
 
 			Expect(cli.Get(ctx, nsName(namespace.Name, s.Name), s)).To(Succeed())
-			Expect(v1Instance.Status.RekorStatus.Url).To(Equal(s.Status.RekorStatus.Url))
-			Expect(v1Instance.Status.FulcioStatus.Url).To(Equal(s.Status.FulcioStatus.Url))
-			Expect(v1Instance.Status.TufStatus.Url).To(Equal(s.Status.TufStatus.Url))
-			Expect(v1Instance.Status.TSAStatus.Url).To(Equal(s.Status.TSAStatus.Url + rhtasv1.TimestampPath))
+			Expect(v1Instance.Status.RekorStatus.URL).To(Equal(s.Status.RekorStatus.Url))
+			Expect(v1Instance.Status.FulcioStatus.URL).To(Equal(s.Status.FulcioStatus.Url))
+			Expect(v1Instance.Status.TufStatus.URL).To(Equal(s.Status.TufStatus.Url))
+			Expect(v1Instance.Status.TSAStatus.URL).To(Equal(s.Status.TSAStatus.Url + rhtasv1.TimestampPath))
 		})
 	})
 })

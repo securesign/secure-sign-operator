@@ -72,9 +72,9 @@ var _ = Describe("Console controller", func() {
 			}
 			Expect(suite.Client().Create(ctx, tuf)).To(Succeed())
 			// Simulates a Tuf instance with Ingress enabled, where status-url.go
-			// resolves Status.Url to the external route/ingress host rather than
+			// resolves Status.URL to the external route/ingress host rather than
 			// the in-cluster Service DNS name.
-			tuf.Status.Url = "https://tuf-default.apps.example.com"
+			tuf.Status.URL = "https://tuf-default.apps.example.com"
 			tuf.Status.Conditions = []metav1.Condition{
 				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
 			}
@@ -88,7 +88,7 @@ var _ = Describe("Console controller", func() {
 				},
 			}
 			Expect(suite.Client().Create(ctx, rekor)).To(Succeed())
-			rekor.Status.Url = "https://rekor-default.apps.example.com"
+			rekor.Status.URL = "https://rekor-default.apps.example.com"
 			rekor.Status.Conditions = []metav1.Condition{
 				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
 			}

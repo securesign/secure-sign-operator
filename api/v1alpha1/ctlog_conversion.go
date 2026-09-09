@@ -8,10 +8,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv1.CTlogStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
 func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out *CTlogStatus, s apiconversion.Scope) error {
 	if err := autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in, out, s); err != nil {
 		return err
 	}
+	out.Url = in.URL
 	if out.Url != "" {
 		var err error
 		if out.Url, _, err = splitURLPath(out.Url); err != nil {
@@ -88,9 +97,9 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.Prefix = restored.Spec.Prefix
-	if dst.Status.Url != "" && restored.Spec.Prefix != "" {
+	if dst.Status.URL != "" && restored.Spec.Prefix != "" {
 		var err error
-		if dst.Status.Url, err = buildURL(dst.Status.Url, nil, restored.Spec.Prefix); err != nil {
+		if dst.Status.URL, err = buildURL(dst.Status.URL, nil, restored.Spec.Prefix); err != nil {
 			return err
 		}
 	}

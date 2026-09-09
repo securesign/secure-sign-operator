@@ -110,8 +110,8 @@ func (i tsaAction) CopyStatus(ctx context.Context, object *rhtasv1.TimestampAuth
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-	case instance.Status.TSAStatus.Url != object.Status.Url:
-		instance.Status.TSAStatus.Url = object.Status.Url
+	case instance.Status.TSAStatus.URL != object.Status.URL:
+		instance.Status.TSAStatus.URL = object.Status.URL
 	default:
 		return i.Continue()
 	}

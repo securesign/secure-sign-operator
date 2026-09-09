@@ -96,8 +96,8 @@ func (i fulcioAction) CopyStatus(ctx context.Context, object *rhtasv1.Fulcio, in
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-	case instance.Status.FulcioStatus.Url != object.Status.Url:
-		instance.Status.FulcioStatus.Url = object.Status.Url
+	case instance.Status.FulcioStatus.URL != object.Status.URL:
+		instance.Status.FulcioStatus.URL = object.Status.URL
 	default:
 		return i.Continue()
 	}

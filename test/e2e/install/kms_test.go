@@ -203,7 +203,7 @@ var _ = Describe("Securesign install with KMS (OpenBao) signer", Ordered, func()
 		It("Rekor's active signing key matches the OpenBao transit key", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Status.RekorStatus.Url+"/api/v1/log/publicKey", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Status.RekorStatus.URL+"/api/v1/log/publicKey", nil)
 			Expect(err).NotTo(HaveOccurred())
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
@@ -227,7 +227,7 @@ var _ = Describe("Securesign install with KMS (OpenBao) signer", Ordered, func()
 		It("Fulcio's root certificate matches the OpenBao transit key", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Status.FulcioStatus.Url+"/api/v1/rootCert", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Status.FulcioStatus.URL+"/api/v1/rootCert", nil)
 			Expect(err).NotTo(HaveOccurred())
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
@@ -251,7 +251,7 @@ var _ = Describe("Securesign install with KMS (OpenBao) signer", Ordered, func()
 		It("TSA's leaf certificate matches the OpenBao transit key", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Status.TSAStatus.Url+"/certchain", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Status.TSAStatus.URL+"/certchain", nil)
 			Expect(err).NotTo(HaveOccurred())
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
@@ -282,10 +282,10 @@ var _ = Describe("Securesign install with KMS (OpenBao) signer", Ordered, func()
 		It("cosign sign and verify", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 			tas.VerifyByCosign(ctx, targetImageName,
-				s.Status.TufStatus.Url,
-				s.Status.FulcioStatus.Url,
-				s.Status.RekorStatus.Url,
-				s.Status.TSAStatus.Url,
+				s.Status.TufStatus.URL,
+				s.Status.FulcioStatus.URL,
+				s.Status.RekorStatus.URL,
+				s.Status.TSAStatus.URL,
 			)
 		})
 	})

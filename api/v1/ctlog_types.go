@@ -167,10 +167,10 @@ type CTlogStatus struct {
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	// +optional
 	TLS TLS `json:"tls,omitempty"`
-	// Url is the CTlog endpoint URL including the log prefix path,
+	// URL is the CTlog endpoint URL including the log prefix path,
 	// e.g. http://ctlog.namespace.svc/trusted-artifact-signer.
 	// +optional
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -223,5 +223,5 @@ func (i *CTlog) GetTrustedCA() *LocalObjectReference {
 }
 
 func (i *CTlog) GetServiceURL() string {
-	return i.Status.Url
+	return i.Status.URL
 }

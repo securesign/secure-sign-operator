@@ -144,7 +144,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Status: rhtasv1.RekorStatus{
-					Url:       "http://rekor-server.default.svc",
+					URL:       "http://rekor-server.default.svc",
 					PublicKey: tt.publicKey,
 					Conditions: []metav1.Condition{
 						{
@@ -204,7 +204,7 @@ func TestResolvePubKey_Handle_TrustedCA(t *testing.T) {
 			TrustedCA: &rhtasv1.LocalObjectReference{Name: "custom-ca"},
 		},
 		Status: rhtasv1.RekorStatus{
-			Url: baseURL,
+			URL: baseURL,
 			Conditions: []metav1.Condition{
 				{Type: actions.ServerCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
 			},

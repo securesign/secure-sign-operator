@@ -98,8 +98,8 @@ func (i tufAction) CopyStatus(ctx context.Context, object *rhtasv1.Tuf, instance
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-	case instance.Status.TufStatus.Url != object.Status.Url:
-		instance.Status.TufStatus.Url = object.Status.Url
+	case instance.Status.TufStatus.URL != object.Status.URL:
+		instance.Status.TufStatus.URL = object.Status.URL
 	default:
 		return i.Continue()
 	}
