@@ -41,6 +41,19 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 		restored.Spec.Ctlog[0].URL == "" && dst.Spec.Ctlog[0].URL == "///trusted-artifact-signer" { //nolint:goconst
 		dst.Spec.Ctlog[0].URL = ""
 	}
+	// For fresh v1alpha1 conversions (not restored from prior v1), create a Ref to the
+	// local CTlog resource using the SecureSign name if the URL is the default pattern.
+	// This enables TUF's watch mechanism to trigger reconciliation when CTlog status changes.
+	if len(dst.Spec.Ctlog) > 0 && dst.Spec.Ctlog[0].URL == "///trusted-artifact-signer" { //nolint:goconst
+		if len(restored.Spec.Ctlog) == 0 || restored.Spec.Ctlog[0].Ref == nil {
+			// Fresh conversion: set Ref using the source Tuf's name and namespace
+			dst.Spec.Ctlog[0].Ref = &rhtasv1.ServiceReferenceRef{
+				Name:      src.Name,
+				Namespace: src.Namespace,
+			}
+			dst.Spec.Ctlog[0].URL = ""
+		}
+	}
 	restoreBindingRef(dst.Spec.Ctlog, restored.Spec.Ctlog)
 	if len(dst.Spec.Fulcio) > 0 && len(restored.Spec.Fulcio) > 0 {
 		if dst.Spec.Fulcio[0].URL == "" {
