@@ -1,3 +1,0 @@
-{"severity":"info","ts":1788955650.9373236,"caller":"app/grpc.go:216","message":"listening on grpc at [::]:5554"}
-{"severity":"info","ts":1788955650.9379041,"caller":"app/grpc.go:264","message":"listening on grpc at @fulcio-legacy-grpc-socket"}
-{"severity":"info","ts":1788955650.9380577,"caller":"app/http.go:119","message":"listening on http at 0.0.0.0:5555"}

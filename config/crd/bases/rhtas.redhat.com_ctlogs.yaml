@@ -2047,18 +2047,16 @@ spec:
                     rule: '!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef)
                       || has(self.signer.file.privateKeyRef)'
                   - message: logId is required for non-active logs
-                    rule: (has(self.active) && self.active == true) || has(self.logId)
+                    rule: self.?active.orValue(false) || has(self.logId)
                   - message: signer is required for non-active logs
-                    rule: (has(self.active) && self.active == true) || has(self.signer)
+                    rule: self.?active.orValue(false) || has(self.signer)
                   - message: rootCerts is required for non-active logs
-                    rule: (has(self.active) && self.active == true) || (has(self.rootCerts)
-                      && size(self.rootCerts) > 0)
-                  - message: a log cannot be both active and readonly
-                    rule: '!(has(self.active) && self.active == true && (has(self.readonly)
-                      && self.readonly == true))'
-                  - message: a log cannot be both active and mirror
-                    rule: '!(has(self.active) && self.active == true && (has(self.mirror)
-                      && self.mirror == true))'
+                    rule: self.?active.orValue(false) || (has(self.rootCerts) && size(self.rootCerts)
+                      > 0)
+                  - message: an active log cannot be readonly or a mirror
+                    rule: '!self.?active.orValue(false) || (!self.?readonly.orValue(false)
+                      && !self.?mirror.orValue(false))'
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - prefix
@@ -3221,13 +3219,13 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+            required:
+            - logs
             type: object
             x-kubernetes-validations:
-            - message: at least one log is required
-              rule: has(self.logs) && size(self.logs) > 0
             - message: exactly one log should be active
-              rule: '!has(self.logs) || self.logs.filter(x, has(x.active) && x.active
-                == true).size() == 1'
+              rule: self.logs.filter(x, has(x.active) && x.active == true).size()
+                == 1
           status:
             description: CTlogStatus defines the observed state of CTlog component
             properties:
