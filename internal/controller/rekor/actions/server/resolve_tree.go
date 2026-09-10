@@ -19,6 +19,10 @@ func NewResolveTreeAction() action.Action[*rhtasv1.Rekor] {
 		},
 		func(rekor *rhtasv1.Rekor) *rhtasv1.ServiceReference {
 			return &rekor.Spec.Trillian
+		},
+		func(rekor *rhtasv1.Rekor) string {
+			// Rekor tracks a single tree, so resources are not sharded
+			return ""
 		})
 	return tree.NewResolveTreeAction[*rhtasv1.Rekor]("rekor", wrapper)
 }

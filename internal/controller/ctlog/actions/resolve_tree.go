@@ -38,6 +38,11 @@ func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 		},
 		func(ctlog *rhtasv1.CTlog) *rhtasv1.ServiceReference {
 			return &ctlog.Spec.Trillian
+		},
+		func(ctlog *rhtasv1.CTlog) string {
+			// scope tree resources to the active shard so that activating
+			// a new shard can't inherit a previous shard's tree ID.
+			return utils.ActiveLogPrefix(ctlog.Spec.Logs)
 		})
 	return tree.NewResolveTreeAction[*rhtasv1.CTlog]("ctlog", wrapper)
 }

@@ -34,6 +34,9 @@ Usage:
 		},
 		func(obj *rhtasv1.Rekor) *rhtasv1.ServiceReference {
 			return &obj.Spec.Trillian
+		},
+		func(obj *rhtasv1.Rekor) string {
+			return ""
 		})
 	tree.NewResolveTreeAction[*rhtasv1.Rekor]("rekor", wrapper)
 */

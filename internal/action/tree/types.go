@@ -19,7 +19,7 @@ const (
 	configMapResultField    = "tree_id"
 )
 
-func Wrapper[T tlsAwareObject](getTree, getStatusTree func(T) *int64, setStatusTree func(T, *int64), getTrillianService func(T) *rhtasv1.ServiceReference) func(T) *wrapper[T] {
+func Wrapper[T tlsAwareObject](getTree, getStatusTree func(T) *int64, setStatusTree func(T, *int64), getTrillianService func(T) *rhtasv1.ServiceReference, getDiscriminator func(T) string) func(T) *wrapper[T] {
 	return func(obj T) *wrapper[T] {
 		return &wrapper[T]{
 			object:              obj,
@@ -27,6 +27,7 @@ func Wrapper[T tlsAwareObject](getTree, getStatusTree func(T) *int64, setStatusT
 			callStatusTree:      getStatusTree,
 			callSetStatusTree:   setStatusTree,
 			callTrillianService: getTrillianService,
+			callDiscriminator:   getDiscriminator,
 		}
 	}
 }
@@ -38,6 +39,7 @@ type wrapper[T tlsAwareObject] struct {
 	callStatusTree      func(T) *int64
 	callSetStatusTree   func(T, *int64)
 	callTrillianService func(T) *rhtasv1.ServiceReference
+	callDiscriminator   func(T) string
 }
 
 func (c *wrapper[T]) GetTreeID() *int64 {
@@ -54,6 +56,10 @@ func (c *wrapper[T]) SetStatusTreeID(treeID *int64) {
 
 func (c *wrapper[T]) GetTrillianService() *rhtasv1.ServiceReference {
 	return c.callTrillianService(c.object)
+}
+
+func (c *wrapper[T]) GetDiscriminator() string {
+	return c.callDiscriminator(c.object)
 }
 
 type tlsAwareObject interface {
