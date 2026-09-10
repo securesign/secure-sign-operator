@@ -138,7 +138,7 @@ func buildStatusLogs(instance *rhtasv1.CTlog) []rhtasv1.CTlogLogStatus {
 				}
 			}
 			if specLog.Signer.PKCS11 != nil {
-				if specLog.Signer.PKCS11.PublicKeyRef != nil {
+				if specLog.Signer.PKCS11.PublicKeyRef.Name != "" {
 					logStatus.PublicKeyRef = &specLog.Signer.PKCS11.PublicKeyRef
 				}
 				// PKCS#11 doesn't use passwords

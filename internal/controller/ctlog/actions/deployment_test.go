@@ -448,11 +448,11 @@ func TestCTLogPKCS11ConflictingModulePaths(t *testing.T) {
 		PKCS11: &rhtasv1.CTlogPKCS11Config{
 			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 			TokenLabel: "token-1",
-			PinSecretRef: &rhtasv1.SecretKeySelector{
+			PinSecretRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 				Key:                  "pin",
 			},
-			PublicKeyRef: &rhtasv1.SecretKeySelector{
+			PublicKeyRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 				Key:                  "public",
 			},
@@ -469,11 +469,11 @@ func TestCTLogPKCS11ConflictingModulePaths(t *testing.T) {
 			PKCS11: &rhtasv1.CTlogPKCS11Config{
 				ModulePath: "/usr/lib64/pkcs11/libsofthsm3.so", // Different path
 				TokenLabel: "token-2",
-				PinSecretRef: &rhtasv1.SecretKeySelector{
+				PinSecretRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 					Key:                  "pin",
 				},
-				PublicKeyRef: &rhtasv1.SecretKeySelector{
+				PublicKeyRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 					Key:                  "public",
 				},
@@ -504,11 +504,11 @@ func TestCTLogPKCS11MultipleWithSameModulePath(t *testing.T) {
 		PKCS11: &rhtasv1.CTlogPKCS11Config{
 			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 			TokenLabel: "token-1",
-			PinSecretRef: &rhtasv1.SecretKeySelector{
+			PinSecretRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 				Key:                  "pin",
 			},
-			PublicKeyRef: &rhtasv1.SecretKeySelector{
+			PublicKeyRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 				Key:                  "public",
 			},
@@ -525,11 +525,11 @@ func TestCTLogPKCS11MultipleWithSameModulePath(t *testing.T) {
 			PKCS11: &rhtasv1.CTlogPKCS11Config{
 				ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so", // Same path as log-1
 				TokenLabel: "token-2",
-				PinSecretRef: &rhtasv1.SecretKeySelector{
+				PinSecretRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 					Key:                  "pin",
 				},
-				PublicKeyRef: &rhtasv1.SecretKeySelector{
+				PublicKeyRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 					Key:                  "public",
 				},

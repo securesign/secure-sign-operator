@@ -340,7 +340,7 @@ func TestBuildStatusLogs(t *testing.T) {
 				Prefix: "log",
 				Signer: &rhtasv1.CTlogSigner{
 					Type:   rhtasv1.SignerTypePKCS11,
-					PKCS11: &rhtasv1.CTlogPKCS11Config{PublicKeyRef: keyRef("hsm", "public")},
+					PKCS11: &rhtasv1.CTlogPKCS11Config{PublicKeyRef: *keyRef("hsm", "public")},
 				},
 			}},
 			status: []rhtasv1.CTlogLogStatus{{

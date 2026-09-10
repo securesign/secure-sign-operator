@@ -17,6 +17,7 @@ func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *rhtasv
 	if err := autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s); err != nil {
 		return err
 	}
+	out.URL = in.Url
 
 	hasDataToConvert := in.TreeID != nil || in.PrivateKeyRef != nil || in.PublicKeyRef != nil || len(in.RootCertificates) > 0
 	if !hasDataToConvert {

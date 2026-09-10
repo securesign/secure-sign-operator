@@ -243,13 +243,13 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 				if pkcsConfig == nil {
 					return nil, fmt.Errorf("log %q: configuration for PKCS#11 has not been set", log.Prefix)
 				}
-				if pkcsConfig.PinSecretRef == nil {
+				if pkcsConfig.PinSecretRef.Name == "" || pkcsConfig.PinSecretRef.Key == "" {
 					return nil, fmt.Errorf("log %q: pinSecretRef is required for PKCS#11 signer", log.Prefix)
 				}
 				if log.PublicKeyRef == nil {
 					return nil, fmt.Errorf("log %q: publicKeyRef is required for PKCS#11 signer", log.Prefix)
 				}
-				pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, pkcsConfig.PinSecretRef)
+				pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &pkcsConfig.PinSecretRef)
 				if err != nil {
 					return nil, fmt.Errorf("log %q pkcs11 pinSecretRef: %w", log.Prefix, err)
 				}
