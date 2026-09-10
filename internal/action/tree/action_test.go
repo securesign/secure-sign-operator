@@ -49,6 +49,9 @@ var defaultWrapper = Wrapper[*rhtasv1.Rekor](
 			URL: "https://trillian-logserver.default.svc",
 		}
 	},
+	func(rekor *rhtasv1.Rekor) string {
+		return ""
+	},
 )
 
 var (
@@ -785,4 +788,104 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 	g.Expect(result.Err.Error()).To(ContainSubstring("could not create SA"))
 	g.Expect(stderrors.Is(result.Err, reconcile.TerminalError(nil))).To(BeFalse(),
 		"API server errors must be retryable, not terminal")
+}
+
+// TestResolveTree_ShardRotation_DoesNotLeakTreeID reproduces a scenario where a single
+// instance resolves more than one tree over its lifetime (e.g. a CTLog shard rotation).
+// One tree is fully resolved, then a second, distinct tree needs to be resolved for the
+// same instance.
+func TestResolveTree_ShardRotation_DoesNotLeakTreeID(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+
+	shardWrapper := Wrapper[*rhtasv1.Rekor](
+		func(rekor *rhtasv1.Rekor) *int64 {
+			return rekor.Spec.TreeID
+		},
+		func(rekor *rhtasv1.Rekor) *int64 {
+			return rekor.Status.TreeID
+		},
+		func(rekor *rhtasv1.Rekor, i *int64) {
+			rekor.Status.TreeID = i
+		},
+		func(rekor *rhtasv1.Rekor) *rhtasv1.ServiceReference {
+			return &rhtasv1.ServiceReference{
+				URL: "https://trillian-logserver.default.svc",
+			}
+		},
+		func(rekor *rhtasv1.Rekor) string {
+			// Note: annotations are used for testing but any distinct
+			// derivation will suffice
+			return rekor.GetAnnotations()["shard"]
+		},
+	)
+
+	instance := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        nnObject.Name,
+			Namespace:   nnObject.Namespace,
+			Annotations: map[string]string{"shard": "shard-a"},
+		},
+		Spec: rhtasv1.RekorSpec{
+			Trillian: rhtasv1.ServiceReference{},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewResolveTreeAction("shardtest", shardWrapper))
+	ra := a.(*resolveTree[*rhtasv1.Rekor])
+
+	// Fully resolve shard-a's tree: RBAC + ConfigMap + Job created, job completes,
+	// tree ID extracted into status.
+	g.Expect(ra.handleRbac(ctx, instance)).To(BeNil())
+	g.Expect(ra.handleConfigMap(ctx, instance)).ToNot(BeNil())
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+	shardAConfigMapName := fmt.Sprintf(configMapResultMask, ra.resourceBase(instance), instance.GetName())
+	g.Expect(ra.handleJob(ctx, instance)).ToNot(BeNil())
+
+	jobs := &v1.JobList{}
+	g.Expect(c.List(ctx, jobs, client.InNamespace("default"))).To(Succeed())
+	g.Expect(jobs.Items).To(HaveLen(1))
+	completedJob := jobs.Items[0]
+	completedJob.Status.Conditions = []v1.JobCondition{{Type: v1.JobComplete, Status: corev1.ConditionTrue}}
+	g.Expect(c.Status().Update(ctx, &completedJob)).To(Succeed())
+
+	shardACM := &corev1.ConfigMap{}
+	g.Expect(c.Get(ctx, types.NamespacedName{Name: shardAConfigMapName, Namespace: "default"}, shardACM)).To(Succeed())
+	shardACM.Data = map[string]string{"tree_id": "111111"}
+	g.Expect(c.Update(ctx, shardACM)).To(Succeed())
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+	g.Expect(ra.handleJobFinished(ctx, instance)).To(BeNil())
+	g.Expect(ra.handleExtractJobResult(ctx, instance)).ToNot(BeNil())
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+	g.Expect(instance.Status.TreeID).ToNot(BeNil())
+	g.Expect(*instance.Status.TreeID).To(Equal(int64(111111)))
+
+	// Rotate: shard-b becomes active and needs its own, independently-resolved tree.
+	instance.Annotations["shard"] = "shard-b"
+	g.Expect(c.Update(ctx, instance)).To(Succeed())
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+	instance.Status.TreeID = nil
+	g.Expect(c.Status().Update(ctx, instance)).To(Succeed())
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+	shardBConfigMapName := fmt.Sprintf(configMapResultMask, ra.resourceBase(instance), instance.GetName())
+	g.Expect(shardBConfigMapName).ToNot(Equal(shardAConfigMapName),
+		"shard-b must get its own ConfigMap name, distinct from shard-a's")
+
+	result := ra.Handle(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+	g.Expect(instance.Status.TreeID).To(BeNil(),
+		"shard-b must not inherit shard-a's already-resolved tree ID")
+	g.Expect(c.Get(ctx, types.NamespacedName{Name: shardBConfigMapName, Namespace: "default"}, &corev1.ConfigMap{})).To(Succeed())
 }
