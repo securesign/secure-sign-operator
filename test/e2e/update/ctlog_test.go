@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,20 +84,28 @@ var _ = Describe("CTlog update", Ordered, func() {
 		It("modified ctlog.privateKeyRef and ctlog.publicKeyRef", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				if s.Spec.Ctlog.Signer.File == nil {
-					s.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
-				}
-				s.Spec.Ctlog.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-ctlog-secret",
+				s.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
+					{
+						Prefix: "trusted-artifact-signer",
+						Active: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: "my-ctlog-secret",
+									},
+									Key: "private",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: "my-ctlog-secret",
+									},
+									Key: "public",
+								},
+							},
+						},
 					},
-					Key: "private",
-				}
-				s.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-ctlog-secret",
-					},
-					Key: "public",
 				}
 				return cli.Update(ctx, s)
 			}).Should(Succeed())
@@ -196,12 +205,10 @@ var _ = Describe("CTlog update", Ordered, func() {
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("keys")),
 				WithTransform(func(v v1.Volume) string { return v.Secret.SecretName }, Equal(ctl.Status.ServerConfigRef.Name)))))
 
-			existing := &v1.Secret{}
-			expected := &v1.Secret{}
-			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: ctl.Status.ServerConfigRef.Name}, existing)).To(Succeed())
-			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: "my-ctlog-secret"}, expected)).To(Succeed())
-
-			Expect(existing.Data["public"]).To(Equal(expected.Data["public"]))
+			Expect(ctl.Status.Logs).ToNot(BeEmpty())
+			Expect(ctl.Status.Logs[0].PublicKeyRef).ToNot(BeNil())
+			Expect(ctl.Status.Logs[0].PublicKeyRef.Name).To(Equal("my-ctlog-secret"))
+			Expect(ctl.Status.Logs[0].PublicKeyRef.Key).To(Equal("public"))
 		})
 
 		It("verify by cosign", func(ctx SpecContext) {

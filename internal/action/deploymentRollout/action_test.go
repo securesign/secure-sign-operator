@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
@@ -239,7 +240,16 @@ func TestRolloutCheck_Handle(t *testing.T) {
 			g := gomega.NewWithT(t)
 			instance := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
-				Status:     rhtasv1.CTlogStatus{Conditions: tt.conditions},
+				Spec: rhtasv1.CTlogSpec{
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "log",
+							Active: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{Type: "file"},
+						},
+					},
+				},
+				Status: rhtasv1.CTlogStatus{Conditions: tt.conditions},
 			}
 			objs := []client.Object{instance}
 			if tt.deployment != nil {

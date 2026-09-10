@@ -24,7 +24,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
-	urlfuzz "github.com/securesign/operator/internal/testing/fuzzer"
+	tfuzzer "github.com/securesign/operator/internal/testing/fuzzer"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,12 +72,13 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.Enabled = ptr.To(c.Bool())
 			}
 		},
+		tfuzzer.Time,
 	}
 }
 
 // httpURLWithPath adapts urlfuzz.HTTPURL to randServiceReference's two-arg shape.
 func httpURLWithPath(c randfill.Continue, withPort bool) string {
-	return urlfuzz.HTTPURL(c, withPort, c.Bool())
+	return tfuzzer.HTTPURL(c, withPort, c.Bool())
 }
 
 // randServiceReference generates a v1 ServiceReference with mutually exclusive URL/Ref fields.
@@ -146,8 +147,8 @@ func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} 
 		},
 		func(s *TrillianService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = urlfuzz.GRPCURL(c, false)
-			s.Port = urlfuzz.Port(c)
+			s.Address = tfuzzer.GRPCURL(c, false)
+			s.Port = tfuzzer.Port(c)
 		},
 	}
 }
@@ -158,9 +159,9 @@ func ctlogServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			// Prefix already carries the path; a path in Address too doesn't
 			// round-trip (the split point isn't recoverable), so keep Address bare.
-			s.Address = urlfuzz.HTTPURL(c, false, false)
-			s.Port = urlfuzz.Port(c)
-			s.Prefix = urlfuzz.URLPath(c)
+			s.Address = tfuzzer.HTTPURL(c, false, false)
+			s.Port = tfuzzer.Port(c)
+			s.Prefix = tfuzzer.URLPath(c)
 		},
 	}
 }
@@ -169,8 +170,8 @@ func rekorServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *RekorService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
-			s.Port = urlfuzz.Port(c)
+			s.Address = tfuzzer.HTTPURL(c, false, c.Bool())
+			s.Port = tfuzzer.Port(c)
 		},
 	}
 }
@@ -179,8 +180,8 @@ func tsaServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *TsaService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
-			s.Port = urlfuzz.Port(c)
+			s.Address = tfuzzer.HTTPURL(c, false, c.Bool())
+			s.Port = tfuzzer.Port(c)
 		},
 	}
 }
@@ -189,8 +190,8 @@ func tufServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *TufService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
-			s.Port = urlfuzz.Port(c)
+			s.Address = tfuzzer.HTTPURL(c, false, c.Bool())
+			s.Port = tfuzzer.Port(c)
 		},
 		func(s *rhtasv1.MonitoringWithTLogConfig, c randfill.Continue) {
 			c.FillNoCustom(s)
@@ -203,8 +204,8 @@ func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *FulcioService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
-			s.Port = urlfuzz.Port(c)
+			s.Address = tfuzzer.HTTPURL(c, false, c.Bool())
+			s.Port = tfuzzer.Port(c)
 		},
 	}
 }
@@ -275,15 +276,15 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		// for the rest); no single type-keyed fuzzer func can tell them apart, so set them explicitly.
 		func(s *rhtasv1.Securesign, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Spec.Ctlog.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
-			s.Spec.Rekor.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
+			s.Spec.Ctlog.Trillian = randServiceReference(c, tfuzzer.GRPCURL)
+			s.Spec.Rekor.Trillian = randServiceReference(c, tfuzzer.GRPCURL)
 			s.Spec.Fulcio.Ctlog = randServiceReference(c, httpURLWithPath)
 
 			s.Spec.Tuf.Ctlog = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
 			s.Spec.Tuf.Rekor = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
 			s.Spec.Tuf.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{{
 				TrustRootBinding: randTrustRootBinding(c, httpURLWithPath),
-				OIDCIssuers:      []string{urlfuzz.HTTPURL(c, c.Bool(), c.Bool())},
+				OIDCIssuers:      []string{tfuzzer.HTTPURL(c, c.Bool(), c.Bool())},
 			}}
 			if c.Bool() {
 				s.Spec.Tuf.Tsa = &[]rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
@@ -295,29 +296,36 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.Ctlog.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
+			s.Spec.Ctlog.ServerConfigRef = nil
 		},
 	}
 }
 
-// ctlogFuzzerFuncs constrains CTlog spec/status so Status.URL stays consistent with
+// ctlogFuzzerFuncs constrains CTlog spec/status so Status.Url stays consistent with
 // the Prefix suffix it's built from and Trillian ServiceReference uses gRPC URLs.
 func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
-			s.Spec.Prefix = urlfuzz.URLPath(c)
-			s.Status.URL = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.Status.URL != "" {
-				s.Status.URL += "/" + s.Spec.Prefix
+			s.Spec.Trillian = randServiceReference(c, tfuzzer.GRPCURL)
+			// Set Prefix on first log if it exists
+			if len(s.Spec.Logs) > 0 {
+				s.Spec.Logs[0].Prefix = tfuzzer.URLPath(c)
 			}
-
+			s.Status.URL = tfuzzer.HTTPURL(c, c.Bool(), false)
+			if s.Status.URL != "" && len(s.Spec.Logs) > 0 {
+				s.Status.URL += "/" + s.Spec.Logs[0].Prefix
+			}
 		},
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+			s.Status.Url = tfuzzer.HTTPURL(c, c.Bool(), false)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.PrivateKeyPasswordRef = nil
+			s.Status.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.logs; it has no roundtrip path.
+			s.Spec.ServerConfigRef = nil
 		},
 	}
 }
@@ -327,7 +335,7 @@ func rekorFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.Rekor, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
+			s.Spec.Trillian = randServiceReference(c, tfuzzer.GRPCURL)
 		},
 	}
 }
@@ -362,7 +370,7 @@ func tufFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Spec.Rekor = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
 			s.Spec.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{{
 				TrustRootBinding: randTrustRootBinding(c, httpURLWithPath),
-				OIDCIssuers:      []string{urlfuzz.HTTPURL(c, c.Bool(), c.Bool())},
+				OIDCIssuers:      []string{tfuzzer.HTTPURL(c, c.Bool(), c.Bool())},
 			}}
 			if c.Bool() {
 				s.Spec.Tsa = &[]rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
@@ -378,14 +386,14 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.TimestampAuthorityStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.URL = urlfuzz.HTTPURL(c, c.Bool(), false)
+			s.URL = tfuzzer.HTTPURL(c, c.Bool(), false)
 			if s.URL != "" {
 				s.URL += rhtasv1.TimestampPath
 			}
 		},
 		func(s *TimestampAuthorityStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+			s.Url = tfuzzer.HTTPURL(c, c.Bool(), false)
 			// NTPMonitoring: only Config.NtpConfigRef survives roundtrip via v1 NtpConfigRef
 			if s.NTPMonitoring != nil {
 				var ref *LocalObjectReference
@@ -502,20 +510,20 @@ func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 	return []interface{}{
 		func(s *rhtasv1.SecuresignStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.TSAStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), false)
+			s.TSAStatus.URL = tfuzzer.HTTPURL(c, c.Bool(), false)
 			if s.TSAStatus.URL != "" {
 				s.TSAStatus.URL += rhtasv1.TimestampPath
 			}
-			s.RekorStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
-			s.FulcioStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
-			s.TufStatus.URL = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.RekorStatus.URL = tfuzzer.HTTPURL(c, c.Bool(), c.Bool())
+			s.FulcioStatus.URL = tfuzzer.HTTPURL(c, c.Bool(), c.Bool())
+			s.TufStatus.URL = tfuzzer.HTTPURL(c, c.Bool(), c.Bool())
 		},
 		func(s *SecuresignStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.TSAStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			s.RekorStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
-			s.FulcioStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
-			s.TufStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.TSAStatus.Url = tfuzzer.HTTPURL(c, c.Bool(), false)
+			s.RekorStatus.Url = tfuzzer.HTTPURL(c, c.Bool(), c.Bool())
+			s.FulcioStatus.Url = tfuzzer.HTTPURL(c, c.Bool(), c.Bool())
+			s.TufStatus.Url = tfuzzer.HTTPURL(c, c.Bool(), c.Bool())
 		},
 	}
 }
@@ -574,11 +582,15 @@ func TestCTlogConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.CTlog{},
 		Spoke:  &CTlog{},
+		HubAfterMutation: func(hub conversion.Hub) {
+			migration.StripAll(hub.(*rhtasv1.CTlog))
+		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
+			fulcioServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

@@ -94,7 +94,14 @@ var _ = Describe("CTlog controller", func() {
 					},
 
 					Spec: rhtasv1.CTlogSpec{
-						TreeID: &treeID,
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								LogId:  &treeID,
+								Prefix: "log",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
+							},
+						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
 							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
@@ -172,12 +179,15 @@ var _ = Describe("CTlog controller", func() {
 
 			By("Key Secret is created")
 			found := &rhtasv1.CTlog{}
-			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
+			var privateKeyRef *rhtasv1.SecretKeySelector
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PrivateKeyRef
-			}).WithContext(ctx).Should(Not(BeNil()))
+				g.Expect(found.Status.Logs).To(HaveLen(1))
+				privateKeyRef = found.Status.Logs[0].PrivateKeyRef
+				g.Expect(privateKeyRef).NotTo(BeNil())
+			}).WithContext(ctx).Should(Succeed())
 			Eventually(func(ctx context.Context) error {
-				return suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.PrivateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})
+				return suite.Client().Get(ctx, types.NamespacedName{Name: privateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})
 			}).WithContext(ctx).Should(Not(HaveOccurred()))
 
 			deployment := &appsv1.Deployment{}
@@ -208,7 +218,8 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
+				g.Expect(found.Status.Logs).To(HaveLen(1))
+				g.Expect(found.Status.Logs[0].PublicKey).ShouldNot(BeEmpty())
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Checking if controller will return deployment to desired state")

@@ -26,6 +26,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -35,6 +36,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/events"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -165,8 +167,23 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return o.(*rhtasv1.Fulcio).Spec.Ctlog
 			}),
 		), builder.WithPredicates(crpredicate.Or(
-			crpredicate.GenerationChangedPredicate{},
 			predicate.ConditionChangedPredicate[*rhtasv1.CTlog](ctlogActions.TLSCondition),
+			// Trigger Fulcio reconciliation when CTlog's active shard prefix changes
+			ctlogStatusLogsChangedPredicate(),
 		))).
 		Complete(r)
+}
+
+// ctlogStatusLogsChangedPredicate triggers when CTlog's status.Logs changes (e.g., active shard prefix changes).
+func ctlogStatusLogsChangedPredicate() crpredicate.Predicate {
+	return crpredicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldCTlog, ok1 := e.ObjectOld.(*rhtasv1.CTlog)
+			newCTlog, ok2 := e.ObjectNew.(*rhtasv1.CTlog)
+			if !ok1 || !ok2 {
+				return true
+			}
+			return !equality.Semantic.DeepEqual(oldCTlog.Status.Logs, newCTlog.Status.Logs)
+		},
+	}
 }

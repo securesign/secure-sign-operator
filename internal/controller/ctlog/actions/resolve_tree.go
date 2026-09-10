@@ -4,21 +4,45 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/tree"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 )
 
 func NewResolveTreeAction() action.Action[*rhtasv1.CTlog] {
 	wrapper := tree.Wrapper[*rhtasv1.CTlog](
-		func(rekor *rhtasv1.CTlog) *int64 {
-			return rekor.Spec.TreeID
+		// getTree: read desired LogId from spec (first callback)
+		func(ctlog *rhtasv1.CTlog) *int64 {
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				return active.LogId
+			}
+			return nil
 		},
-		func(rekor *rhtasv1.CTlog) *int64 {
-			return rekor.Status.TreeID
+		// getStatusTree: read allocated LogId from status (second callback)
+		// This is called by CanHandle to check if a tree ID is already allocated.
+		// Allocated IDs live in Status.Logs, not Spec.Logs.
+		func(ctlog *rhtasv1.CTlog) *int64 {
+			if active := utils.ActiveLogStatus(ctlog.Status.Logs); active != nil {
+				return active.LogId
+			}
+			return nil
 		},
-		func(rekor *rhtasv1.CTlog, i *int64) {
-			rekor.Status.TreeID = i
+		// setStatusTree: write allocated LogId to status (third callback)
+		func(ctlog *rhtasv1.CTlog, i *int64) {
+			if active := utils.ActiveLog(ctlog.Spec.Logs); active != nil {
+				for idx := range ctlog.Status.Logs {
+					if ctlog.Status.Logs[idx].Prefix == active.Prefix {
+						ctlog.Status.Logs[idx].LogId = i
+						break
+					}
+				}
+			}
 		},
-		func(rekor *rhtasv1.CTlog) *rhtasv1.ServiceReference {
-			return &rekor.Spec.Trillian
+		func(ctlog *rhtasv1.CTlog) *rhtasv1.ServiceReference {
+			return &ctlog.Spec.Trillian
+		},
+		func(ctlog *rhtasv1.CTlog) string {
+			// scope tree resources to the active shard so that activating
+			// a new shard can't inherit a previous shard's tree ID.
+			return utils.ActiveLogPrefix(ctlog.Spec.Logs)
 		})
 	return tree.NewResolveTreeAction[*rhtasv1.CTlog]("ctlog", wrapper)
 }

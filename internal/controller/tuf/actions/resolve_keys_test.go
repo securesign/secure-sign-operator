@@ -45,8 +45,8 @@ func noTSA() *rhtasv1.Tuf {
 	return tufInstance(nil, nil, nil)
 }
 
-func readyRekor(ns string) *rhtasv1.Rekor {
-	r := &rhtasv1.Rekor{ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: ns}}
+func readyRekor() *rhtasv1.Rekor {
+	r := &rhtasv1.Rekor{ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"}}
 	r.Status.PublicKey = testPEM
 	r.Status.URL = "https://rekor.internal.svc"
 	r.Status.Conditions = []metav1.Condition{
@@ -57,7 +57,13 @@ func readyRekor(ns string) *rhtasv1.Rekor {
 
 func readyCTlog() *rhtasv1.CTlog {
 	c := &rhtasv1.CTlog{ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"}}
-	c.Status.PublicKey = testPEM
+	c.Status.Logs = []rhtasv1.CTlogLogStatus{
+		{
+			Prefix:    "test-log",
+			Active:    true,
+			PublicKey: testPEM,
+		},
+	}
 	c.Status.URL = "https://ctlog.internal.svc"
 	c.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
@@ -65,9 +71,9 @@ func readyCTlog() *rhtasv1.CTlog {
 	return c
 }
 
-func readyFulcio(ns string) *rhtasv1.Fulcio {
+func readyFulcio() *rhtasv1.Fulcio {
 	f := &rhtasv1.Fulcio{
-		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: ns},
+		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
 		Spec: rhtasv1.FulcioSpec{
 			Config: rhtasv1.FulcioConfig{OIDCIssuers: []rhtasv1.OIDCIssuer{{ClientID: "t", Issuer: "t"}}},
 			Signer: rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{CommonName: "t", OrganizationName: "t", OrganizationEmail: "t@t"}},
@@ -138,7 +144,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 		{
 			name:     "all autodiscovered, no TSA",
 			instance: func() *rhtasv1.Tuf { return noTSA() },
-			objects:  []client.Object{readyRekor(ns), readyCTlog(), readyFulcio(ns)},
+			objects:  []client.Object{readyRekor(), readyCTlog(), readyFulcio()},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1.Tuf, c client.Client) {
@@ -161,7 +167,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 			instance: func() *rhtasv1.Tuf {
 				return tufInstance(nil, nil, &[]rhtasv1.TrustRootBinding{})
 			},
-			objects: []client.Object{readyRekor(ns), readyCTlog(), readyFulcio(ns), readyTSA(ns)},
+			objects: []client.Object{readyRekor(), readyCTlog(), readyFulcio(), readyTSA(ns)},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1.Tuf, c client.Client) {
@@ -178,7 +184,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 				return tufInstance(
 					[]rhtasv1.TrustRootBinding{explicitBinding("my-secret", "pub")}, nil, nil)
 			},
-			objects: []client.Object{readyCTlog(), readyFulcio(ns), explicitSecret(ns, "my-secret", "pub")},
+			objects: []client.Object{readyCTlog(), readyFulcio(), explicitSecret(ns, "my-secret", "pub")},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1.Tuf, c client.Client) {
@@ -230,7 +236,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 				})
 				return instance
 			},
-			objects: []client.Object{readyRekor(ns), readyCTlog(), readyFulcio(ns)},
+			objects: []client.Object{readyRekor(), readyCTlog(), readyFulcio()},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1.Tuf, c client.Client) {
@@ -255,7 +261,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: trustroot.Fulcio.String(), Status: metav1.ConditionTrue, Reason: state.Ready.String()})
 				return instance
 			},
-			objects: []client.Object{readyRekor(ns), readyCTlog(), readyFulcio(ns)},
+			objects: []client.Object{readyRekor(), readyCTlog(), readyFulcio()},
 			want: want{
 				result: testAction.Continue(),
 				verify: func(g Gomega, instance *rhtasv1.Tuf, c client.Client) {
@@ -273,7 +279,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Pending.String()},
 					}},
 				},
-				readyCTlog(), readyFulcio(ns),
+				readyCTlog(), readyFulcio(),
 			},
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),
@@ -285,7 +291,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 		{
 			name:     "no component instance — requeue",
 			instance: func() *rhtasv1.Tuf { return noTSA() },
-			objects:  []client.Object{readyCTlog(), readyFulcio(ns)},
+			objects:  []client.Object{readyCTlog(), readyFulcio()},
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),
 				verify: func(g Gomega, instance *rhtasv1.Tuf, c client.Client) {
@@ -307,7 +313,7 @@ func TestResolveKeys_Handle(t *testing.T) {
 						},
 					},
 				},
-				readyCTlog(), readyFulcio(ns),
+				readyCTlog(), readyFulcio(),
 			},
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),

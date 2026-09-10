@@ -6,6 +6,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/serviceresolver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestCtlogResolver(t *testing.T) {
@@ -29,7 +30,12 @@ func TestCtlogResolver(t *testing.T) {
 					Namespace: "rhtas",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					Prefix: "trusted-artifact-signer",
+					Logs: []rhtasv1.CTLogConfig{
+						{
+							Prefix: "trusted-artifact-signer",
+							Active: ptr.To(true),
+						},
+					},
 				},
 			},
 			wantErr: true,
@@ -42,13 +48,22 @@ func TestCtlogResolver(t *testing.T) {
 					Namespace: "rhtas",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					Prefix: "trusted-artifact-signer",
+					Logs: []rhtasv1.CTLogConfig{{Prefix: "spec-prefix", Active: ptr.To(true)}},
 				},
 				Status: rhtasv1.CTlogStatus{
+					Logs:       []rhtasv1.CTlogLogStatus{{Prefix: "trusted-artifact-signer", Active: true}},
 					Conditions: []metav1.Condition{tlsResolved},
 				},
 			},
 			want: "http://ctlog.rhtas.svc/trusted-artifact-signer",
+		},
+		{
+			name: "TLS resolved without active status log returns error",
+			obj: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "rhtas"},
+				Status:     rhtasv1.CTlogStatus{Conditions: []metav1.Condition{tlsResolved}},
+			},
+			wantErr: true,
 		},
 		{
 			name: "https with TLS and prefix",
@@ -58,9 +73,10 @@ func TestCtlogResolver(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: rhtasv1.CTlogSpec{
-					Prefix: "logs/sigstore",
+					Logs: []rhtasv1.CTLogConfig{{Prefix: "spec-prefix", Active: ptr.To(true)}},
 				},
 				Status: rhtasv1.CTlogStatus{
+					Logs: []rhtasv1.CTlogLogStatus{{Prefix: "logs/sigstore", Active: true}},
 					TLS: rhtasv1.TLS{
 						CertRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-tls"},

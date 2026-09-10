@@ -2,7 +2,9 @@ package tree
 
 import (
 	"context"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"fmt"
 	"maps"
 	"slices"
@@ -53,6 +55,19 @@ func (i resolveTree[T]) Name() string {
 	return "resolve tree"
 }
 
+// resourceBase returns the name prefix used for this instance's createtree RBAC, Job,
+// and ConfigMap. When the instance tracks more than one tree (wrapper.GetDiscriminator
+// returns a non-empty value, e.g. a CTLog shard prefix), the prefix is used within the
+// name so that rotating the active tree can't collide with a previous tree's resources.
+func (i resolveTree[T]) resourceBase(instance T) string {
+	discriminator := i.wrapper(instance).GetDiscriminator()
+	if discriminator == "" {
+		return i.component
+	}
+	sum := sha256.Sum256([]byte(discriminator))
+	return fmt.Sprintf("%s-%s", i.component, hex.EncodeToString(sum[:8]))
+}
+
 func (i resolveTree[T]) CanHandle(ctx context.Context, instance T) bool {
 	wrapped := i.wrapper(instance)
 
@@ -96,7 +111,7 @@ func (i resolveTree[T]) handleManual(ctx context.Context, instance T) *action.Re
 
 func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Result {
 	var err error
-	rbacName := fmt.Sprintf(RBACNameMask, i.component)
+	rbacName := fmt.Sprintf(RBACNameMask, i.resourceBase(instance))
 
 	labels := labels.For("createtree", i.component, instance.GetName())
 
@@ -167,7 +182,7 @@ func (i resolveTree[T]) handleConfigMap(ctx context.Context, instance T) *action
 	// Needed for configMap clean-up
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(configMapResultMask, i.component, instance.GetName()),
+			Name:      fmt.Sprintf(configMapResultMask, i.resourceBase(instance), instance.GetName()),
 			Namespace: instance.GetNamespace(),
 		},
 	}
@@ -200,7 +215,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	labels := labels.For("createtree", i.component, instance.GetName())
 
-	configMapName := fmt.Sprintf(configMapResultMask, i.component, instance.GetName())
+	configMapName := fmt.Sprintf(configMapResultMask, i.resourceBase(instance), instance.GetName())
 	configMap, err := kubernetes.GetConfigMap(ctx, i.Client, instance.GetNamespace(), configMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -226,7 +241,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf(JobNameMask, i.component),
+			GenerateName: fmt.Sprintf(JobNameMask, i.resourceBase(instance)),
 			Namespace:    instance.GetNamespace(),
 		},
 	}
@@ -242,7 +257,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		job,
-		i.ensureJob(fmt.Sprintf(configMapResultMask, i.component, instance.GetName()), trillUrl, i.treeDisplayName, extraArgs...),
+		i.ensureJob(configMapName, trillUrl, i.treeDisplayName, fmt.Sprintf(RBACNameMask, i.resourceBase(instance)), extraArgs...),
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
 		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
 		func(object *batchv1.Job) error {
@@ -298,7 +313,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 		err     error
 	)
 
-	configMapName := fmt.Sprintf(configMapResultMask, i.component, instance.GetName())
+	configMapName := fmt.Sprintf(configMapResultMask, i.resourceBase(instance), instance.GetName())
 	configMap, err := kubernetes.GetConfigMap(ctx, i.Client, instance.GetNamespace(), configMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -347,7 +362,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) *action.Result {
 	wrapped := i.wrapper(instance)
 
-	configMapName := fmt.Sprintf(configMapResultMask, i.component, instance.GetName())
+	configMapName := fmt.Sprintf(configMapResultMask, i.resourceBase(instance), instance.GetName())
 	configMap, err := kubernetes.GetConfigMap(ctx, i.Client, instance.GetNamespace(), configMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -376,7 +391,7 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 	}
 }
 
-func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName string, extraArgs ...string) func(*batchv1.Job) error {
+func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName, saName string, extraArgs ...string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 
 		spec := &job.Spec
@@ -386,7 +401,7 @@ func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName string, extr
 		spec.BackoffLimit = utils.Pointer[int32](5)
 
 		templateSpec := &spec.Template.Spec
-		templateSpec.ServiceAccountName = fmt.Sprintf(RBACNameMask, i.component)
+		templateSpec.ServiceAccountName = saName
 		templateSpec.RestartPolicy = "OnFailure"
 
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, createTreeContainerName)

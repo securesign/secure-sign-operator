@@ -3,12 +3,14 @@ package actions
 import (
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
@@ -27,11 +29,30 @@ func createCTLogInstance() *rhtasv1.CTlog {
 			Trillian: rhtasv1.ServiceReference{
 				URL: "trillian-logserver.default.svc:8091",
 			},
-			Prefix: "trusted-artifact-signer",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					LogId:  ptr.To(int64(123456)),
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{Type: "file"},
+					RootCerts: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+					},
+				},
+			},
 		},
 		Status: rhtasv1.CTlogStatus{
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
-			TreeID:          ptr.To(int64(123456)),
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					LogId:  ptr.To(int64(123456)),
+					Active: true,
+				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Ready.String()},
+			},
 		},
 	}
 }
@@ -237,8 +258,8 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: rhtasv1.SecretKeySelector{
@@ -288,8 +309,8 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 
 	// First, create a deployment in PKCS#11 mode
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: rhtasv1.SecretKeySelector{
@@ -310,8 +331,8 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 		"precondition: hsm-lib should be present in PKCS#11 mode")
 
 	// Now switch to file mode and re-apply the deployment ensures
-	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	l := labels.For(ComponentName, DeploymentName, instance.Name)
 	action := deployAction{}
@@ -346,8 +367,8 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
-	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
 		PinSecretRef: rhtasv1.SecretKeySelector{
@@ -411,4 +432,126 @@ func TestCTLogOperatorVolumePrecedence(t *testing.T) {
 	g.Expect(keysVol.Secret).ShouldNot(BeNil(), "keys volume should have Secret source (operator wins)")
 	g.Expect(keysVol.Secret.SecretName).Should(Equal("ctlog-config"))
 	g.Expect(keysVol.EmptyDir).Should(BeNil(), "keys volume should NOT have EmptyDir source")
+}
+
+// TestCTLogPKCS11ConflictingModulePaths verifies that multiple PKCS#11 logs with
+// different module paths are rejected (since CTFE only supports a single --pkcs11_module_path).
+func TestCTLogPKCS11ConflictingModulePaths(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+
+	// Configure first log with PKCS#11
+	instance.Spec.Logs[0].Prefix = "log-1"
+	instance.Spec.Logs[0].Signer = &rhtasv1.CTlogSigner{
+		Type: rhtasv1.SignerTypePKCS11,
+		PKCS11: &rhtasv1.CTlogPKCS11Config{
+			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+			TokenLabel: "token-1",
+			PinSecretRef: rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+				Key:                  "pin",
+			},
+			PublicKeyRef: rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+				Key:                  "public",
+			},
+		},
+	}
+
+	// Add second log with different PKCS#11 module path
+	instance.Spec.Logs = append(instance.Spec.Logs, rhtasv1.CTLogConfig{
+		LogId:  ptr.To(int64(789012)),
+		Prefix: "log-2",
+		Active: ptr.To(false),
+		Signer: &rhtasv1.CTlogSigner{
+			Type: rhtasv1.SignerTypePKCS11,
+			PKCS11: &rhtasv1.CTlogPKCS11Config{
+				ModulePath: "/usr/lib64/pkcs11/libsofthsm3.so", // Different path
+				TokenLabel: "token-2",
+				PinSecretRef: rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+					Key:                  "pin",
+				},
+				PublicKeyRef: rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+					Key:                  "public",
+				},
+			},
+		},
+		RootCerts: []rhtasv1.SecretKeySelector{
+			{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+		},
+	})
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).Should(HaveOccurred())
+	g.Expect(err.Error()).Should(ContainSubstring("conflicting PKCS#11 module paths"))
+	g.Expect(dp).Should(BeNil())
+}
+
+// TestCTLogPKCS11MultipleWithSameModulePath verifies that multiple PKCS#11 logs
+// with the same module path are accepted (only one --pkcs11_module_path arg is created).
+func TestCTLogPKCS11MultipleWithSameModulePath(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+
+	// Configure first log with PKCS#11
+	instance.Spec.Logs[0].Prefix = "log-1"
+	instance.Spec.Logs[0].Signer = &rhtasv1.CTlogSigner{
+		Type: rhtasv1.SignerTypePKCS11,
+		PKCS11: &rhtasv1.CTlogPKCS11Config{
+			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+			TokenLabel: "token-1",
+			PinSecretRef: rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+				Key:                  "pin",
+			},
+			PublicKeyRef: rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+				Key:                  "public",
+			},
+		},
+	}
+
+	// Add second log with same PKCS#11 module path
+	instance.Spec.Logs = append(instance.Spec.Logs, rhtasv1.CTLogConfig{
+		LogId:  ptr.To(int64(789012)),
+		Prefix: "log-2",
+		Active: ptr.To(false),
+		Signer: &rhtasv1.CTlogSigner{
+			Type: rhtasv1.SignerTypePKCS11,
+			PKCS11: &rhtasv1.CTlogPKCS11Config{
+				ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so", // Same path as log-1
+				TokenLabel: "token-2",
+				PinSecretRef: rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+					Key:                  "pin",
+				},
+				PublicKeyRef: rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+					Key:                  "public",
+				},
+			},
+		},
+		RootCerts: []rhtasv1.SecretKeySelector{
+			{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+		},
+	})
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify only one --pkcs11_module_path arg exists
+	container := dp.Spec.Template.Spec.Containers[0]
+	var pkcs11Args []string
+	for _, arg := range container.Args {
+		if strings.HasPrefix(arg, "--pkcs11_module_path=") {
+			pkcs11Args = append(pkcs11Args, arg)
+		}
+	}
+	g.Expect(pkcs11Args).Should(HaveLen(1))
+	g.Expect(pkcs11Args[0]).Should(Equal("--pkcs11_module_path=/var/run/hsm-lib/libsofthsm2.so"))
 }

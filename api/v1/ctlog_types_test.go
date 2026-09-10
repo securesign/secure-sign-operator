@@ -35,7 +35,7 @@ var _ = Describe("CTlog", func() {
 			Expect(fetched).To(Equal(created))
 
 			var id int64 = 1234567890123456789
-			fetched.Spec.TreeID = &id
+			fetched.Spec.Logs[0].LogId = &id
 			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 		})
 
@@ -102,7 +102,7 @@ var _ = Describe("CTlog", func() {
 		Context("is validated", func() {
 			It("publicKeyRef requires privateKeyRef", func() {
 				invalidObject := generateMinimalCTlog("public-key-invalid")
-				invalidObject.Spec.Signer.File = &CTlogFile{
+				invalidObject.Spec.Logs[0].Signer.File = &CTlogFile{
 					PublicKeyRef: &SecretKeySelector{
 						Key:                  "key",
 						LocalObjectReference: LocalObjectReference{Name: "name"},
@@ -111,7 +111,7 @@ var _ = Describe("CTlog", func() {
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
+					To(MatchError(ContainSubstring("privateKeyRef is required")))
 			})
 
 			When("replicas", func() {
@@ -146,35 +146,42 @@ var _ = Describe("CTlog", func() {
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
 				tree := int64(1269875)
+				t := true
 				ctlogInstance := CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "ctlog-full-manifest",
 						Namespace: "default",
 					},
 					Spec: CTlogSpec{
-						TreeID: &tree,
-						Signer: CTlogSigner{
-							Type: "file",
-							File: &CTlogFile{
-								PublicKeyRef: &SecretKeySelector{
-									Key: "key",
-									LocalObjectReference: LocalObjectReference{
-										Name: "name",
-									},
-								},
-								PrivateKeyRef: &SecretKeySelector{
-									Key: "key",
-									LocalObjectReference: LocalObjectReference{
-										Name: "name",
-									},
-								},
-							},
-						},
-						RootCertificates: []SecretKeySelector{
+						Logs: []CTLogConfig{
 							{
-								Key: "key",
-								LocalObjectReference: LocalObjectReference{
-									Name: "name",
+								LogId:  &tree,
+								Prefix: "log",
+								Active: &t,
+								Signer: &CTlogSigner{
+									Type: "file",
+									File: &CTlogFile{
+										PublicKeyRef: &SecretKeySelector{
+											Key: "key",
+											LocalObjectReference: LocalObjectReference{
+												Name: "name",
+											},
+										},
+										PrivateKeyRef: &SecretKeySelector{
+											Key: "key",
+											LocalObjectReference: LocalObjectReference{
+												Name: "name",
+											},
+										},
+									},
+								},
+								RootCerts: []SecretKeySelector{
+									{
+										Key: "key",
+										LocalObjectReference: LocalObjectReference{
+											Name: "name",
+										},
+									},
 								},
 							},
 						},
@@ -198,7 +205,13 @@ func generateMinimalCTlog(name string) *CTlog {
 			Namespace: "default",
 		},
 		Spec: CTlogSpec{
-			Signer: CTlogSigner{Type: "file"},
+			Logs: []CTLogConfig{
+				{
+					Prefix: "log",
+					Active: ptr.To(true),
+					Signer: &CTlogSigner{Type: "file"},
+				},
+			},
 		},
 	}
 }

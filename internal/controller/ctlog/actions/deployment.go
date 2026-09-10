@@ -104,10 +104,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
+		activeLog := ctlogutils.ActiveLogStatus(instance.Status.Logs)
 		switch {
 		case instance.Status.ServerConfigRef == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrServerConfigNotSpecified)
-		case instance.Status.TreeID == nil:
+		case activeLog == nil || activeLog.LogId == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTreeNotSpecified)
 		}
 
@@ -141,14 +142,30 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			metricsPort.Protocol = core.ProtocolTCP
 		}
 
-		isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
-
-		if isPKCS11 {
-			p := instance.Spec.Signer.PKCS11
-			if p == nil {
-				return fmt.Errorf("PKCS#11 config not yet resolved")
+		isPKCS11 := false
+		var pkcs11ModulePath string
+		for _, log := range instance.Spec.Logs {
+			if log.Signer != nil && log.Signer.Type == rhtasv1.SignerTypePKCS11 {
+				isPKCS11 = true
+				if log.Signer.PKCS11 == nil {
+					return fmt.Errorf("PKCS#11 config not yet resolved for log %s", log.Prefix)
+				}
+				// Validate that all PKCS#11 logs use the same full module path
+				// (CTFE only supports a single process-wide --pkcs11_module_path)
+				// Compare full paths to catch distinct source paths with the same basename
+				currentPath := log.Signer.PKCS11.ModulePath
+				if pkcs11ModulePath == "" {
+					pkcs11ModulePath = currentPath
+				} else if pkcs11ModulePath != currentPath {
+					return fmt.Errorf(
+						"conflicting PKCS#11 module paths: log %q uses %q but another log uses %q (all PKCS#11 logs must use the same module path)",
+						log.Prefix, currentPath, pkcs11ModulePath)
+				}
 			}
-			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(p.ModulePath))
+		}
+
+		if isPKCS11 && pkcs11ModulePath != "" {
+			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(pkcs11ModulePath))
 			appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
 		}
 

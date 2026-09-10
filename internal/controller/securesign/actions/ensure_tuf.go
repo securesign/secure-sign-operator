@@ -59,6 +59,17 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *ac
 			defaulted := instance.Spec.Tuf.DeepCopy()
 			defaulted.SetDefaults()
 			object.Spec = *defaulted
+			// Auto-wire CTlog binding if not explicitly set.
+			// CTlog is always required; the Ref must point to the CTlog resource
+			// so TUF's watch can trigger reconciliation when CTlog status changes.
+			// ref and url are mutually exclusive, so clear URL when setting Ref.
+			if len(object.Spec.Ctlog) > 0 && object.Spec.Ctlog[0].Ref == nil && object.Spec.Ctlog[0].URL != "" {
+				object.Spec.Ctlog[0].Ref = &rhtasv1.ServiceReferenceRef{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				}
+				object.Spec.Ctlog[0].URL = ""
+			}
 			return nil
 		},
 	); err != nil {

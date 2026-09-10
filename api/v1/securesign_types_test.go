@@ -54,7 +54,15 @@ var _ = Describe("Securesign", func() {
 
 		It("empty ctlog", func() {
 			obj := generateMinimalSecuresign("ss-empty-ctlog")
-			obj.Spec.Ctlog = CTlogSpec{Signer: CTlogSigner{Type: "file"}}
+			obj.Spec.Ctlog = CTlogSpec{
+				Logs: []CTLogConfig{
+					{
+						Prefix: "log",
+						Active: ptr.To(true),
+						Signer: &CTlogSigner{Type: "file"},
+					},
+				},
+			}
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 		})
 
@@ -62,6 +70,24 @@ var _ = Describe("Securesign", func() {
 			obj := generateMinimalSecuresign("ss-no-tsa")
 			obj.Spec.TimestampAuthority = nil
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+		})
+
+		It("embedded ctlog receives defaults for active log", func() {
+			// Regression test: minimal SecureSign with empty CTlog should receive
+			// defaults through SetDefaults webhook, creating the required active log
+			obj := generateMinimalSecuresign("ss-embedded-ctlog-defaults")
+			obj.Spec.Ctlog = CTlogSpec{}
+			// Should not fail validation because SetDefaults creates active log
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+			fetched := &Securesign{}
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), fetched)).To(Succeed())
+			// Verify defaults were applied
+			Expect(fetched.Spec.Ctlog.Logs).To(HaveLen(1))
+			Expect(fetched.Spec.Ctlog.Logs[0].Prefix).To(Equal("trusted-artifact-signer"))
+			Expect(fetched.Spec.Ctlog.Logs[0].Active).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Ctlog.Logs[0].Signer).NotTo(BeNil())
+			Expect(fetched.Spec.Ctlog.Logs[0].Signer.Type).To(Equal(SignerTypeFile))
 		})
 	})
 
@@ -172,7 +198,12 @@ var _ = Describe("Securesign", func() {
 						Signer: FulcioSigner{Type: "file"},
 					},
 					Ctlog: CTlogSpec{
-						Signer: CTlogSigner{Type: "file"},
+						Logs: []CTLogConfig{
+							{
+								Prefix: "log",
+								Signer: &CTlogSigner{Type: "file"},
+							},
+						},
 					},
 				},
 			}
@@ -297,7 +328,13 @@ func generateMinimalSecuresign(name string) *Securesign {
 				},
 			},
 			Ctlog: CTlogSpec{
-				Signer: CTlogSigner{Type: "file"},
+				Logs: []CTLogConfig{
+					{
+						Prefix: "log",
+						Active: ptr.To(true),
+						Signer: &CTlogSigner{Type: "file"},
+					},
+				},
 			},
 		},
 	}

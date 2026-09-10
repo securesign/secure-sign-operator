@@ -259,6 +259,7 @@ func main() {
 		},
 	}
 
+	const clusterResourceName = "cluster"
 	if kubernetes.IsOpenShift() {
 		// Configure the manager's cache.
 		// We must explicitly configure the cache for config.openshift.io/ingresses to watch only the "cluster" resource.
@@ -266,7 +267,7 @@ func main() {
 		// cluster-wide list is forbidden.
 		cacheOpts.ByObject[&configv1.Ingress{}] = cache.ByObject{
 			Field: fields.SelectorFromSet(fields.Set{
-				"metadata.name": "cluster",
+				"metadata.name": clusterResourceName,
 			}),
 		}
 		if !appconfig.DisableClusterTLSProfile {
@@ -275,7 +276,7 @@ func main() {
 			// full cluster-wide list would be forbidden.
 			cacheOpts.ByObject[&configv1.APIServer{}] = cache.ByObject{
 				Field: fields.SelectorFromSet(fields.Set{
-					"metadata.name": "cluster",
+					"metadata.name": clusterResourceName,
 				}),
 			}
 		}

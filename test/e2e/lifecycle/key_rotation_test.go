@@ -146,14 +146,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					Key: "cert",
 				}
 
-				f.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
-					{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: secretName,
-						},
-						Key: "cert",
-					},
-				}
+				// RootCertificates now moved to Logs[0].RootCerts in the updated call below
 
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
@@ -259,10 +252,38 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	})
 
 	Describe("Update transparency log", func() {
+		var oldCtlogPub []byte
+		It("Download ctlog public key", func(ctx SpecContext) {
+			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(c).ToNot(BeNil())
+
+			var err error
+			var activePublicKeyRef *rhtasv1.SecretKeySelector
+			for _, log := range c.Status.Logs {
+				if log.Active {
+					activePublicKeyRef = log.PublicKeyRef
+					break
+				}
+			}
+			Expect(activePublicKeyRef).ToNot(BeNil())
+			oldCtlogPub, err = kubernetes.GetSecretData(ctx, cli, s.Namespace, activePublicKeyRef)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldCtlogPub).ToNot(BeEmpty())
+		})
+
 		It("Update ctlog keys", func(ctx SpecContext) {
 			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(c).ToNot(BeNil())
-			oldTreeId := c.Status.TreeID
+			// Get LogId from active log in Status.Logs
+			var activeLog *rhtasv1.CTlogLogStatus
+			for i := range c.Status.Logs {
+				if c.Status.Logs[i].Active {
+					activeLog = &c.Status.Logs[i]
+					break
+				}
+			}
+			Expect(activeLog).ToNot(BeNil())
+			oldTreeId := activeLog.LogId
 			Expect(oldTreeId).ToNot(BeNil())
 
 			oldConfig, err := ctlog.GetConfigSecret(ctx, cli, s.Namespace, c.Status.ServerConfigRef.Name)
@@ -332,36 +353,79 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			configdata, err := prototext.Marshal(cfg)
 			Expect(err).ToNot(HaveOccurred())
 			newCtlConfig.Data["config"] = configdata
-			newCtlConfig.Data["fulcio-0"] = oldConfig.Data["fulcio-0"]
-			newCtlConfig.Data["private-0"] = oldConfig.Data["private"]
-			newCtlConfig.Data["public-0"] = oldConfig.Data["public"]
+			newCtlConfig.Data["fulcio-0"] = oldConfig.Data[fmt.Sprintf("log-%d-root-0", *oldTreeId)]
+			newCtlConfig.Data["private-0"] = oldConfig.Data[fmt.Sprintf("log-%d-private", *oldTreeId)]
+			newCtlConfig.Data["public-0"] = oldCtlogPub
 
 			Expect(cli.Create(ctx, newCtlConfig)).To(Succeed())
 
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
-				f.Spec.Ctlog.ServerConfigRef = &rhtasv1.LocalObjectReference{
-					Name: secretName,
-				}
 
-				f.Spec.Ctlog.TreeID = &newTreeId
-
-				if f.Spec.Ctlog.Signer.File == nil {
-					f.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
-				}
-				f.Spec.Ctlog.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
+				// Update CTlog spec to use new Logs array structure with active and frozen shards
+				f.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
+					{
+						LogId:  ptr.To(newTreeId),
+						Prefix: "trusted-artifact-signer",
+						Active: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "private",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "public",
+								},
+							},
+						},
+						RootCerts: []rhtasv1.SecretKeySelector{
+							{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: secretName,
+								},
+								Key: "cert",
+							},
+						},
 					},
-					Key: "private",
+					{
+						LogId:    ptr.To(*oldTreeId),
+						Prefix:   "shard-0",
+						Readonly: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "private-0",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "public-0",
+								},
+							},
+						},
+						RootCerts: []rhtasv1.SecretKeySelector{
+							{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: secretName,
+								},
+								Key: "fulcio-0",
+							},
+						},
+					},
 				}
 
-				f.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "public",
-				}
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
 			Eventually(func(g Gomega) bool {

@@ -41,6 +41,9 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 		restored.Spec.Ctlog[0].URL == "" && dst.Spec.Ctlog[0].URL == "///trusted-artifact-signer" { //nolint:goconst
 		dst.Spec.Ctlog[0].URL = ""
 	}
+	// Note: v1alpha1 has static prefix binding (https://github.com/securesign/operator/blob/main/api/v1alpha1/common.go#L91)
+	// Users don't expect autoloading in v1alpha1, so we preserve the static prefix-based URL.
+	// CTlog instance can have a different name than the Tuf resource, so we don't auto-set Ref here.
 	restoreBindingRef(dst.Spec.Ctlog, restored.Spec.Ctlog)
 	if len(dst.Spec.Fulcio) > 0 && len(restored.Spec.Fulcio) > 0 {
 		if dst.Spec.Fulcio[0].URL == "" {

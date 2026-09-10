@@ -4,12 +4,19 @@ func (s *Securesign) SetDefaults() {
 	// keep securesign minimal - component defaults are handled by sub-resource webhooks
 	// exception: irreversible fields defaulted to true must be defaulted here so
 	// CEL transition rules fire at the Securesign level, not only on the child resource
+	s.Spec.Ctlog.SetDefaults()
 	s.Spec.Rekor.Attestations.SetDefaults()
 	s.Spec.Rekor.BackFillRedis.SetDefaults()
 
 	// bind all services together if created by Securesign umbrella
 	if s.Spec.Ctlog.Trillian.URL == "" && s.Spec.Ctlog.Trillian.Ref == nil {
 		s.Spec.Ctlog.Trillian.Ref = &ServiceReferenceRef{
+			Name:      s.Name,
+			Namespace: s.Namespace,
+		}
+	}
+	if s.Spec.Ctlog.Fulcio.URL == "" && s.Spec.Ctlog.Fulcio.Ref == nil {
+		s.Spec.Ctlog.Fulcio.Ref = &ServiceReferenceRef{
 			Name:      s.Name,
 			Namespace: s.Namespace,
 		}
