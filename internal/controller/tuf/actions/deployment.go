@@ -110,6 +110,14 @@ func (i deployAction) createTufDeployment(instance *rhtasv1.Tuf, sa string, labe
 		// let user upload manual update using `oc rsync` command
 		volumeMount.ReadOnly = false
 
+		// Rotate mod_security audit log to prevent unbounded disk growth.
+		// Keeps at most 3 files of 10MB each (<=30MB total); oldest is deleted on rotation.
+		container.Command = []string{"/bin/sh", "-c", `
+sed -i 's#SecAuditLog /var/log/httpd/modsec_audit.log#SecAuditLog "|/usr/sbin/rotatelogs -n 3 /var/log/httpd/modsec_audit.log 10M"#' /etc/httpd/conf.d/mod_security.conf
+grep -q rotatelogs /etc/httpd/conf.d/mod_security.conf || { echo "ERROR: failed to configure mod_security audit log rotation" >&2; exit 1; }
+exec run-httpd
+`}
+
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &core.Probe{}
 		}
