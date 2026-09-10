@@ -22,7 +22,6 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
-// +kubebuilder:validation:XValidation:rule="self.logs.filter(x, has(x.active) && x.active == true).size() == 1",message="exactly one log should be active"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
@@ -31,6 +30,7 @@ type CTlogSpec struct {
 	// Each entry represents either the active log or a frozen shard.
 	// +required
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:XValidation:rule="self.filter(x, has(x.active) && x.active == true).size() == 1",message="exactly one log should be active"
 	// +listType=map
 	// +listMapKey=prefix
 	// +patchStrategy=merge

@@ -70,7 +70,7 @@ func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *a
 			}
 		}
 		if !found {
-			a.Logger.Info("Log removed from status (was present but not in spec)", "prefix", statusLog.Prefix)
+			a.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "LogRemoved", "StatusUpdate", "log %q removed from status (was present but not in spec)", statusLog.Prefix)
 		}
 	}
 	instance.Status.Logs = desired

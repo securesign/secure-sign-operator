@@ -162,17 +162,11 @@ func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	// Watch CTlog resources since TUF's trust root resolver depends on the active
-	// log's status (PublicKey) and spec (Prefix). Active log rotations must trigger
-	// TUF reconciliation to keep published trust material and addresses up-to-date.
-	// NOTE: TUF CR watching/updating is not currently supported. Trustmaterial or URL updates
-	// must be done manually directly on the TUF pod.
-	err = ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Tuf{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Tuf]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
 		Complete(r)
-	return err
 }

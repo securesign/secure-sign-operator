@@ -2100,6 +2100,10 @@ spec:
                     x-kubernetes-list-map-keys:
                     - prefix
                     x-kubernetes-list-type: map
+                    x-kubernetes-validations:
+                    - message: exactly one log should be active
+                      rule: self.filter(x, has(x.active) && x.active == true).size()
+                        == 1
                   maxCertChainSize:
                     description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
                     format: int64
@@ -3267,10 +3271,6 @@ spec:
                 required:
                 - logs
                 type: object
-                x-kubernetes-validations:
-                - message: exactly one log should be active
-                  rule: self.logs.filter(x, has(x.active) && x.active == true).size()
-                    == 1
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio
                 properties:
