@@ -13,11 +13,19 @@ import (
 var MigrationSearchUIData = migration.Key("v1alpha1", "rekorSearchUI")
 
 func Convert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *rhtasv1.RekorStatus, out *RekorStatus, s apiconversion.Scope) error {
-	return autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in, out, s)
+	if err := autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
 }
 
 func Convert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *rhtasv1.RekorStatus, s apiconversion.Scope) error {
-	return autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in, out, s)
+	if err := autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
 }
 
 func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.RekorSpec, s apiconversion.Scope) error {
@@ -40,8 +48,36 @@ func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *rhtasv1.RekorSpec, out *Reko
 	return Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Attestations.Pvc, &out.Pvc, s)
 }
 
+func Convert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(in *RekorAttestations, out *rhtasv1.RekorAttestations, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
 func Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *rhtasv1.RekorAttestations, out *RekorAttestations, s apiconversion.Scope) error {
-	return autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in, out, s)
+	if err := autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
+}
+
+func Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(in *SearchIndex, out *rhtasv1.SearchIndex, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_SearchIndex_To_v1_SearchIndex(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
+func Convert_v1_SearchIndex_To_v1alpha1_SearchIndex(in *rhtasv1.SearchIndex, out *SearchIndex, s apiconversion.Scope) error {
+	if err := autoConvert_v1_SearchIndex_To_v1alpha1_SearchIndex(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
 }
 
 func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {

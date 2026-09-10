@@ -304,14 +304,7 @@ func (i serverConfig) buildPKCS11Config(
 	if p == nil {
 		return nil, fmt.Errorf("PKCS#11 config is nil")
 	}
-	if p.PinSecretRef == nil {
-		return nil, fmt.Errorf("pinSecretRef is required for PKCS#11 signer")
-	}
-	if p.PublicKeyRef == nil {
-		return nil, fmt.Errorf("publicKeyRef is required for PKCS#11 signer")
-	}
-
-	pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PinSecretRef)
+	pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &p.PinSecretRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read PIN secret: %w", err)
 	}
@@ -319,7 +312,7 @@ func (i serverConfig) buildPKCS11Config(
 		return nil, fmt.Errorf("PIN secret %s/%s is empty", p.PinSecretRef.Name, p.PinSecretRef.Key)
 	}
 
-	publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PublicKeyRef)
+	publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &p.PublicKeyRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public key secret: %w", err)
 	}

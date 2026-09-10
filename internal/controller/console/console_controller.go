@@ -144,7 +144,7 @@ func (r *consoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					if !ok1 || !ok2 {
 						return true
 					}
-					return oldC.Status.Url != newC.Status.Url
+					return oldC.Status.URL != newC.Status.URL
 				},
 			},
 			tasPredicate.ConditionChangedPredicate[*rhtasv1.Rekor](constants.ReadyCondition),

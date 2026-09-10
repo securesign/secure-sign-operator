@@ -165,31 +165,31 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 
 		It("Use cosign cli", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		})
 
 		It("ctlog remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, ctlogactions.ComponentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 			})
 		})
 		It("fulcio remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, fulcioactions.DeploymentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 			})
 		})
 		It("rekor remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.ServerComponentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 			})
 		})
 		It("trillian-logserver remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, trillianactions.LogServerComponentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 			})
 		})
 		It("trillian-signer elects a new leader when a pod is deleted", func(ctx SpecContext) {
@@ -221,13 +221,13 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		It("Tsa remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, tsaactions.DeploymentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 			})
 		})
 		It("TUF remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, constants.ComponentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 			})
 		})
 	})

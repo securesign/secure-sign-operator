@@ -9,7 +9,7 @@ import (
 
 type FulcioDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-fulcio,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=fulcios,verbs=create;update,versions=v1,name=mfulcio.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
+// +kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-fulcio,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=fulcios,verbs=create;update,versions=v1,name=mfulcio.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
 
 func SetupFulcioWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Fulcio{}).

@@ -155,10 +155,10 @@ var _ = Describe("Securesign install with PKCS#11/HSM signer", Ordered, func() {
 		It("cosign sign and verify", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 			tas.VerifyByCosign(ctx, targetImageName,
-				s.Status.TufStatus.Url,
-				s.Status.FulcioStatus.Url,
-				s.Status.RekorStatus.Url,
-				s.Status.TSAStatus.Url,
+				s.Status.TufStatus.URL,
+				s.Status.FulcioStatus.URL,
+				s.Status.RekorStatus.URL,
+				s.Status.TSAStatus.URL,
 			)
 		})
 	})

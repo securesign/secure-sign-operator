@@ -436,20 +436,14 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*v1.
 
 		pkcs11Cfg := instance.Spec.Signer.PKCS11
 		configRef := pkcs11Cfg.ConfigRef
-		if configRef == nil {
-			return fmt.Errorf("PKCS#11 configRef not yet resolved")
-		}
 
 		container.Args = append(container.Args,
 			"--ca=pkcs11ca",
 			fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configRef.Key),
 			fmt.Sprintf("--aws-hsm-root-ca-path=%s/%s",
 				PKCS11CertMountPath, instance.Status.Certificate.CARef.Key),
+			fmt.Sprintf("--hsm-caroot-id=%d", pkcs11Cfg.KeyID),
 		)
-		if pkcs11Cfg.KeyID != nil {
-			container.Args = append(container.Args,
-				fmt.Sprintf("--hsm-caroot-id=%d", *pkcs11Cfg.KeyID))
-		}
 
 		// PKCS#11-specific volume mounts
 		pkcs11ConfigMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11ConfigVolumeName)

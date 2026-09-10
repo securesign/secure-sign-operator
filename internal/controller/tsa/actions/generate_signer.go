@@ -54,13 +54,13 @@ func isEnabled(instance *rhtasv1.TimestampAuthority) bool {
 func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c client.Client) (*rhtasv1.SecretKeySelector, error) {
 	if instance.Spec.Signer.CertificateChain.CertificateChainRef != nil &&
 		instance.Spec.Signer.File != nil &&
-		instance.Spec.Signer.File.PrivateKeyRef == nil {
+		instance.Spec.Signer.File.PrivateKeyRef.Name == "" {
 		return nil, reconcile.TerminalError(ErrMissingPrivateKey)
 	}
 	if instance.Spec.Signer.CertificateChain.CertificateChainRef != nil &&
 		instance.Spec.Signer.File != nil &&
-		instance.Spec.Signer.File.PrivateKeyRef != nil {
-		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef); err != nil {
+		instance.Spec.Signer.File.PrivateKeyRef.Name != "" {
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, &instance.Spec.Signer.File.PrivateKeyRef); err != nil {
 			return nil, err
 		}
 		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.CertificateChain.CertificateChainRef); err != nil {

@@ -208,7 +208,7 @@ func Test_NTPHandle(t *testing.T) {
 				err = cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, instance)
 				g.Expect(err).NotTo(HaveOccurred(), "Error re-fetching instance")
 
-				g.Expect(instance.Spec.NTPMonitoring.Config.NumServers).To(Equal(2), "NumServers mismatch")
+				g.Expect(instance.Spec.NTPMonitoring.Config.NumServers).To(BeNumerically("==", 2), "NumServers mismatch")
 
 				cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())

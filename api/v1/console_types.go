@@ -25,72 +25,79 @@ import (
 type ConsoleSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// Configuration for Console UI service
+	// +optional
 	UI ConsoleUI `json:"ui,omitempty"`
 	// Configuration for Console Api service
+	// +optional
 	Api ConsoleAPI `json:"api,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
-	//+optional
+	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 type ConsoleUI struct {
 	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
 	// Rekor service configuration
-	//+optional
-	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
 	Rekor ServiceReference `json:"rekor,omitempty"`
 }
 
 type ConsoleAPI struct {
 	PodRequirements `json:",inline"`
 	// TUF service configuration
-	//+optional
-	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
 	Tuf ServiceReference `json:"tuf,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
-	//+optional
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 }
 
 type ConsoleAPIStatus struct {
+	// +optional
 	TLS TLS `json:"tls,omitempty"`
 }
 
 type ConsoleUIStatus struct {
-	Url string `json:"url,omitempty"`
+	// +optional
+	URL string `json:"url,omitempty"`
 }
 
 // ConsoleStatus defines the observed state of the Console
 type ConsoleStatus struct {
-	Api ConsoleAPIStatus `json:"api,omitempty"`
-	UI  ConsoleUIStatus  `json:"ui,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
+	Api ConsoleAPIStatus `json:"api,omitempty"`
+	// +optional
+	UI ConsoleUIStatus `json:"ui,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
-//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.ui.url`,description="The component url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.ui.url`,description="The component url"
 
 // Console is the Schema for the consoles API
 type Console struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   ConsoleSpec   `json:"spec,omitempty"`
-	Status ConsoleStatus `json:"status,omitempty"`
+	Spec   ConsoleSpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
+	Status ConsoleStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ConsoleList contains a list of the Console
 type ConsoleList struct {

@@ -206,7 +206,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 
 		It("verify by cosign", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		})
 	})
 })

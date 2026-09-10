@@ -266,7 +266,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.CTlogStatus{
-					Url: "https://ctlog.rhtas.example.com/trusted-artifact-signer",
+					URL: "https://ctlog.rhtas.example.com/trusted-artifact-signer",
 				},
 			},
 			spoke: &CTlog{
@@ -343,7 +343,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.CTlogStatus{
-					Url: "http://ctlog.default.svc/trusted-artifact-signer",
+					URL: "http://ctlog.default.svc/trusted-artifact-signer",
 				},
 			},
 			spoke: &CTlog{
@@ -404,7 +404,7 @@ func TestRekorConversionUnit(t *testing.T) {
 					Trillian: rhtasv1.ServiceReference{URL: "trillian:8091"},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
-						Url:     "file:///var/run/attestations?no_tmp_dir=true",
+						URL:     "file:///var/run/attestations?no_tmp_dir=true",
 						Pvc: rhtasv1.Pvc{
 							Size:   ptr.To(resource.MustParse("5Gi")),
 							Retain: ptr.To(true),
@@ -646,7 +646,7 @@ func TestFulcioConversionUnit(t *testing.T) {
 				},
 				Status: rhtasv1.FulcioStatus{
 					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "fulcio-config"},
-					Url:             "https://fulcio.rhtas.example.com",
+					URL:             "https://fulcio.rhtas.example.com",
 					Certificate: &rhtasv1.FulcioCertStatus{
 						PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "private"},
 						PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "password"},
@@ -944,7 +944,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 					NTPMonitoring: rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 				},
 				Status: rhtasv1.TimestampAuthorityStatus{
-					Url: "https://tsa.rhtas.example.com/api/v1/timestamp",
+					URL: "https://tsa.rhtas.example.com/api/v1/timestamp",
 					Signer: &rhtasv1.TimestampAuthoritySignerStatus{
 						CertificateChainRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain-secret"},
@@ -1069,7 +1069,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 						Tink: &rhtasv1.Tink{
 							KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
-							KeysetRef: &rhtasv1.SecretKeySelector{
+							KeysetRef: rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-keyset"},
 								Key:                  "keyset.json",
 							},

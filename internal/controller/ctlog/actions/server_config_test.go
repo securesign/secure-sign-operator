@@ -1093,13 +1093,13 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Signer: rhtasv1.CTlogSigner{
 							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: &rhtasv1.SecretKeySelector{
+								PinSecretRef: rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 									Key:                  "pin",
 								},
 								TokenLabel: "test-token",
 								ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: &rhtasv1.SecretKeySelector{
+								PublicKeyRef: rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
 								},
@@ -1168,10 +1168,10 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Signer: rhtasv1.CTlogSigner{
 							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: nil,
+								PinSecretRef: rhtasv1.SecretKeySelector{},
 								TokenLabel:   "test-token",
 								ModulePath:   "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: &rhtasv1.SecretKeySelector{
+								PublicKeyRef: rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
 								},
@@ -1228,13 +1228,13 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Signer: rhtasv1.CTlogSigner{
 							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: &rhtasv1.SecretKeySelector{
+								PinSecretRef: rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 									Key:                  "pin",
 								},
 								TokenLabel:   "test-token",
 								ModulePath:   "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: nil,
+								PublicKeyRef: rhtasv1.SecretKeySelector{},
 							},
 						},
 					},
@@ -1289,13 +1289,13 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Signer: rhtasv1.CTlogSigner{
 							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
-								PinSecretRef: &rhtasv1.SecretKeySelector{
+								PinSecretRef: rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 									Key:                  "pin",
 								},
 								TokenLabel: "test-token",
 								ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-								PublicKeyRef: &rhtasv1.SecretKeySelector{
+								PublicKeyRef: rhtasv1.SecretKeySelector{
 									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 									Key:                  "public",
 								},

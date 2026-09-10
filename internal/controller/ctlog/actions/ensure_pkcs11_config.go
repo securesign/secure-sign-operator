@@ -69,7 +69,7 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 	}
 
 	// Validate PinSecretRef
-	if err := a.validateSecretRef(ctx, instance, p.PinSecretRef, "spec.signer.pkcs11.pinSecretRef"); err != nil {
+	if err := a.validateSecretRef(ctx, instance, &p.PinSecretRef, "spec.signer.pkcs11.pinSecretRef"); err != nil {
 		if _, persistErr := a.PersistStatus(ctx, instance); persistErr != nil {
 			return a.Error(ctx, persistErr, instance)
 		}
@@ -77,7 +77,7 @@ func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 	}
 
 	// Validate PublicKeyRef
-	if err := a.validateSecretRef(ctx, instance, p.PublicKeyRef, "spec.signer.pkcs11.publicKeyRef"); err != nil {
+	if err := a.validateSecretRef(ctx, instance, &p.PublicKeyRef, "spec.signer.pkcs11.publicKeyRef"); err != nil {
 		if _, persistErr := a.PersistStatus(ctx, instance); persistErr != nil {
 			return a.Error(ctx, persistErr, instance)
 		}
@@ -127,7 +127,7 @@ func (a ensurePKCS11Config) validateSecretRef(
 	ref *rhtasv1.SecretKeySelector,
 	fieldName string,
 ) error {
-	if ref == nil {
+	if ref == nil || ref.Name == "" {
 		err := fmt.Errorf("%s is nil", fieldName)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               PKCS11Condition,
@@ -174,13 +174,9 @@ func pkcs11SpecHash(p *rhtasv1.CTlogPKCS11Config) string {
 		return ""
 	}
 	h := sha256.New()
-	fmt.Fprintf(h, "modulePath:%s\n", p.ModulePath) //nolint:errcheck // hash.Hash.Write never returns an error
-	fmt.Fprintf(h, "tokenLabel:%s\n", p.TokenLabel) //nolint:errcheck
-	if p.PinSecretRef != nil {
-		fmt.Fprintf(h, "pinSecretRef:%s/%s\n", p.PinSecretRef.Name, p.PinSecretRef.Key) //nolint:errcheck
-	}
-	if p.PublicKeyRef != nil {
-		fmt.Fprintf(h, "publicKeyRef:%s/%s\n", p.PublicKeyRef.Name, p.PublicKeyRef.Key) //nolint:errcheck
-	}
+	fmt.Fprintf(h, "modulePath:%s\n", p.ModulePath)                                 //nolint:errcheck // hash.Hash.Write never returns an error
+	fmt.Fprintf(h, "tokenLabel:%s\n", p.TokenLabel)                                 //nolint:errcheck
+	fmt.Fprintf(h, "pinSecretRef:%s/%s\n", p.PinSecretRef.Name, p.PinSecretRef.Key) //nolint:errcheck
+	fmt.Fprintf(h, "publicKeyRef:%s/%s\n", p.PublicKeyRef.Name, p.PublicKeyRef.Key) //nolint:errcheck
 	return hex.EncodeToString(h.Sum(nil))
 }

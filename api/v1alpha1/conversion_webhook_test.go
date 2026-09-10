@@ -81,7 +81,7 @@ var _ = Describe("Conversion webhook", func() {
 					Signer: rhtasv1.RekorSigner{Type: rhtasv1.SignerTypeSecret},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
-						Url:     "file:///var/run/attestations?no_tmp_dir=true",
+						URL:     "file:///var/run/attestations?no_tmp_dir=true",
 					},
 				},
 			}

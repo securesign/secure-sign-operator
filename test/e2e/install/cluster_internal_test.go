@@ -74,14 +74,14 @@ var _ = Describe("Securesign install with in-cluster services and internal TUF s
 
 		It("Securesign status exposes in-cluster service URLs", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(s.Status.TufStatus.Url).To(ContainSubstring(".svc"))
-			Expect(s.Status.FulcioStatus.Url).To(ContainSubstring(".svc"))
-			Expect(s.Status.RekorStatus.Url).To(ContainSubstring(".svc"))
-			Expect(s.Status.TSAStatus.Url).To(ContainSubstring(".svc"))
+			Expect(s.Status.TufStatus.URL).To(ContainSubstring(".svc"))
+			Expect(s.Status.FulcioStatus.URL).To(ContainSubstring(".svc"))
+			Expect(s.Status.RekorStatus.URL).To(ContainSubstring(".svc"))
+			Expect(s.Status.TSAStatus.URL).To(ContainSubstring(".svc"))
 		})
 
 		It("Sign image with cosign cli", func(ctx SpecContext) {
-			cosign := cosign.NewInClusterCosign(namespace.Name, s.Status.TufStatus.Url, cli,
+			cosign := cosign.NewInClusterCosign(namespace.Name, s.Status.TufStatus.URL, cli,
 				cosign.WithRegistryAuthSecret("registry-auth"),
 			)
 			cosign.VerifyByCosign(ctx, targetImageName)

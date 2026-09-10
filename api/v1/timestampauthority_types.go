@@ -28,23 +28,25 @@ type TimestampAuthoritySpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
 	//Define whether you want to export service or not
+	// +optional
 	Ingress Ingress `json:"ingress,omitempty"`
 	//Signer configuration
-	//+required
+	// +required
 	Signer TimestampAuthoritySigner `json:"signer"`
 	//Enable Service monitors for Timestamp Authority
+	// +optional
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	//ConfigMap with additional bundle of trusted CA
-	//+optional
+	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 	//Configuration for authentication for key management services
-	//+optional
+	// +optional
 	Auth *Auth `json:"auth,omitempty"`
 	//Configuration for NTP monitoring
-	//+optional
+	// +optional
 	NTPMonitoring NTPMonitoring `json:"ntpMonitoring,omitempty"`
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max-request-body-size.
-	//+optional
+	// +optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 	PodExtensions      `json:",inline"`
 }
@@ -59,20 +61,20 @@ type TimestampAuthoritySpec struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || (!has(self.kms) && !has(self.tink))",message="file signer must not set kms or tink"
 type TimestampAuthoritySigner struct {
 	//Type of the signer backend
-	//+kubebuilder:validation:Enum=file;kms;tink
-	//+optional
+	// +kubebuilder:validation:Enum=file;kms;tink
+	// +optional
 	Type string `json:"type,omitempty"`
 	//Configuration for the Certificate Chain
-	//+required
+	// +required
 	CertificateChain CertificateChain `json:"certificateChain"`
 	//Configuration for file-based signer
-	//+optional
+	// +optional
 	File *File `json:"file,omitempty"`
 	//Configuration for KMS based signer
-	//+optional
+	// +optional
 	Kms *KMS `json:"kms,omitempty"`
 	//Configuration for Tink based signer
-	//+optional
+	// +optional
 	Tink *Tink `json:"tink,omitempty"`
 }
 
@@ -81,17 +83,17 @@ type TimestampAuthoritySigner struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.certificateChainRef) || (!has(self.rootCA) && !has(self.leafCA) && !has(self.intermediateCA))",message="rootCA/leafCA/intermediateCA must not be set when certificateChainRef is provided"
 type CertificateChain struct {
 	//Reference to the certificate chain
-	//+optional
+	// +optional
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
 	//Root Certificate Authority Config
-	//+optional
+	// +optional
 	RootCA *TsaCertificateAuthority `json:"rootCA,omitempty"`
 	//Intermediate Certificate Authority Config
-	//+optional
+	// +optional
 	// +listType=atomic
 	IntermediateCA []*TsaCertificateAuthority `json:"intermediateCA,omitempty"`
 	//Leaf Certificate Authority Config
-	//+optional
+	// +optional
 	LeafCA *TsaCertificateAuthority `json:"leafCA,omitempty"`
 }
 
@@ -99,13 +101,13 @@ type CertificateChain struct {
 type TsaCertificateAuthority struct {
 	//CommonName specifies the common name for the TimeStampAuthorities cert chain.
 	//If not provided, the common name will default to the host name.
-	//+optional
+	// +optional
 	CommonName string `json:"commonName,omitempty"`
 	//OrganizationName specifies the Organization Name for the TimeStampAuthorities cert chain.
-	//+required
-	//+kubebuilder:validation:MinLength=1
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	OrganizationName string `json:"organizationName"`
-	//+optional
+	// +optional
 	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
 }
@@ -113,47 +115,57 @@ type TsaCertificateAuthority struct {
 // TSA File signer configuration
 type File struct {
 	//Reference to the signer's root private key
-	//+required
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef"`
+	// +required
+	PrivateKeyRef SecretKeySelector `json:"privateKeyRef"`
 }
 
 // TSA Tink signer config
 // +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcp-kms|aws-kms|hcvault)://.+$')",message="keyResource must be a valid Tink KMS URI (gcp-kms://, aws-kms://, or hcvault://)"
 type Tink struct {
 	//KMS key for signing timestamp responses for Tink keysets. Valid options include: [gcp-kms://resource, aws-kms://resource, hcvault://]"
-	//+required
+	// +required
 	KeyResource string `json:"keyResource"`
-	//+required
+	// +required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
-	KeysetRef *SecretKeySelector `json:"keysetRef"`
+	KeysetRef SecretKeySelector `json:"keysetRef"`
 }
 
 type NTPMonitoring struct {
 	//Enable or disable NTP(Network Time Protocol) Monitoring, Enabled by default
+	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 	//Configuration for Network time protocol monitoring
+	// +optional
 	Config *NtpMonitoringConfig `json:"config,omitempty"`
 }
 
 type NtpMonitoringConfig struct {
 	//ConfigMap containing YAML configuration for NTP monitoring
 	//Default configuration: https://github.com/securesign/timestamp-authority/blob/main/pkg/ntpmonitor/ntpsync.yaml
+	// +optional
 	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
 	//Number of attempts to contact a ntp server before giving up.
-	RequestAttempts int `json:"requestAttempts,omitempty"`
+	// +optional
+	RequestAttempts int32 `json:"requestAttempts,omitempty"`
 	//The timeout in seconds for a request to respond. This value must be
 	//smaller than max_time_delta.
-	RequestTimeout int `json:"requestTimeout,omitempty"`
+	// +optional
+	RequestTimeout int32 `json:"requestTimeout,omitempty"`
 	//Number of randomly selected ntp servers to interrogate.
-	NumServers int `json:"numServers,omitempty"`
+	// +optional
+	NumServers int32 `json:"numServers,omitempty"`
 	//Maximum number of seconds the local time is allowed to drift from the
 	//response of a ntp server
-	MaxTimeDelta int `json:"maxTimeDelta,omitempty"`
+	// +optional
+	MaxTimeDelta int32 `json:"maxTimeDelta,omitempty"`
 	//Number of servers who must agree with local time.
-	ServerThreshold int `json:"serverThreshold,omitempty"`
+	// +optional
+	ServerThreshold int32 `json:"serverThreshold,omitempty"`
 	//Period (in seconds) for polling ntp servers
-	Period int `json:"period,omitempty"`
+	// +optional
+	Period int32 `json:"period,omitempty"`
 	//List of servers to contact. Many DNS names resolves to multiple A records.
+	// +optional
 	// +listType=set
 	Servers []string `json:"servers,omitempty"`
 }
@@ -172,8 +184,10 @@ func (i *TimestampAuthority) RemoveCondition(conditionType string) {
 
 // TimestampAuthoritySignerStatus holds the resolved secret references for the signer.
 type TimestampAuthoritySignerStatus struct {
+	// +optional
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
-	FileSigner          *FileSignerStatus  `json:"fileSigner,omitempty"`
+	// +optional
+	FileSigner *FileSignerStatus `json:"fileSigner,omitempty"`
 }
 
 // FileSignerStatus holds resolved secret references for a file-based signer.
@@ -187,38 +201,41 @@ type FileSignerStatus struct {
 
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
 type TimestampAuthorityStatus struct {
-	NtpConfigRef *LocalObjectReference           `json:"ntpConfigRef,omitempty"`
-	Signer       *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
-	// Url is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
-	// e.g. http://tsa-server.namespace.svc:3000/api/v1/timestamp.
-	Url string `json:"url,omitempty"`
-	// PEM-encoded certificate chain resolved from the running TSA service API.
-	// +optional
-	CertificateChain string `json:"certificateChain,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// +optional
+	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
+	// +optional
+	Signer *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
+	// URL is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
+	// e.g. http://tsa-server.namespace.svc:3000/api/v1/timestamp.
+	// +optional
+	URL string `json:"url,omitempty"`
+	// PEM-encoded certificate chain resolved from the running TSA service API.
+	// +optional
+	CertificateChain string `json:"certificateChain,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
-//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // TimestampAuthority is the Schema for the timestampauthorities API
 type TimestampAuthority struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:kubeapilinter
 
-	Spec   TimestampAuthoritySpec   `json:"spec,omitempty"`
-	Status TimestampAuthorityStatus `json:"status,omitempty"`
+	Spec   TimestampAuthoritySpec   `json:"spec,omitempty"`   //nolint:kubeapilinter
+	Status TimestampAuthorityStatus `json:"status,omitempty"` //nolint:kubeapilinter
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // TimestampAuthorityList contains a list of TimestampAuthority
 type TimestampAuthorityList struct {
@@ -242,5 +259,5 @@ func (i *TimestampAuthority) GetTrustedCA() *LocalObjectReference {
 }
 
 func (i *TimestampAuthority) GetServiceURL() string {
-	return i.Status.Url
+	return i.Status.URL
 }

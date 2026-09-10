@@ -28,13 +28,13 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 			Signer: rhtasv1.CTlogSigner{
 				Type: rhtasv1.SignerTypePKCS11,
 				PKCS11: &rhtasv1.CTlogPKCS11Config{
-					PinSecretRef: &rhtasv1.SecretKeySelector{
+					PinSecretRef: rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin"},
 						Key:                  "pin",
 					},
 					TokenLabel: "ctlog-token",
 					ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
+					PublicKeyRef: rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pubkey"},
 						Key:                  "public",
 					},
@@ -349,7 +349,7 @@ func TestHandle_Rotation_PinSecretRefChanged(t *testing.T) {
 	})
 
 	// Change PinSecretRef (simulates secret rotation).
-	instance.Spec.Signer.PKCS11.PinSecretRef = &rhtasv1.SecretKeySelector{
+	instance.Spec.Signer.PKCS11.PinSecretRef = rhtasv1.SecretKeySelector{
 		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin-rotated"},
 		Key:                  "pin",
 	}
@@ -363,7 +363,7 @@ func TestHandle_NilPinSecretRef(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.PKCS11.PinSecretRef = nil
+	instance.Spec.Signer.PKCS11.PinSecretRef = rhtasv1.SecretKeySelector{}
 
 	c := testAction.FakeClientBuilder().
 		WithObjects(instance).

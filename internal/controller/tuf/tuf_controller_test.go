@@ -351,7 +351,7 @@ func setStatusURL(obj apis.AddressableObject, url string) bool {
 	if !status.IsValid() || status.Kind() != reflect.Struct {
 		return false
 	}
-	urlField := status.FieldByName("Url")
+	urlField := status.FieldByName("URL")
 	if !urlField.IsValid() || urlField.Kind() != reflect.String || !urlField.CanSet() {
 		return false
 	}

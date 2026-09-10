@@ -241,11 +241,11 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
-		PinSecretRef: &rhtasv1.SecretKeySelector{
+		PinSecretRef: rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 			Key:                  "pin",
 		},
-		PublicKeyRef: &rhtasv1.SecretKeySelector{
+		PublicKeyRef: rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 			Key:                  "public",
 		},
@@ -292,11 +292,11 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
-		PinSecretRef: &rhtasv1.SecretKeySelector{
+		PinSecretRef: rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 			Key:                  "pin",
 		},
-		PublicKeyRef: &rhtasv1.SecretKeySelector{
+		PublicKeyRef: rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 			Key:                  "public",
 		},
@@ -350,11 +350,11 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 		TokenLabel: "test-token",
-		PinSecretRef: &rhtasv1.SecretKeySelector{
+		PinSecretRef: rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
 			Key:                  "pin",
 		},
-		PublicKeyRef: &rhtasv1.SecretKeySelector{
+		PublicKeyRef: rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
 			Key:                  "public",
 		},

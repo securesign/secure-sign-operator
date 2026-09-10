@@ -256,7 +256,7 @@ func WithProvidedCerts() Opts {
 					},
 				},
 				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					PrivateKeyRef: rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "test-tsa-secret",
 						},
@@ -315,8 +315,8 @@ func WithPKCS11Signer(namespace string) Opts {
 		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
 			Type: rhtasv1.SignerTypePKCS11,
 			PKCS11: &rhtasv1.FulcioPKCS11Config{
-				KeyID: ptr.To(int64(99)),
-				ConfigRef: &rhtasv1.SecretKeySelector{
+				KeyID: 99,
+				ConfigRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "fulcio-pkcs11-config",
 					},
@@ -347,13 +347,13 @@ func WithPKCS11Signer(namespace string) Opts {
 			PKCS11: &rhtasv1.CTlogPKCS11Config{
 				ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
 				TokenLabel: "PKCS11CA",
-				PinSecretRef: &rhtasv1.SecretKeySelector{
+				PinSecretRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "hsm-credentials",
 					},
 					Key: "pin",
 				},
-				PublicKeyRef: &rhtasv1.SecretKeySelector{
+				PublicKeyRef: rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "ctlog-public-key",
 					},

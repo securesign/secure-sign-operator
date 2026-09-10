@@ -88,11 +88,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*CTlogStatus)(nil), (*v1.CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(a.(*CTlogStatus), b.(*v1.CTlogStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*CertificateChain)(nil), (*v1.CertificateChain)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_CertificateChain_To_v1_CertificateChain(a.(*CertificateChain), b.(*v1.CertificateChain), scope)
 	}); err != nil {
@@ -140,11 +135,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.FulcioList)(nil), (*FulcioList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_FulcioList_To_v1alpha1_FulcioList(a.(*v1.FulcioList), b.(*FulcioList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FulcioStatus)(nil), (*v1.FulcioStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(a.(*FulcioStatus), b.(*v1.FulcioStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -233,11 +223,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*RekorAttestations)(nil), (*v1.RekorAttestations)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(a.(*RekorAttestations), b.(*v1.RekorAttestations), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*RekorList)(nil), (*v1.RekorList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_RekorList_To_v1_RekorList(a.(*RekorList), b.(*v1.RekorList), scope)
 	}); err != nil {
@@ -255,16 +240,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.RekorLogRange)(nil), (*RekorLogRange)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(a.(*v1.RekorLogRange), b.(*RekorLogRange), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*SearchIndex)(nil), (*v1.SearchIndex)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(a.(*SearchIndex), b.(*v1.SearchIndex), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.SearchIndex)(nil), (*SearchIndex)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_SearchIndex_To_v1alpha1_SearchIndex(a.(*v1.SearchIndex), b.(*SearchIndex), scope)
 	}); err != nil {
 		return err
 	}
@@ -298,16 +273,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*SecuresignFulcioStatus)(nil), (*v1.SecuresignFulcioStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(a.(*SecuresignFulcioStatus), b.(*v1.SecuresignFulcioStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.SecuresignFulcioStatus)(nil), (*SecuresignFulcioStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(a.(*v1.SecuresignFulcioStatus), b.(*SecuresignFulcioStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*SecuresignList)(nil), (*v1.SecuresignList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_SecuresignList_To_v1_SecuresignList(a.(*SecuresignList), b.(*v1.SecuresignList), scope)
 	}); err != nil {
@@ -315,16 +280,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.SecuresignList)(nil), (*SecuresignList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_SecuresignList_To_v1alpha1_SecuresignList(a.(*v1.SecuresignList), b.(*SecuresignList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*SecuresignRekorStatus)(nil), (*v1.SecuresignRekorStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(a.(*SecuresignRekorStatus), b.(*v1.SecuresignRekorStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.SecuresignRekorStatus)(nil), (*SecuresignRekorStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(a.(*v1.SecuresignRekorStatus), b.(*SecuresignRekorStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -345,16 +300,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.SecuresignStatus)(nil), (*SecuresignStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_SecuresignStatus_To_v1alpha1_SecuresignStatus(a.(*v1.SecuresignStatus), b.(*SecuresignStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*SecuresignTufStatus)(nil), (*v1.SecuresignTufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(a.(*SecuresignTufStatus), b.(*v1.SecuresignTufStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.SecuresignTufStatus)(nil), (*SecuresignTufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(a.(*v1.SecuresignTufStatus), b.(*SecuresignTufStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -385,11 +330,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.TimestampAuthorityList)(nil), (*TimestampAuthorityList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TimestampAuthorityList_To_v1alpha1_TimestampAuthorityList(a.(*v1.TimestampAuthorityList), b.(*TimestampAuthorityList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.Tink)(nil), (*Tink)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_Tink_To_v1alpha1_Tink(a.(*v1.Tink), b.(*Tink), scope)
 	}); err != nil {
 		return err
 	}
@@ -473,16 +413,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*TufStatus)(nil), (*v1.TufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TufStatus_To_v1_TufStatus(a.(*TufStatus), b.(*v1.TufStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.TufStatus)(nil), (*TufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_TufStatus_To_v1alpha1_TufStatus(a.(*v1.TufStatus), b.(*TufStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*v1.CTlogSpec)(nil), (*CTlogSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(a.(*v1.CTlogSpec), b.(*CTlogSpec), scope)
 	}); err != nil {
@@ -558,8 +488,28 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.SearchIndex)(nil), (*SearchIndex)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SearchIndex_To_v1alpha1_SearchIndex(a.(*v1.SearchIndex), b.(*SearchIndex), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.SecuresignFulcioStatus)(nil), (*SecuresignFulcioStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(a.(*v1.SecuresignFulcioStatus), b.(*SecuresignFulcioStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.SecuresignRekorStatus)(nil), (*SecuresignRekorStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(a.(*v1.SecuresignRekorStatus), b.(*SecuresignRekorStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.SecuresignTSAStatus)(nil), (*SecuresignTSAStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(a.(*v1.SecuresignTSAStatus), b.(*SecuresignTSAStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.SecuresignTufStatus)(nil), (*SecuresignTufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(a.(*v1.SecuresignTufStatus), b.(*SecuresignTufStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -598,6 +548,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.Tink)(nil), (*Tink)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Tink_To_v1alpha1_Tink(a.(*v1.Tink), b.(*Tink), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.TlogMonitoring)(nil), (*TlogMonitoring)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TlogMonitoring_To_v1alpha1_TlogMonitoring(a.(*v1.TlogMonitoring), b.(*TlogMonitoring), scope)
 	}); err != nil {
@@ -633,8 +588,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.TufStatus)(nil), (*TufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_TufStatus_To_v1alpha1_TufStatus(a.(*v1.TufStatus), b.(*TufStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*CTlogSpec)(nil), (*v1.CTlogSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(a.(*CTlogSpec), b.(*v1.CTlogSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*CTlogStatus)(nil), (*v1.CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(a.(*CTlogStatus), b.(*v1.CTlogStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -668,6 +633,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*FulcioStatus)(nil), (*v1.FulcioStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(a.(*FulcioStatus), b.(*v1.FulcioStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*KMS)(nil), (*v1.KMS)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_KMS_To_v1_KMS(a.(*KMS), b.(*v1.KMS), scope)
 	}); err != nil {
@@ -675,6 +645,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*MonitoringConfig)(nil), (*v1.MonitoringConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(a.(*MonitoringConfig), b.(*v1.MonitoringConfig), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*RekorAttestations)(nil), (*v1.RekorAttestations)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(a.(*RekorAttestations), b.(*v1.RekorAttestations), scope)
 	}); err != nil {
 		return err
 	}
@@ -698,8 +673,28 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*SearchIndex)(nil), (*v1.SearchIndex)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(a.(*SearchIndex), b.(*v1.SearchIndex), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*SecuresignFulcioStatus)(nil), (*v1.SecuresignFulcioStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(a.(*SecuresignFulcioStatus), b.(*v1.SecuresignFulcioStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*SecuresignRekorStatus)(nil), (*v1.SecuresignRekorStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(a.(*SecuresignRekorStatus), b.(*v1.SecuresignRekorStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*SecuresignTSAStatus)(nil), (*v1.SecuresignTSAStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(a.(*SecuresignTSAStatus), b.(*v1.SecuresignTSAStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*SecuresignTufStatus)(nil), (*v1.SecuresignTufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(a.(*SecuresignTufStatus), b.(*v1.SecuresignTufStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -775,6 +770,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TufSpec)(nil), (*v1.TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TufSpec_To_v1_TufSpec(a.(*TufSpec), b.(*v1.TufSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TufStatus)(nil), (*v1.TufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TufStatus_To_v1_TufStatus(a.(*TufStatus), b.(*v1.TufStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -989,17 +989,13 @@ func autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *v1
 	if err := Convert_v1alpha1_TLS_To_v1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
-// Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus is an autogenerated conversion function.
-func Convert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in *CTlogStatus, out *v1.CTlogStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_CTlogStatus_To_v1_CTlogStatus(in, out, s)
-}
-
 func autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out *CTlogStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	out.PrivateKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
 	out.PrivateKeyPasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyPasswordRef))
@@ -1010,8 +1006,7 @@ func autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out 
 	if err := Convert_v1_TLS_To_v1alpha1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}
-	out.Url = in.Url
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -1147,12 +1142,12 @@ func Convert_v1_Extensions_To_v1alpha1_Extensions(in *v1.Extensions, out *Extens
 
 func autoConvert_v1alpha1_File_To_v1_File(in *File, out *v1.File, s conversion.Scope) error {
 	// WARNING: in.PasswordRef requires manual conversion: does not exist in peer-type
-	out.PrivateKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
+	// WARNING: in.PrivateKeyRef requires manual conversion: inconvertible types (*github.com/securesign/operator/api/v1alpha1.SecretKeySelector vs github.com/securesign/operator/api/v1.SecretKeySelector)
 	return nil
 }
 
 func autoConvert_v1_File_To_v1alpha1_File(in *v1.File, out *File, s conversion.Scope) error {
-	out.PrivateKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
+	// WARNING: in.PrivateKeyRef requires manual conversion: inconvertible types (github.com/securesign/operator/api/v1.SecretKeySelector vs *github.com/securesign/operator/api/v1alpha1.SecretKeySelector)
 	return nil
 }
 
@@ -1306,17 +1301,13 @@ func autoConvert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out 
 	} else {
 		out.Certificate = nil
 	}
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
-// Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus is an autogenerated conversion function.
-func Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *v1.FulcioStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in, out, s)
-}
-
 func autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *FulcioStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	if in.Certificate != nil {
 		in, out := &in.Certificate, &out.Certificate
@@ -1327,9 +1318,8 @@ func autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, o
 	} else {
 		out.Certificate = nil
 	}
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	// WARNING: in.CertificateChain requires manual conversion: does not exist in peer-type
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -1420,7 +1410,15 @@ func autoConvert_v1alpha1_NTPMonitoring_To_v1_NTPMonitoring(in *NTPMonitoring, o
 	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
 		return err
 	}
-	out.Config = (*v1.NtpMonitoringConfig)(unsafe.Pointer(in.Config))
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = new(v1.NtpMonitoringConfig)
+		if err := Convert_v1alpha1_NtpMonitoringConfig_To_v1_NtpMonitoringConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Config = nil
+	}
 	return nil
 }
 
@@ -1433,7 +1431,15 @@ func autoConvert_v1_NTPMonitoring_To_v1alpha1_NTPMonitoring(in *v1.NTPMonitoring
 	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
 		return err
 	}
-	out.Config = (*NtpMonitoringConfig)(unsafe.Pointer(in.Config))
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = new(NtpMonitoringConfig)
+		if err := Convert_v1_NtpMonitoringConfig_To_v1alpha1_NtpMonitoringConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Config = nil
+	}
 	return nil
 }
 
@@ -1444,12 +1450,12 @@ func Convert_v1_NTPMonitoring_To_v1alpha1_NTPMonitoring(in *v1.NTPMonitoring, ou
 
 func autoConvert_v1alpha1_NtpMonitoringConfig_To_v1_NtpMonitoringConfig(in *NtpMonitoringConfig, out *v1.NtpMonitoringConfig, s conversion.Scope) error {
 	out.NtpConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.NtpConfigRef))
-	out.RequestAttempts = in.RequestAttempts
-	out.RequestTimeout = in.RequestTimeout
-	out.NumServers = in.NumServers
-	out.MaxTimeDelta = in.MaxTimeDelta
-	out.ServerThreshold = in.ServerThreshold
-	out.Period = in.Period
+	out.RequestAttempts = int32(in.RequestAttempts)
+	out.RequestTimeout = int32(in.RequestTimeout)
+	out.NumServers = int32(in.NumServers)
+	out.MaxTimeDelta = int32(in.MaxTimeDelta)
+	out.ServerThreshold = int32(in.ServerThreshold)
+	out.Period = int32(in.Period)
 	out.Servers = *(*[]string)(unsafe.Pointer(&in.Servers))
 	return nil
 }
@@ -1461,12 +1467,12 @@ func Convert_v1alpha1_NtpMonitoringConfig_To_v1_NtpMonitoringConfig(in *NtpMonit
 
 func autoConvert_v1_NtpMonitoringConfig_To_v1alpha1_NtpMonitoringConfig(in *v1.NtpMonitoringConfig, out *NtpMonitoringConfig, s conversion.Scope) error {
 	out.NtpConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.NtpConfigRef))
-	out.RequestAttempts = in.RequestAttempts
-	out.RequestTimeout = in.RequestTimeout
-	out.NumServers = in.NumServers
-	out.MaxTimeDelta = in.MaxTimeDelta
-	out.ServerThreshold = in.ServerThreshold
-	out.Period = in.Period
+	out.RequestAttempts = int(in.RequestAttempts)
+	out.RequestTimeout = int(in.RequestTimeout)
+	out.NumServers = int(in.NumServers)
+	out.MaxTimeDelta = int(in.MaxTimeDelta)
+	out.ServerThreshold = int(in.ServerThreshold)
+	out.Period = int(in.Period)
 	out.Servers = *(*[]string)(unsafe.Pointer(&in.Servers))
 	return nil
 }
@@ -1600,19 +1606,14 @@ func Convert_v1_Rekor_To_v1alpha1_Rekor(in *v1.Rekor, out *Rekor, s conversion.S
 
 func autoConvert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(in *RekorAttestations, out *v1.RekorAttestations, s conversion.Scope) error {
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	out.MaxSize = (*resource.Quantity)(unsafe.Pointer(in.MaxSize))
 	return nil
 }
 
-// Convert_v1alpha1_RekorAttestations_To_v1_RekorAttestations is an autogenerated conversion function.
-func Convert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(in *RekorAttestations, out *v1.RekorAttestations, s conversion.Scope) error {
-	return autoConvert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(in, out, s)
-}
-
 func autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *v1.RekorAttestations, out *RekorAttestations, s conversion.Scope) error {
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	out.MaxSize = (*resource.Quantity)(unsafe.Pointer(in.MaxSize))
 	// WARNING: in.Pvc requires manual conversion: does not exist in peer-type
 	return nil
@@ -1775,7 +1776,7 @@ func autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1
 	}
 	out.PvcName = in.PvcName
 	out.MonitorPvcName = in.MonitorPvcName
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	// WARNING: in.RekorSearchUIUrl requires manual conversion: does not exist in peer-type
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
@@ -1783,6 +1784,7 @@ func autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1
 }
 
 func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out *RekorStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.PublicKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PublicKeyRef))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	if err := Convert_v1_RekorSignerStatus_To_v1alpha1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
@@ -1793,10 +1795,9 @@ func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out 
 	}
 	out.PvcName = in.PvcName
 	out.MonitorPvcName = in.MonitorPvcName
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	// WARNING: in.PublicKey requires manual conversion: does not exist in peer-type
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -1806,13 +1807,8 @@ func autoConvert_v1alpha1_SearchIndex_To_v1_SearchIndex(in *SearchIndex, out *v1
 		return err
 	}
 	out.Provider = in.Provider
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_SearchIndex_To_v1_SearchIndex is an autogenerated conversion function.
-func Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(in *SearchIndex, out *v1.SearchIndex, s conversion.Scope) error {
-	return autoConvert_v1alpha1_SearchIndex_To_v1_SearchIndex(in, out, s)
 }
 
 func autoConvert_v1_SearchIndex_To_v1alpha1_SearchIndex(in *v1.SearchIndex, out *SearchIndex, s conversion.Scope) error {
@@ -1821,13 +1817,8 @@ func autoConvert_v1_SearchIndex_To_v1alpha1_SearchIndex(in *v1.SearchIndex, out 
 		return err
 	}
 	out.Provider = in.Provider
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1_SearchIndex_To_v1alpha1_SearchIndex is an autogenerated conversion function.
-func Convert_v1_SearchIndex_To_v1alpha1_SearchIndex(in *v1.SearchIndex, out *SearchIndex, s conversion.Scope) error {
-	return autoConvert_v1_SearchIndex_To_v1alpha1_SearchIndex(in, out, s)
 }
 
 func autoConvert_v1alpha1_SearchIndexStatus_To_v1_SearchIndexStatus(in *SearchIndexStatus, out *v1.SearchIndexStatus, s conversion.Scope) error {
@@ -1915,23 +1906,13 @@ func Convert_v1_Securesign_To_v1alpha1_Securesign(in *v1.Securesign, out *Secure
 }
 
 func autoConvert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(in *SecuresignFulcioStatus, out *v1.SecuresignFulcioStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus is an autogenerated conversion function.
-func Convert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(in *SecuresignFulcioStatus, out *v1.SecuresignFulcioStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_SecuresignFulcioStatus_To_v1_SecuresignFulcioStatus(in, out, s)
 }
 
 func autoConvert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(in *v1.SecuresignFulcioStatus, out *SecuresignFulcioStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus is an autogenerated conversion function.
-func Convert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(in *v1.SecuresignFulcioStatus, out *SecuresignFulcioStatus, s conversion.Scope) error {
-	return autoConvert_v1_SecuresignFulcioStatus_To_v1alpha1_SecuresignFulcioStatus(in, out, s)
 }
 
 func autoConvert_v1alpha1_SecuresignList_To_v1_SecuresignList(in *SecuresignList, out *v1.SecuresignList, s conversion.Scope) error {
@@ -1977,23 +1958,13 @@ func Convert_v1_SecuresignList_To_v1alpha1_SecuresignList(in *v1.SecuresignList,
 }
 
 func autoConvert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(in *SecuresignRekorStatus, out *v1.SecuresignRekorStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus is an autogenerated conversion function.
-func Convert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(in *SecuresignRekorStatus, out *v1.SecuresignRekorStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_SecuresignRekorStatus_To_v1_SecuresignRekorStatus(in, out, s)
 }
 
 func autoConvert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(in *v1.SecuresignRekorStatus, out *SecuresignRekorStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus is an autogenerated conversion function.
-func Convert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(in *v1.SecuresignRekorStatus, out *SecuresignRekorStatus, s conversion.Scope) error {
-	return autoConvert_v1_SecuresignRekorStatus_To_v1alpha1_SecuresignRekorStatus(in, out, s)
 }
 
 func autoConvert_v1alpha1_SecuresignSpec_To_v1_SecuresignSpec(in *SecuresignSpec, out *v1.SecuresignSpec, s conversion.Scope) error {
@@ -2107,33 +2078,23 @@ func Convert_v1_SecuresignStatus_To_v1alpha1_SecuresignStatus(in *v1.SecuresignS
 }
 
 func autoConvert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(in *SecuresignTSAStatus, out *v1.SecuresignTSAStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	return nil
 }
 
 func autoConvert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in *v1.SecuresignTSAStatus, out *SecuresignTSAStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
 }
 
 func autoConvert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(in *SecuresignTufStatus, out *v1.SecuresignTufStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus is an autogenerated conversion function.
-func Convert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(in *SecuresignTufStatus, out *v1.SecuresignTufStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_SecuresignTufStatus_To_v1_SecuresignTufStatus(in, out, s)
 }
 
 func autoConvert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(in *v1.SecuresignTufStatus, out *SecuresignTufStatus, s conversion.Scope) error {
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus is an autogenerated conversion function.
-func Convert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(in *v1.SecuresignTufStatus, out *SecuresignTufStatus, s conversion.Scope) error {
-	return autoConvert_v1_SecuresignTufStatus_To_v1alpha1_SecuresignTufStatus(in, out, s)
 }
 
 func autoConvert_v1alpha1_TLS_To_v1_TLS(in *TLS, out *v1.TLS, s conversion.Scope) error {
@@ -2353,12 +2314,13 @@ func autoConvert_v1alpha1_TimestampAuthorityStatus_To_v1_TimestampAuthorityStatu
 	} else {
 		out.Signer = nil
 	}
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
 func autoConvert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatus(in *v1.TimestampAuthorityStatus, out *TimestampAuthorityStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	// WARNING: in.NtpConfigRef requires manual conversion: does not exist in peer-type
 	if in.Signer != nil {
 		in, out := &in.Signer, &out.Signer
@@ -2369,28 +2331,22 @@ func autoConvert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatu
 	} else {
 		out.Signer = nil
 	}
-	out.Url = in.Url
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	// WARNING: in.CertificateChain requires manual conversion: does not exist in peer-type
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
 func autoConvert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *v1.Tink, s conversion.Scope) error {
 	out.KeyResource = in.KeyResource
-	out.KeysetRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.KeysetRef))
+	// WARNING: in.KeysetRef requires manual conversion: inconvertible types (*github.com/securesign/operator/api/v1alpha1.SecretKeySelector vs github.com/securesign/operator/api/v1.SecretKeySelector)
 	// WARNING: in.Auth requires manual conversion: does not exist in peer-type
 	return nil
 }
 
 func autoConvert_v1_Tink_To_v1alpha1_Tink(in *v1.Tink, out *Tink, s conversion.Scope) error {
 	out.KeyResource = in.KeyResource
-	out.KeysetRef = (*SecretKeySelector)(unsafe.Pointer(in.KeysetRef))
+	// WARNING: in.KeysetRef requires manual conversion: inconvertible types (github.com/securesign/operator/api/v1.SecretKeySelector vs *github.com/securesign/operator/api/v1alpha1.SecretKeySelector)
 	return nil
-}
-
-// Convert_v1_Tink_To_v1alpha1_Tink is an autogenerated conversion function.
-func Convert_v1_Tink_To_v1alpha1_Tink(in *v1.Tink, out *Tink, s conversion.Scope) error {
-	return autoConvert_v1_Tink_To_v1alpha1_Tink(in, out, s)
 }
 
 func autoConvert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, out *v1.TlogMonitoring, s conversion.Scope) error {
@@ -2644,6 +2600,7 @@ func Convert_v1alpha1_TrillianStatus_To_v1_TrillianStatus(in *TrillianStatus, ou
 }
 
 func autoConvert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(in *v1.TrillianStatus, out *TrillianStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	if err := Convert_v1_TrillianDBStatus_To_v1alpha1_TrillianDB(&in.Db, &out.Db, s); err != nil {
 		return err
 	}
@@ -2653,7 +2610,6 @@ func autoConvert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(in *v1.TrillianSta
 	if err := Convert_v1_TrillianServiceStatus_To_v1alpha1_TrillianLogSigner(&in.LogSigner, &out.LogSigner, s); err != nil {
 		return err
 	}
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
@@ -2793,25 +2749,15 @@ func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s 
 func autoConvert_v1alpha1_TufStatus_To_v1_TufStatus(in *TufStatus, out *v1.TufStatus, s conversion.Scope) error {
 	out.Keys = *(*[]v1.TufKeyStatus)(unsafe.Pointer(&in.Keys))
 	out.PvcName = in.PvcName
-	out.Url = in.Url
+	// WARNING: in.Url requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
-}
-
-// Convert_v1alpha1_TufStatus_To_v1_TufStatus is an autogenerated conversion function.
-func Convert_v1alpha1_TufStatus_To_v1_TufStatus(in *TufStatus, out *v1.TufStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TufStatus_To_v1_TufStatus(in, out, s)
 }
 
 func autoConvert_v1_TufStatus_To_v1alpha1_TufStatus(in *v1.TufStatus, out *TufStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.Keys = *(*[]TufKey)(unsafe.Pointer(&in.Keys))
 	out.PvcName = in.PvcName
-	out.Url = in.Url
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
+	// WARNING: in.URL requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1_TufStatus_To_v1alpha1_TufStatus is an autogenerated conversion function.
-func Convert_v1_TufStatus_To_v1alpha1_TufStatus(in *v1.TufStatus, out *TufStatus, s conversion.Scope) error {
-	return autoConvert_v1_TufStatus_To_v1alpha1_TufStatus(in, out, s)
 }

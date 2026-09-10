@@ -7,6 +7,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1alpha1_TufStatus_To_v1_TufStatus(in *TufStatus, out *rhtasv1.TufStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_TufStatus_To_v1_TufStatus(in, out, s); err != nil {
+		return err
+	}
+	out.URL = in.Url
+	return nil
+}
+
+func Convert_v1_TufStatus_To_v1alpha1_TufStatus(in *rhtasv1.TufStatus, out *TufStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1_TufStatus_To_v1alpha1_TufStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Url = in.URL
+	return nil
+}
+
 func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.Tuf)
 	if err := Convert_v1alpha1_Tuf_To_v1_Tuf(src, dst, nil); err != nil {

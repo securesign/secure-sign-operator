@@ -106,7 +106,7 @@ func TestTSAResolvePubKey_Handle(t *testing.T) {
 			instance := &rhtasv1.TimestampAuthority{
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
 				Status: rhtasv1.TimestampAuthorityStatus{
-					Url:              baseURL,
+					URL:              baseURL,
 					CertificateChain: tt.certificateChain,
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},

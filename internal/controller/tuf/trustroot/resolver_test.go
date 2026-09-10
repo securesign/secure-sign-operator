@@ -54,7 +54,7 @@ func TestResolve_RefBased(t *testing.T) {
 	g := NewWithT(t)
 	rekor := &rhtasv1.Rekor{ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: t.Name()}}
 	rekor.Status.PublicKey = testPEM
-	rekor.Status.Url = "https://rekor.internal.svc"
+	rekor.Status.URL = "https://rekor.internal.svc"
 	rekor.Status.Conditions = []metav1.Condition{readyCondition()}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(rekor).WithStatusSubresource(rekor).Build()
 	g.Expect(c.Status().Update(t.Context(), rekor)).To(Succeed())
@@ -73,7 +73,7 @@ func TestResolve_Autodiscovery(t *testing.T) {
 	g := NewWithT(t)
 	ctlog := &rhtasv1.CTlog{ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: t.Name()}}
 	ctlog.Status.PublicKey = testPEM
-	ctlog.Status.Url = "https://ctlog.internal.svc"
+	ctlog.Status.URL = "https://ctlog.internal.svc"
 	ctlog.Status.Conditions = []metav1.Condition{readyCondition()}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ctlog).WithStatusSubresource(ctlog).Build()
 	g.Expect(c.Status().Update(t.Context(), ctlog)).To(Succeed())
@@ -88,7 +88,7 @@ func TestResolve_ExplicitURLAddress_MaterialFromStatus_NotReadyRegression(t *tes
 	g := NewWithT(t)
 	fulcio := &rhtasv1.Fulcio{ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: t.Name()}}
 	fulcio.Status.CertificateChain = testPEM
-	fulcio.Status.Url = "https://fulcio.internal.svc"
+	fulcio.Status.URL = "https://fulcio.internal.svc"
 	fulcio.Status.Conditions = []metav1.Condition{
 		{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Pending.String()},
 	}
@@ -113,7 +113,7 @@ func TestResolveFulcio_ExplicitOIDCIssuersWin(t *testing.T) {
 		},
 	}
 	fulcio.Status.CertificateChain = testPEM
-	fulcio.Status.Url = "https://fulcio.internal.svc"
+	fulcio.Status.URL = "https://fulcio.internal.svc"
 	fulcio.Status.Conditions = []metav1.Condition{readyCondition()}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(fulcio).WithStatusSubresource(fulcio).Build()
 	g.Expect(c.Status().Update(t.Context(), fulcio)).To(Succeed())
@@ -142,7 +142,7 @@ func TestResolveFulcio_IssuersFromRefWhenUnset(t *testing.T) {
 		},
 	}
 	fulcio.Status.CertificateChain = testPEM
-	fulcio.Status.Url = "https://fulcio.internal.svc"
+	fulcio.Status.URL = "https://fulcio.internal.svc"
 	fulcio.Status.Conditions = []metav1.Condition{readyCondition()}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(fulcio).WithStatusSubresource(fulcio).Build()
 	g.Expect(c.Status().Update(t.Context(), fulcio)).To(Succeed())
@@ -169,7 +169,7 @@ func TestResolveFulcio_IssuersFromAutodiscoveryWhenUnset(t *testing.T) {
 		},
 	}
 	fulcio.Status.CertificateChain = testPEM
-	fulcio.Status.Url = "https://fulcio.internal.svc"
+	fulcio.Status.URL = "https://fulcio.internal.svc"
 	fulcio.Status.Conditions = []metav1.Condition{readyCondition()}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(fulcio).WithStatusSubresource(fulcio).Build()
 	g.Expect(c.Status().Update(t.Context(), fulcio)).To(Succeed())

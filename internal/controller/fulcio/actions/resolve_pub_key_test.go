@@ -121,7 +121,7 @@ func TestFulcioResolvePubKey_Handle(t *testing.T) {
 			instance := &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
 				Status: rhtasv1.FulcioStatus{
-					Url:              baseURL,
+					URL:              baseURL,
 					CertificateChain: tt.rootCertificate,
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},

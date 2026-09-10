@@ -9,7 +9,7 @@ import (
 
 type ConsoleDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-console,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=consoles,verbs=create;update,versions=v1,name=mconsole.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
+// +kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-console,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=consoles,verbs=create;update,versions=v1,name=mconsole.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
 
 func SetupConsoleWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Console{}).

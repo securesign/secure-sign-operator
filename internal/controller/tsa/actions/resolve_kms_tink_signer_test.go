@@ -65,7 +65,7 @@ func TestKMSTinkSigner_TinkWithCertChainRef(t *testing.T) {
 			},
 		},
 		Tink: &rhtasv1.Tink{
-			KeysetRef: &rhtasv1.SecretKeySelector{
+			KeysetRef: rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-keyset-secret"},
 				Key:                  "keySet",
 			},
