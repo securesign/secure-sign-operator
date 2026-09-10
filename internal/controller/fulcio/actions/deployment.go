@@ -154,8 +154,12 @@ func (i deployAction) resolveCtlogUrl(ctx context.Context, instance *rhtasv1.Ful
 		return "", fmt.Errorf("no active shard or prefix found in CTLog")
 	}
 
-	// Build internal HTTP URL using the active shard's prefix
-	return fmt.Sprintf("http://ctlog.%s.svc:6963/%s", instance.Namespace, activeLog.Prefix), nil
+	scheme := "http"
+	if ctlogutils.TlsEnabled(ctlog) {
+		scheme = "https"
+	}
+
+	return fmt.Sprintf("%s://ctlog.%s.svc/%s", scheme, ctlog.Namespace, activeLog.Prefix), nil
 }
 
 // ensureCommonDeployment sets up the shared deployment scaffolding used by all signer modes:

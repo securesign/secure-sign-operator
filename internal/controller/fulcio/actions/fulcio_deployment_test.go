@@ -745,7 +745,57 @@ func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
-	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc:6963/test-prefix"
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc/test-prefix"
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
+}
+
+func TestDeployAction_Handle_RefCtlogAddress_DifferentNamespace(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createInstance()
+	instance.Spec.Ctlog = rhtasv1.ServiceReference{
+		Ref: &rhtasv1.ServiceReferenceRef{
+			Namespace: "other-namespace",
+			Name:      "test-ctlog",
+		},
+	}
+
+	ctlog := &rhtasv1.CTlog{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-ctlog",
+			Namespace: "other-namespace",
+		},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "test-prefix",
+					Active: ptr.To(true),
+				},
+			},
+		},
+		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "test-prefix",
+					Active: true,
+				},
+			},
+			Conditions: []v1.Condition{
+				{
+					Type:   ctlogActions.TLSCondition,
+					Status: v1.ConditionTrue,
+					Reason: "Resolved",
+				},
+			},
+		},
+	}
+
+	dp, err := handleDeployment(t, instance, ctlog)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// The CTLog's own namespace ("other-namespace") must be used, not Fulcio's namespace ("default").
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".other-namespace.svc/test-prefix"
 	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
 }
 
@@ -789,6 +839,56 @@ func TestDeployAction_Handle_AutodiscoveryCtlogAddress(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
-	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc:6963/trusted-artifact-signer"
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc/trusted-artifact-signer"
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
+}
+
+func TestDeployAction_Handle_TLSEnabledCtlogAddress(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createInstance()
+	instance.Spec.Ctlog = rhtasv1.ServiceReference{}
+
+	ctlog := &rhtasv1.CTlog{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "my-ctlog",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.CTlogSpec{
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: ptr.To(true),
+				},
+			},
+		},
+		Status: rhtasv1.CTlogStatus{
+			Logs: []rhtasv1.CTlogLogStatus{
+				{
+					Prefix: "trusted-artifact-signer",
+					Active: true,
+				},
+			},
+			TLS: rhtasv1.TLS{
+				CertRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-tls"},
+					Key:                  "tls.crt",
+				},
+			},
+			Conditions: []v1.Condition{
+				{
+					Type:   ctlogActions.TLSCondition,
+					Status: v1.ConditionTrue,
+					Reason: "Resolved",
+				},
+			},
+		},
+	}
+
+	dp, err := handleDeployment(t, instance, ctlog)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	expectedUrl := "https://" + ctlogActions.DeploymentName + ".default.svc/trusted-artifact-signer"
 	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
 }
