@@ -262,7 +262,7 @@ func CreateCAIssuer(instance *rhtasv1.TimestampAuthority, tsaCA *rhtasv1.TsaCert
 	}
 
 	orgNames := make([]string, 0)
-	if tsaCA.OrganizationEmail != "" {
+	if tsaCA.OrganizationName != "" {
 		orgNames = append(orgNames, tsaCA.OrganizationName)
 	}
 	issuer.subject.Organization = orgNames
