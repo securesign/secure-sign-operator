@@ -35,17 +35,13 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	crpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -154,40 +150,6 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	return reconcile.Result{}, nil
 }
 
-// enqueueTufForCTlog returns a mapping function that enqueues Tuf resources
-// when a CTlog's active log changes. This ensures TUF's trust material and
-// addresses stay current when CT log rotations occur.
-func (r *tufReconciler) enqueueTufForCTlog(ctx context.Context, ctlog client.Object) []reconcile.Request {
-	log := log.FromContext(ctx)
-
-	// List all Tuf resources in the CTlog's namespace that reference this CTlog
-	tufList := &rhtasv1.TufList{}
-	if err := r.List(ctx, tufList, client.InNamespace(ctlog.GetNamespace())); err != nil {
-		log.Error(err, "unable to list Tuf resources", "ctlog", client.ObjectKeyFromObject(ctlog))
-		return []reconcile.Request{}
-	}
-
-	var requests []reconcile.Request
-	for _, tuf := range tufList.Items {
-		// Check if this Tuf uses this CTlog in its TrustRoot bindings
-		for _, ctlogBinding := range tuf.Spec.Ctlog {
-			if ctlogBinding.Ref != nil &&
-				ctlogBinding.Ref.Name == ctlog.GetName() {
-				// This Tuf references the changed CTlog, enqueue it
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      tuf.Name,
-						Namespace: tuf.Namespace,
-					},
-				})
-				break
-			}
-		}
-	}
-
-	return requests
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var (
@@ -203,27 +165,14 @@ func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Watch CTlog resources since TUF's trust root resolver depends on the active
 	// log's status (PublicKey) and spec (Prefix). Active log rotations must trigger
 	// TUF reconciliation to keep published trust material and addresses up-to-date.
+	// NOTE: TUF CR watching/updating is not currently supported. Trustmaterial or URL updates
+	// must be done manually directly on the TUF pod.
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Tuf{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Tuf]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
-		Watches(&rhtasv1.CTlog{}, handler.EnqueueRequestsFromMapFunc(r.enqueueTufForCTlog), builder.WithPredicates(ctlogStatusLogsChangedPredicate())).
 		Complete(r)
 	return err
-}
-
-// ctlogStatusLogsChangedPredicate triggers when CTlog's status.Logs changes (e.g., active shard changes).
-func ctlogStatusLogsChangedPredicate() crpredicate.Predicate {
-	return crpredicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldCTlog, ok1 := e.ObjectOld.(*rhtasv1.CTlog)
-			newCTlog, ok2 := e.ObjectNew.(*rhtasv1.CTlog)
-			if !ok1 || !ok2 {
-				return true
-			}
-			return !equality.Semantic.DeepEqual(oldCTlog.Status.Logs, newCTlog.Status.Logs)
-		},
-	}
 }

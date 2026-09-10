@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,6 +50,7 @@ func (a alignStatusLogs) Handle(ctx context.Context, instance *rhtasv1.CTlog) *a
 					Reason:  "InvalidLogConfiguration",
 					Message: err.Error(),
 				})
+				a.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "DuplicateLogIds", "InvalidConfiguration", "%s", err.Error())
 				return a.Error(ctx, err, instance)
 			}
 			logIds[*log.LogId] = log.Prefix

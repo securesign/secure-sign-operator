@@ -1,0 +1,117 @@
+
+---
+apiVersion: rhtas.redhat.com/v1
+kind: CTlog
+metadata:
+  annotations:
+    rhtas.redhat.com/metrics: "false"
+  creationTimestamp: "2026-09-09T12:03:17Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/component: ctlog
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/managed-by: controller-manager
+    app.kubernetes.io/name: test
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: test
+  namespace: upgrade-test-9p5fc
+  ownerReferences:
+  - apiVersion: rhtas.redhat.com/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Securesign
+    name: test
+    uid: def2285a-08dc-4c99-adee-9c51a79bbabd
+  resourceVersion: "5333"
+  uid: 86800b44-9f98-4453-bd85-7560ccbcc5ff
+spec:
+  fulcio:
+    ref:
+      name: test
+      namespace: upgrade-test-9p5fc
+  ingress:
+    enabled: false
+  logs:
+  - active: true
+    prefix: trusted-artifact-signer
+    signer:
+      type: file
+  maxCertChainSize: 153600
+  monitoring:
+    metrics:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+    tlog:
+      enabled: false
+      interval: 10m0s
+    tuf: {}
+  replicas: 1
+  tls: {}
+  trillian:
+    url: :8091
+status:
+  conditions:
+  - lastTransitionTime: "2026-09-09T12:07:49Z"
+    message: ""
+    observedGeneration: 2
+    reason: Ready
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-09-09T12:07:33Z"
+    message: ""
+    reason: Resolved
+    status: "True"
+    type: FulcioCertAvailable
+  - lastTransitionTime: "2026-09-09T12:07:34Z"
+    message: Server config created
+    observedGeneration: 2
+    reason: Ready
+    status: "True"
+    type: ServerConfigAvailable
+  - lastTransitionTime: "2026-09-09T12:03:17Z"
+    message: Communication to CTLog is insecure
+    reason: NotProvided
+    status: "True"
+    type: ServerTLS
+  - lastTransitionTime: "2026-09-09T12:07:33Z"
+    message: ""
+    reason: Ready
+    status: "True"
+    type: Tree
+  - lastTransitionTime: "2026-09-09T12:07:33Z"
+    message: ""
+    observedGeneration: 2
+    reason: Resolved
+    status: "True"
+    type: SignerAvailable
+  - lastTransitionTime: "2026-09-09T12:07:49Z"
+    message: Trust material for ctlog resolved successfully
+    observedGeneration: 2
+    reason: Resolved
+    status: "True"
+    type: TrustMaterialAvailable
+  logs:
+  - active: true
+    logId: 4978041095066396437
+    prefix: trusted-artifact-signer
+    privateKeyRef:
+      key: private
+      name: ctlog-keys-config-test
+    publicKey: |
+      -----BEGIN PUBLIC KEY-----
+      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgd/81qaRnZHwMfwlgDujPFfrW7OZ
+      A3TiLhGv6bDccvuflYfhGByOT6E70CZ2Nsf4UiA+k8WH0K3ONhT6nNPVQg==
+      -----END PUBLIC KEY-----
+    publicKeyRef:
+      key: public
+      name: ctlog-keys-config-test
+    rootCertificates:
+    - key: cert
+      name: ctlog-fulcio-root-test
+    signerType: file
+  serverConfigRef:
+    name: ctlog-config-testp6gb8
+  tls: {}
+  url: http://ctlog.upgrade-test-9p5fc.svc/trusted-artifact-signer
+

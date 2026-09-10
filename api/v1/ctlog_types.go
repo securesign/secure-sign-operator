@@ -22,20 +22,20 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
-// +kubebuilder:validation:XValidation:rule="has(self.logs) && size(self.logs) > 0",message="at least one log is required"
-// +kubebuilder:validation:XValidation:rule="!has(self.logs) || self.logs.filter(x, has(x.active) && x.active == true).size() == 1",message="exactly one log should be active"
+// +kubebuilder:validation:XValidation:rule="self.logs.filter(x, has(x.active) && x.active == true).size() == 1",message="exactly one log should be active"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
 
 	// Logs defines the list of certificate transparency logs (active and frozen shards).
 	// Each entry represents either the active log or a frozen shard.
-	// +optional
+	// +required
+	// +kubebuilder:validation:MinItems=1
 	// +listType=map
 	// +listMapKey=prefix
 	// +patchStrategy=merge
 	// +patchMergeKey=prefix
-	Logs []CTLogConfig `json:"logs,omitempty" patchStrategy:"merge" patchMergeKey:"prefix"`
+	Logs []CTLogConfig `json:"logs" patchStrategy:"merge" patchMergeKey:"prefix"`
 
 	// Define whether you want to export service or not
 	// +optional
@@ -100,11 +100,10 @@ type CTlogPKCS11Config struct {
 // CTLogConfig defines the configuration for a certificate transparency log (active or frozen).
 // +structType=atomic
 // +kubebuilder:validation:XValidation:rule="!has(self.signer) || !has(self.signer.file) || !has(self.signer.file.publicKeyRef) || has(self.signer.file.privateKeyRef)",message="privateKeyRef is required when publicKeyRef is set (CTFE validates key consistency for all logs, including readonly)"
-// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.logId)",message="logId is required for non-active logs"
-// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || has(self.signer)",message="signer is required for non-active logs"
-// +kubebuilder:validation:XValidation:rule="(has(self.active) && self.active == true) || (has(self.rootCerts) && size(self.rootCerts) > 0)",message="rootCerts is required for non-active logs"
-// +kubebuilder:validation:XValidation:rule="!(has(self.active) && self.active == true && (has(self.readonly) && self.readonly == true))",message="a log cannot be both active and readonly"
-// +kubebuilder:validation:XValidation:rule="!(has(self.active) && self.active == true && (has(self.mirror) && self.mirror == true))",message="a log cannot be both active and mirror"
+// +kubebuilder:validation:XValidation:rule="self.?active.orValue(false) || has(self.logId)",message="logId is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="self.?active.orValue(false) || has(self.signer)",message="signer is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="self.?active.orValue(false) || (has(self.rootCerts) && size(self.rootCerts) > 0)",message="rootCerts is required for non-active logs"
+// +kubebuilder:validation:XValidation:rule="!self.?active.orValue(false) || (!self.?readonly.orValue(false) && !self.?mirror.orValue(false))",message="an active log cannot be readonly or a mirror"
 type CTLogConfig struct {
 	// LogId is the Trillian tree ID. For the active log, the operator will
 	// generate one if not set. For frozen/readonly shards, this must be the

@@ -167,7 +167,6 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return o.(*rhtasv1.Fulcio).Spec.Ctlog
 			}),
 		), builder.WithPredicates(crpredicate.Or(
-			crpredicate.GenerationChangedPredicate{},
 			predicate.ConditionChangedPredicate[*rhtasv1.CTlog](ctlogActions.TLSCondition),
 			// Trigger Fulcio reconciliation when CTlog's active shard prefix changes
 			ctlogStatusLogsChangedPredicate(),
