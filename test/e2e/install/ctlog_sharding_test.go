@@ -375,7 +375,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 
 		It("Cosign sign and verify with sharded CTlog", func(ctx SpecContext) {
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, support.PrepareImage(ctx), s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+			tas.VerifyByCosign(ctx, support.PrepareImage(ctx), s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 		})
 	})
 })

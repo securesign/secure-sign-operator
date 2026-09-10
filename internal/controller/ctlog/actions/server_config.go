@@ -179,7 +179,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 // resolveAllLogs builds a ShardConfig for every entry in status.logs,
 // reading secret data as needed. Active/inactive is irrelevant here —
 // every entry is serialized uniformly into the config proto.
-func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
+func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) { //nolint:gocyclo
 	logs := make([]ctlogUtils.ShardConfig, 0, len(instance.Status.Logs))
 
 	for _, log := range instance.Status.Logs {
