@@ -63,7 +63,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	if instance.Spec.ServerConfigRef != nil {
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
-		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigUpdated", "Updated", "CTLog config updated")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionTrue,
@@ -151,7 +151,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
-	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
+	i.Recorder.Eventf(instance, newConfig, corev1.EventTypeNormal, "CTLogConfigCreated", "Created", "Config secret created successfully: %s", newConfig.Name)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,
@@ -186,11 +186,11 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		err = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
 		if err != nil {
 			i.Logger.Error(err, "unable to delete secret", "namespace", instance.Namespace, "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "CTLogConfigCleanupFailed", "CleanupFailed", "Unable to delete old config secret: %s", partialConfig.Name)
 			continue
 		}
 		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigCleanedUp", "Deleted", "Old config secret deleted successfully: %s", partialConfig.Name)
 	}
 }
 

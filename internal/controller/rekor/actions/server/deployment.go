@@ -97,7 +97,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			Reason:  constants.Creating,
 			Message: "Deployment created",
 		})
-		i.Recorder.Eventf(instance, v1.EventTypeNormal, "DeploymentUpdated", "Deployment updated: %s", instance.Name)
+		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "DeploymentUpdated", "Updated", "Deployment updated: %s", instance.Name)
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
