@@ -71,7 +71,7 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alp
 		LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: obj.Name},
 		Key:                  "password",
 	}
-	i.Recorder.Eventf(instance, core.EventTypeNormal, "RedisSecretCreated", "Secret with redis password created: %s", obj.Name)
+	i.Recorder.Eventf(instance, obj, core.EventTypeNormal, "RedisSecretCreated", "Created", "Secret with redis password created: %s", obj.Name)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               actions.RedisCondition,
 		Status:             metav1.ConditionFalse,
@@ -106,10 +106,10 @@ func (i generatePasswordAction) cleanup(ctx context.Context, instance *rhtasv1al
 		err = i.Client.Delete(ctx, &core.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialSecret.Name, Namespace: partialSecret.Namespace}})
 		if err != nil {
 			i.Logger.Error(err, "unable to delete Secret", "namespace", instance.Namespace, "name", partialSecret.Name)
-			i.Recorder.Eventf(instance, core.EventTypeWarning, "RedisSecretDeleted", "Unable to delete Secret: %s", partialSecret.Name)
+			i.Recorder.Eventf(instance, nil, core.EventTypeWarning, "RedisSecretDeleted", "CleanupFailed", "Unable to delete Secret: %s", partialSecret.Name)
 			continue
 		}
 		i.Logger.Info("Remove invalid Secret with redis configuration", "Name", partialSecret.Name)
-		i.Recorder.Eventf(instance, core.EventTypeNormal, "RedisSecretDeleted", "Secret with redis configuration deleted: %s", partialSecret.Name)
+		i.Recorder.Eventf(instance, nil, core.EventTypeNormal, "RedisSecretDeleted", "Deleted", "Secret with redis configuration deleted: %s", partialSecret.Name)
 	}
 }

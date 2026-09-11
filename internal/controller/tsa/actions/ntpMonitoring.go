@@ -134,7 +134,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			return i.Error(ctx, fmt.Errorf("can't load configMap data %w", err), instance)
 		}
 		if reflect.DeepEqual(cm.Data[ntpConfigName], string(ntpConfig)) && newStatus.Config.NtpConfigRef == nil {
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "NTPConfigDiscovered", "Existing ConfigMap with NTP configuration discovered: %s", cm.Name)
+			i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "NTPConfigDiscovered", "Discovered", "Existing ConfigMap with NTP configuration discovered: %s", cm.Name)
 			i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cm.Name)
 			instance.Status.NTPMonitoring = newStatus
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

@@ -25,7 +25,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/controller/predicate"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,10 +46,10 @@ import (
 type timestampAuthorityReconciler struct {
 	client.Client
 	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	recorder events.EventRecorder
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &timestampAuthorityReconciler{
 		Client:   c,
 		scheme:   scheme,

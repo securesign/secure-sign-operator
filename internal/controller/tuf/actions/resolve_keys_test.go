@@ -14,14 +14,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var testAction = resolveKeysAction{
 	BaseAction: common.BaseAction{
 		Client:   fake.NewFakeClient(),
-		Recorder: record.NewFakeRecorder(3),
+		Recorder: events.NewFakeRecorder(3),
 		Logger:   logr.Logger{},
 	},
 }

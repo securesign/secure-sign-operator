@@ -90,7 +90,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 		if slices.Contains(instance.Status.RootCertificates, sks) {
 			return g.Continue()
 		}
-		g.Recorder.Event(instance, v1.EventTypeNormal, "FulcioCertDiscovered", "Fulcio certificate detected")
+		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "FulcioCertDiscovered", "Discovered", "Fulcio certificate detected")
 		instance.Status.RootCertificates = append(instance.Status.RootCertificates, sks)
 	} else {
 		instance.Status.RootCertificates = instance.Spec.RootCertificates

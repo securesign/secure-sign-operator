@@ -95,7 +95,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		}
 
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigUpdated", "Updated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionTrue,
@@ -126,7 +126,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			if errors.Is(err, errSecretInvalid) {
 				// Secret needs recreation - log and continue
 				i.Logger.Info("Server config secret needs recreation", "secret", instance.Status.ServerConfigRef.Name)
-				i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", "Config secret will be recreated: %s", instance.Status.ServerConfigRef.Name)
+				i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "CTLogConfigRecreate", "Recreating", "Config secret will be recreated: %s", instance.Status.ServerConfigRef.Name)
 			} else {
 				// API error - fail reconciliation
 				return i.Error(ctx, fmt.Errorf("error validating server config secret: %w", err), instance,
@@ -225,7 +225,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	i.Logger.Info("Server config secret created", "secret", newConfig.Name)
-	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Config secret created successfully: %s", newConfig.Name)
+	i.Recorder.Eventf(instance, newConfig, corev1.EventTypeNormal, "CTLogConfigCreated", "Created", "Config secret created successfully: %s", newConfig.Name)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,
@@ -260,11 +260,11 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		err = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
 		if err != nil {
 			i.Logger.Error(err, "unable to delete secret", "namespace", instance.Namespace, "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigCleanupFailed", "Unable to delete old config secret: %s", partialConfig.Name)
+			i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "CTLogConfigCleanupFailed", "CleanupFailed", "Unable to delete old config secret: %s", partialConfig.Name)
 			continue
 		}
 		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCleanedUp", "Old config secret deleted successfully: %s", partialConfig.Name)
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigCleanedUp", "Deleted", "Old config secret deleted successfully: %s", partialConfig.Name)
 	}
 }
 

@@ -140,7 +140,7 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 	}
 
 	msg := "Tuf init-repository job created."
-	i.Recorder.Event(instance, v1.EventTypeNormal, "JobCreated", msg)
+	i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "JobCreated", "Created", msg)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    tufConstants.RepositoryCondition,
 		Status:  metav1.ConditionFalse,
