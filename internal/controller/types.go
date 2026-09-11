@@ -2,7 +2,7 @@ package controller
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,10 +33,10 @@ import (
 
 //+kubebuilder:rbac:groups="config.openshift.io",resources=ingresses,resourceNames=cluster,verbs=get;list;watch
 
-//+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
+//+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;get;list;watch;update;patch
 
 type Controller interface {
 	SetupWithManager(ctrl.Manager) error
 }
 
-type Constructor func(client.Client, *runtime.Scheme, record.EventRecorder) Controller
+type Constructor func(client.Client, *runtime.Scheme, events.EventRecorder) Controller

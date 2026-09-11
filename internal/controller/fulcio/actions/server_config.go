@@ -131,7 +131,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance)
 	}
 
-	i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated: %s", newConfig.Name)
+	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "FulcioConfigUpdated", "Updated", "Fulcio config updated: %s", newConfig.Name)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions,
@@ -175,10 +175,10 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Fulci
 		})
 		if err != nil {
 			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, v1.EventTypeWarning, "FulcioConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			i.Recorder.Eventf(instance, nil, v1.EventTypeWarning, "FulcioConfigDeleted", "CleanupFailed", "Unable to delete secret: %s", partialConfig.Name)
 			continue
 		}
 		i.Logger.Info("Remove invalid ConfigMap with Fulcio configuration", "name", partialConfig.Name)
-		i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDeleted", "Fulcio config deleted: %s", partialConfig.Name)
+		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "FulcioConfigDeleted", "Deleted", "Fulcio config deleted: %s", partialConfig.Name)
 	}
 }

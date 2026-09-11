@@ -130,7 +130,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			})
 		}
 		message := fmt.Sprintf("Removed '%s' label from %s secret", FulcioCALabel, partialSecret.Name)
-		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateSecretLabelRemoved", message)
+		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "CertificateSecretLabelRemoved", "LabelRemoved", message)
 		g.Logger.Info(message)
 	}
 
@@ -180,7 +180,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			})
 	}
 
-	g.Recorder.Event(instance, v1.EventTypeNormal, "FulcioCertUpdated", "Fulcio certificate secret updated")
+	g.Recorder.Eventf(instance, newCert, v1.EventTypeNormal, "FulcioCertUpdated", "Updated", "Fulcio certificate secret updated")
 
 	g.alignStatusFields(newCert, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

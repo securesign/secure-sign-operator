@@ -92,7 +92,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		return i.Error(ctx, fmt.Errorf("could not create sharding config: %w", err), instance)
 	}
 
-	i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigCreated", "ConfigMap with sharding configuration created: %s", newConfig.Name)
+	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "ShardingConfigCreated", "Created", "ConfigMap with sharding configuration created: %s", newConfig.Name)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -134,11 +134,11 @@ func (i shardingConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rek
 		})
 		if err != nil {
 			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, v1.EventTypeWarning, "ShardingConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			i.Recorder.Eventf(instance, nil, v1.EventTypeWarning, "ShardingConfigDeleted", "CleanupFailed", "Unable to delete secret: %s", partialConfig.Name)
 			continue
 		}
 		i.Logger.Info("Remove invalid ConfigMap with rekor-sharding configuration", "name", partialConfig.Name)
-		i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigDeleted", "ConfigMap with sharding configuration deleted: %s", partialConfig.Name)
+		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "ShardingConfigDeleted", "Deleted", "ConfigMap with sharding configuration deleted: %s", partialConfig.Name)
 	}
 }
 
