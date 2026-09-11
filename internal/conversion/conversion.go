@@ -139,11 +139,6 @@ func GetFuzzer(scheme *runtime.Scheme, funcs ...fuzzer.FuzzerFuncs) *randfill.Fi
 						// Leave the Time sometimes nil to also get coverage for this case.
 						return
 					}
-					if c.Bool() {
-						// Set the Time sometimes empty to also get coverage for this case.
-						*input = &metav1.Time{}
-						return
-					}
 					var sec, nsec uint32
 					c.Fill(&sec)
 					c.Fill(&nsec)

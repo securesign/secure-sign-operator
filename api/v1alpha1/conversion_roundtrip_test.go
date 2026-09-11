@@ -72,7 +72,6 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.Enabled = ptr.To(c.Bool())
 			}
 		},
-		tfuzzer.Time,
 	}
 }
 
