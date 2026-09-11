@@ -56,10 +56,6 @@ linters:
       - linters:
           - kubeapilinter
         path-except: ^api/v1/
-      # TODO: Migrate to GetEventRecorder - https://issues.redhat.com/browse/SECURESIGN-3651
-      - linters:
-          - staticcheck
-        text: "SA1019: manager.GetEventRecorderFor is deprecated"
       - linters:
           - goconst
         path: (_test\.go$|^test/|^internal/testing/)
