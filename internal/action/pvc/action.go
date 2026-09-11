@@ -144,7 +144,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 			Reason:             ReasonCreated,
 			ObservedGeneration: instance.GetGeneration(),
 		})
-		i.Recorder.Eventf(instance, v1.EventTypeNormal, "PersistentVolumeClaimCreated", "New PersistentVolumeClaim created `%s`", pvc.Name)
+		i.Recorder.Eventf(instance, pvc, v1.EventTypeNormal, "PersistentVolumeClaimCreated", "Created", "New PersistentVolumeClaim created `%s`", pvc.Name)
 	case controllerutil.OperationResultUpdated:
 		instance.SetCondition(metav1.Condition{
 			Type:               ConditionType,
@@ -152,7 +152,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 			Reason:             ReasonUpdated,
 			ObservedGeneration: instance.GetGeneration(),
 		})
-		i.Recorder.Eventf(instance, v1.EventTypeNormal, "PersistentVolumeClaimUpdated", "PersistentVolumeClaim updated `%s`", pvc.Name)
+		i.Recorder.Eventf(instance, pvc, v1.EventTypeNormal, "PersistentVolumeClaimUpdated", "Updated", "PersistentVolumeClaim updated `%s`", pvc.Name)
 	case controllerutil.OperationResultNone:
 		instance.SetCondition(metav1.Condition{
 			Type:               ConditionType,

@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -30,6 +30,6 @@ func FakeClientBuilder() *fake.ClientBuilder {
 func PrepareAction[T apis.ConditionsAwareObject](c client.Client, a action.Action[T]) action.Action[T] {
 	a.InjectClient(c)
 	a.InjectLogger(logr.Logger{})
-	a.InjectRecorder(record.NewFakeRecorder(10))
+	a.InjectRecorder(events.NewFakeRecorder(10))
 	return a
 }
