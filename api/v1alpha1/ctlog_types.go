@@ -104,10 +104,6 @@ type CTlogList struct {
 	Items           []CTlog `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&CTlog{}, &CTlogList{})
-}
-
 func (i *CTlog) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }

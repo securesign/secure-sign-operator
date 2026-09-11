@@ -212,10 +212,6 @@ type FulcioList struct {
 	Items           []Fulcio `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Fulcio{}, &FulcioList{})
-}
-
 func (i *Fulcio) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }
