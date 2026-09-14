@@ -209,4 +209,4 @@ kubectl get ctlog <name> -o jsonpath='{.status.conditions[?(@.type=="TrustMateri
 
 ### 14. Update TUF Service
 
-Follow the [TUF key rotation documentation](TODO) to add the new public key into TUF service.
+Follow the [TUF repository update procedure](tuf-key-rotation.md) to add the new public key into the TUF service.

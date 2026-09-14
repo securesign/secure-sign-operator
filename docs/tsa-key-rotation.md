@@ -185,4 +185,4 @@ kubectl get timestampauthority <name> -o jsonpath='{.status.conditions[?(@.type=
 
 # Update TUF Service
 
-Follow the [TUF key rotation documentation](TODO) to add the new certificate chain into the TUF service.
+Follow the [TUF repository update procedure](tuf-key-rotation.md) to add the new certificate chain into the TUF service.
