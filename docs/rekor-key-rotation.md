@@ -107,4 +107,4 @@ These variables are necessary for the subsequent steps to successfully rotate th
 
 6. **Update TUF Service:**
 
-   Follow the [TUF key rotation documentation](TODO) to add the new public key into TUF service.
+   Follow the [TUF repository update procedure](tuf-key-rotation.md) to add the new public key into the TUF service.
