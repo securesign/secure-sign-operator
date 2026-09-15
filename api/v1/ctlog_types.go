@@ -163,8 +163,9 @@ type CTLogFrozenSTH struct {
 	TreeSize *int64 `json:"treeSize,omitempty"`
 
 	// Timestamp is the Unix timestamp when the STH was signed.
-	// This field preserves microsecond precision required for cryptographic signature verification.
+	// This field preserves second precision required for cryptographic signature verification.
 	// +optional
+	//nolint:kubeapilinter // keep timestamp name to match ctlog config
 	Timestamp *metav1.MicroTime `json:"timestamp,omitempty"`
 
 	// Sha256RootHash is the Base64-encoded root hash.
