@@ -130,11 +130,11 @@ type CTLogConfig struct {
 
 	// RFC3339 timestamp when this log's certificates become valid.
 	// +optional
-	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
+	NotAfterStart *metav1.MicroTime `json:"notAfterStart,omitempty"`
 
 	// RFC3339 timestamp when this log's certificates expire.
 	// +optional
-	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
+	NotAfterLimit *metav1.MicroTime `json:"notAfterLimit,omitempty"`
 
 	// Mirror indicates if this is a mirror log (read-only, no signing).
 	// +optional
@@ -163,9 +163,10 @@ type CTLogFrozenSTH struct {
 	TreeSize *int64 `json:"treeSize,omitempty"`
 
 	// Timestamp is the Unix timestamp when the STH was signed.
+	// This field preserves second precision required for cryptographic signature verification.
 	// +optional
 	//nolint:kubeapilinter // keep timestamp name to match ctlog config
-	Timestamp *metav1.Time `json:"timestamp,omitempty"`
+	Timestamp *metav1.MicroTime `json:"timestamp,omitempty"`
 
 	// Sha256RootHash is the Base64-encoded root hash.
 	// +optional

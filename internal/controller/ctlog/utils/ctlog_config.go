@@ -144,10 +144,14 @@ func marshalLogConfig(log ShardConfig, defaultRootPems []string) (*configpb.LogC
 	}
 
 	if log.NotAfterStart > 0 {
-		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: log.NotAfterStart}
+		seconds := log.NotAfterStart / 1_000_000
+		nanos := int32((log.NotAfterStart % 1_000_000) * 1000)
+		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: seconds, Nanos: nanos}
 	}
 	if log.NotAfterLimit > 0 {
-		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: log.NotAfterLimit}
+		seconds := log.NotAfterLimit / 1_000_000
+		nanos := int32((log.NotAfterLimit % 1_000_000) * 1000)
+		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: seconds, Nanos: nanos}
 	}
 
 	return cfg, nil
