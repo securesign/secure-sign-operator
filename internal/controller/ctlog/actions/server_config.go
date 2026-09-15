@@ -293,15 +293,19 @@ func (i serverConfig) resolveAllLogs(ctx context.Context, instance *rhtasv1.CTlo
 				sc.FrozenSTH.TreeSize = *specLog.FrozenSTH.TreeSize
 			}
 			if specLog.FrozenSTH.Timestamp != nil {
-				sc.FrozenSTH.Timestamp = specLog.FrozenSTH.Timestamp.Unix()
+				// FrozenSTH.Timestamp is milliseconds (RFC 6962 Section 3.5)
+				// Extract precise millisecond value for signature verification
+				sc.FrozenSTH.Timestamp = specLog.FrozenSTH.Timestamp.UnixMilli()
 			}
 		}
 
 		if specLog.NotAfterStart != nil {
-			sc.NotAfterStart = specLog.NotAfterStart.Unix()
+			// MicroTime provides microsecond precision, preserve it
+			sc.NotAfterStart = specLog.NotAfterStart.UnixMicro()
 		}
 		if specLog.NotAfterLimit != nil {
-			sc.NotAfterLimit = specLog.NotAfterLimit.Unix()
+			// MicroTime provides microsecond precision, preserve it
+			sc.NotAfterLimit = specLog.NotAfterLimit.UnixMicro()
 		}
 
 		logs = append(logs, sc)

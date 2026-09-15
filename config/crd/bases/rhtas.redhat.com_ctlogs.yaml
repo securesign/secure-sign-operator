@@ -1839,8 +1839,9 @@ spec:
                           format: byte
                           type: string
                         timestamp:
-                          description: Timestamp is the Unix timestamp when the STH
-                            was signed.
+                          description: |-
+                            Timestamp is the Unix timestamp when the STH was signed.
+                            This field preserves microsecond precision required for cryptographic signature verification.
                           format: date-time
                           type: string
                         treeHeadSignature:
