@@ -274,8 +274,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 							RootCerts: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 							},
-							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
-							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+							NotAfterStart: &metav1.MicroTime{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+							NotAfterLimit: &metav1.MicroTime{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
 						},
 					},
 				},
