@@ -75,8 +75,14 @@ func resolveRef(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) 
 		return certificateChainRef, nil
 	}
 	var ref *rhtasv1.SecretKeySelector
-	if instance.Status.Certificate != nil {
-		ref = instance.Status.Certificate.CARef
+	if st := instance.Status.Certificate; st != nil &&
+		st.CARef != nil && st.PrivateKeyRef != nil &&
+		st.CARef.Name == st.PrivateKeyRef.Name {
+		// Only trust the cached ref as a previously self-generated {cert,private}
+		// secret pair if both halves agree on the same secret name. A KMS-mode
+		// reconcile (resolve_kms_signer.go) only ever populates CARef, so a mode
+		// switch back to file can never be mistaken for a reusable file secret.
+		ref = st.CARef
 	}
 	return generateSigner.ResolveStatusSecret(ctx, c, ref, instance.Namespace, fmt.Sprintf(certSecretNameFormat, instance.Name))
 }

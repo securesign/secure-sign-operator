@@ -109,14 +109,15 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 	}
 
 	deterministicName := fmt.Sprintf(i.secretNameFormat, instance.GetName())
+	secretName := w.SecretName(deterministicName)
 
-	found, err := kubernetes.ExistsSecret(ctx, i.Client, instance.GetNamespace(), deterministicName)
+	found, err := kubernetes.ExistsSecret(ctx, i.Client, instance.GetNamespace(), secretName)
 
 	switch {
 	case err != nil:
-		return i.Error(ctx, fmt.Errorf("%w %q: %w", ErrSecretGet, deterministicName, err), instance)
+		return i.Error(ctx, fmt.Errorf("%w %q: %w", ErrSecretGet, secretName, err), instance)
 	case found:
-		w.AlignStatus(rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: deterministicName}})
+		w.AlignStatus(rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName}})
 		instance.SetCondition(metav1.Condition{
 			Type:               i.conditionType,
 			Status:             metav1.ConditionTrue,
@@ -125,7 +126,7 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	default:
-		return i.handleCreate(ctx, instance, w, deterministicName)
+		return i.handleCreate(ctx, instance, w, secretName)
 	}
 }
 
