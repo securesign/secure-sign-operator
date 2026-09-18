@@ -69,8 +69,14 @@ func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c cli
 		return instance.Spec.Signer.CertificateChain.CertificateChainRef, nil
 	}
 	var ref *rhtasv1.SecretKeySelector
-	if instance.Status.Signer != nil {
-		ref = instance.Status.Signer.CertificateChainRef
+	if st := instance.Status.Signer; st != nil && st.FileSigner != nil &&
+		st.CertificateChainRef != nil && st.FileSigner.PrivateKeyRef != nil &&
+		st.CertificateChainRef.Name == st.FileSigner.PrivateKeyRef.Name {
+		// Only trust the cached ref as a previously self-generated file secret if
+		// both halves agree on the same secret name. A KMS/Tink-mode reconcile
+		// (resolve_kms_tink_signer.go) only ever populates CertificateChainRef, so
+		// a mode switch back to file can never be mistaken for a reusable secret.
+		ref = st.CertificateChainRef
 	}
 	return generateSigner.ResolveStatusSecret(ctx, c, ref, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }

@@ -121,6 +121,86 @@ func TestRekorSigner_GeneratesCorrectKeyData(t *testing.T) {
 	g.Expect(secret.Labels).ToNot(BeEmpty())
 }
 
+func TestRekorSigner_KMSToFileGeneratesVersionedSecret(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := rekorInstance()
+	instance.Generation = 3
+	instance.Status.Conditions = []metav1.Condition{
+		{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Pending.String()},
+		{
+			Type:               actions.SignerCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             constants.ReasonResolved,
+			Message:            kmsSignerStatusMessage,
+			ObservedGeneration: 2,
+		},
+	}
+
+	oldSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "rekor-signer-config-rekor", Namespace: "default"},
+		Data:       map[string][]byte{constants.KeyPrivate: []byte("old-key")},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, oldSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(instance.Status.Signer.KeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal("rekor-signer-config-rekor-v3"))
+
+	newSecret := &corev1.Secret{}
+	g.Expect(c.Get(ctx, client.ObjectKey{Name: "rekor-signer-config-rekor-v3", Namespace: "default"}, newSecret)).To(Succeed())
+	g.Expect(newSecret.Data).To(HaveKey(constants.KeyPrivate))
+
+	retainedSecret := &corev1.Secret{}
+	g.Expect(c.Get(ctx, client.ObjectKey{Name: "rekor-signer-config-rekor", Namespace: "default"}, retainedSecret)).To(Succeed())
+}
+
+func TestRekorSigner_KMSToFileUsesExplicitSecret(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := rekorInstance()
+	instance.Generation = 3
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeSecret
+	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+		Key:                  constants.KeyPrivate,
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "rekor-file-signer-v2"},
+	}
+	instance.Status.Conditions = []metav1.Condition{
+		{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Pending.String()},
+		{
+			Type:               actions.SignerCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             constants.ReasonResolved,
+			Message:            kmsSignerStatusMessage,
+			ObservedGeneration: 2,
+		},
+	}
+
+	providedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "rekor-file-signer-v2", Namespace: "default"},
+		Data:       map[string][]byte{constants.KeyPrivate: []byte("provided-key")},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, providedSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(instance.Status.Signer.KeyRef).To(Equal(instance.Spec.Signer.KeyRef))
+
+	generatedSecret := &corev1.Secret{}
+	g.Expect(c.Get(ctx, client.ObjectKey{Name: "rekor-signer-config-rekor-v3", Namespace: "default"}, generatedSecret)).NotTo(Succeed())
+}
+
 func TestRekorSigner_MigrationFromPreExistingSecret(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
