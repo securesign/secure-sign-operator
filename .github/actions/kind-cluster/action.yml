@@ -9,6 +9,10 @@ inputs:
     description: 'install olm'
     required: true
     default: 'false'
+  olm-version:
+    description: 'OLM generation to install (v0 or v1)'
+    required: false
+    default: 'v0'
   keycloak:
     description: 'install keycloak'
     required: true
@@ -73,7 +77,7 @@ runs:
         kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default --timeout=90s
 
     - name: Install olm
-      if: ${{ inputs.olm  == 'true'}}
+      if: ${{ inputs.olm == 'true' && inputs.olm-version == 'v0' }}
       shell: bash
       run: |
         #install OLM
@@ -81,6 +85,16 @@ runs:
         # wait for a while to be sure CRDs are installed
         sleep 1
         kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.32.0/olm.yaml
+
+    - name: Install OLM v1
+      if: ${{ inputs.olm == 'true' && inputs.olm-version == 'v1' }}
+      shell: bash
+      run: |
+        # Includes catalogd; reuse the cert-manager installation above.
+        kubectl apply --server-side -f https://github.com/operator-framework/operator-controller/releases/download/v1.11.0/operator-controller.yaml
+        kubectl wait --for=condition=Established crd/clustercatalogs.olm.operatorframework.io crd/clusterextensions.olm.operatorframework.io --timeout=60s
+        kubectl rollout status -n olmv1-system deployment/catalogd-controller-manager --timeout=120s
+        kubectl rollout status -n olmv1-system deployment/operator-controller-controller-manager --timeout=120s
 
     - name: Install keycloak
       if: ${{ inputs.keycloak  == 'true'}}

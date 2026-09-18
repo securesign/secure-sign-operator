@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -87,10 +88,24 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	JustAfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
 			core.GinkgoWriter.Println("----------------------- Dumping operator resources -----------------------")
-			core.GinkgoWriter.Println("\n\nCatalog:")
-			core.GinkgoWriter.Printf("%s ready: %v\n", catalog.GetName(), catalog.IsReady(ctx, cli))
-			core.GinkgoWriter.Println("\n\nExtension:")
-			core.GinkgoWriter.Printf("%s version: %s ready: %v\n", extension.GetName(), extension.GetVersion(ctx, cli), extension.IsReady(ctx, cli))
+			var objects []runtimeCli.Object
+			if catalog != nil {
+				objects = append(objects, catalog.Unwrap())
+			}
+			if extension != nil {
+				objects = append(objects, extension.Unwrap())
+			}
+			for _, obj := range objects {
+				if err := cli.Get(ctx, runtimeCli.ObjectKeyFromObject(obj), obj); err != nil {
+					core.GinkgoWriter.Printf("Get %s: %v\n", obj.GetName(), err)
+				}
+				data, err := json.MarshalIndent(obj, "", "  ")
+				if err != nil {
+					core.GinkgoWriter.Printf("Marshal %s: %v\n", obj.GetName(), err)
+					continue
+				}
+				core.GinkgoWriter.Printf("%s\n", data)
+			}
 		}
 	})
 
