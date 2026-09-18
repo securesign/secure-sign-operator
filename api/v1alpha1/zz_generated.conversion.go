@@ -2704,6 +2704,7 @@ func autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s 
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
+	// WARNING: in.SigningConfigURLMode requires manual conversion: does not exist in peer-type
 	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
 	out.Port = in.Port
 	// WARNING: in.Keys requires manual conversion: does not exist in peer-type
