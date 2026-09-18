@@ -305,7 +305,11 @@ jobs:
         if: always()
 
   test-upgrade:
-    name: Test upgrade operator
+    name: Test upgrade operator (OLM ${{ matrix.olm }})
+    strategy:
+      fail-fast: false
+      matrix:
+        olm: [v0, v1]
     runs-on:
       labels: ubuntu-4core
     permissions:
@@ -355,6 +359,16 @@ jobs:
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+          olm-version: ${{ matrix.olm }}
+
+      - name: Configure OLM v1 registry authentication
+        if: matrix.olm == 'v1'
+        run: |
+          kubectl create secret generic registry-auth -n olmv1-system --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/tmp/config.json
+          for deployment in catalogd-controller-manager operator-controller-controller-manager; do
+            kubectl patch deployment "$deployment" -n olmv1-system --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--global-pull-secret=olmv1-system/registry-auth"}]'
+            kubectl rollout status -n olmv1-system "deployment/$deployment" --timeout=120s
+          done
 
       - name: Pull Container image from GHCR
         run: |
@@ -392,13 +406,19 @@ jobs:
           # and switching hostnames mid-upgrade would break Ingress routing.
           INGRESS_HOST_TEMPLATE: '%[1]s.local'
           DOCKER_CONFIG: /tmp
-        run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
+          OLM_GENERATION: ${{ matrix.olm }}
+        run: |
+          # OLM_V1 is presence-based: leave it unset for the v0 lane.
+          if [[ "$OLM_GENERATION" == 'v1' ]]; then
+            export OLM_V1=true
+          fi
+          go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: test-upgrade
+          name: test-upgrade-${{ matrix.olm }}
           path: test/**/k8s-dump-*.tar.gz
           if-no-files-found: ignore
 

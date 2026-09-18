@@ -59,7 +59,7 @@ func OlmV1Installer(ctx context.Context, cli client.Client, catalogImage, ns, pa
 			Name: fmt.Sprintf("%s-installer-%s", packageName, ns),
 		},
 		RoleRef: rbacV1.RoleRef{
-			APIGroup: coreV1.SchemeGroupVersion.Group,
+			APIGroup: rbacV1.GroupName,
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		},
