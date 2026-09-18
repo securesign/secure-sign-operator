@@ -57,6 +57,7 @@ func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1
 
 	Expect(clients.Execute(
 		"cosign", "sign", "-y",
+		"--allow-insecure-registry",
 		"--fulcio-url="+f.Status.Url,
 		"--rekor-url="+r.Status.Url,
 		"--timestamp-server-url="+ts.Status.Url+"/api/v1/timestamp",
@@ -68,6 +69,7 @@ func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1
 
 	Expect(clients.Execute(
 		"cosign", "verify",
+		"--allow-insecure-registry",
 		"--rekor-url="+r.Status.Url,
 		"--timestamp-certificate-chain=ts_chain.pem",
 		"--certificate-identity-regexp", ".*@redhat",
