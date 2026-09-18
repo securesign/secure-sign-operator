@@ -29,8 +29,10 @@ type TrillianSpec struct {
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// Configuration for Trillian log server service
+	//+kubebuilder:default:={}
 	LogServer TrillianLogServer `json:"server,omitempty"`
 	// Configuration for Trillian log signer service
+	//+kubebuilder:default:={}
 	LogSigner TrillianLogSigner `json:"signer,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA

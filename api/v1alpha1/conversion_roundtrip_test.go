@@ -107,36 +107,6 @@ func randTrustRootBinding(c randfill.Continue, urlFunc func(c randfill.Continue,
 	return b
 }
 
-// tufKeysFuzzerFuncs fuzzes v1alpha1 TufSpec.Keys with the four canonical, well-known
-// TUF target names instead of the generic random names randfill would otherwise produce.
-// tsa.certchain.pem is included or omitted at random, matching how TSA's inclusion in the
-// v1 trust root is decided in v1alpha1 terms.
-func tufKeysFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	return []interface{}{
-		func(s *TufSpec, c randfill.Continue) {
-			c.FillNoCustom(s)
-			keys := []TufKey{
-				{Name: rhtasv1.TufKeyRekor},
-				{Name: rhtasv1.TufKeyCTFE},
-				{Name: rhtasv1.TufKeyFulcio},
-			}
-			if c.Bool() {
-				keys = append(keys, TufKey{Name: rhtasv1.TufKeyTSA})
-			} else {
-				// tsa.certchain.pem absent from Keys means TSA is excluded
-				s.Tsa = TsaService{}
-			}
-			for i := range keys {
-				if c.Bool() {
-					keys[i].SecretRef = &SecretKeySelector{}
-					c.FillNoCustom(keys[i].SecretRef)
-				}
-			}
-			s.Keys = keys
-		},
-	}
-}
-
 func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *TrillianSpec, c randfill.Continue) {
@@ -363,6 +333,29 @@ func fulcioFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 // tufFuzzerFuncs constrains Tuf spec so all ServiceReference fields use HTTP URLs.
 func tufFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
+		func(s *TufSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// SigningConfigURLMode has no v1 counterpart and cannot round-trip through the hub.
+			s.SigningConfigURLMode = ""
+			keys := []TufKey{
+				{Name: rhtasv1.TufKeyRekor},
+				{Name: rhtasv1.TufKeyCTFE},
+				{Name: rhtasv1.TufKeyFulcio},
+			}
+			if c.Bool() {
+				keys = append(keys, TufKey{Name: rhtasv1.TufKeyTSA})
+			} else {
+				// tsa.certchain.pem absent from Keys means TSA is excluded.
+				s.Tsa = TsaService{}
+			}
+			for i := range keys {
+				if c.Bool() {
+					keys[i].SecretRef = &SecretKeySelector{}
+					c.FillNoCustom(keys[i].SecretRef)
+				}
+			}
+			s.Keys = keys
+		},
 		func(s *rhtasv1.Tuf, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Spec.Ctlog = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
@@ -567,7 +560,7 @@ func TestSecuresignConversion(t *testing.T) {
 			fulcioCertFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
-			tufKeysFuzzerFuncs,
+			tufFuzzerFuncs,
 			securesignFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
@@ -658,7 +651,6 @@ func TestTufConversion(t *testing.T) {
 			rekorServiceFuzzerFuncs,
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
-			tufKeysFuzzerFuncs,
 		},
 	}))
 }
