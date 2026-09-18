@@ -10,6 +10,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
+	consolev1 "github.com/openshift/api/console/v1"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
@@ -378,6 +379,29 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			}, r)).To(gomega.Succeed())
 			g.Expect(meta.FindStatusCondition(r.Status.Conditions, rekorAction.UICondition)).To(gomega.BeNil())
 		}).Should(gomega.Succeed())
+	})
+
+	It("Verify ConsoleCLIDownload migration", func(ctx SpecContext) {
+		if !testSupportKubernetes.IsRemoteClusterOpenshift() {
+			Skip("ConsoleCLIDownload is OpenShift-only")
+		}
+
+		legacyNames := []string{"cosign", "rekor-cli", "gitsign", "ec", "fetch-tsa-certs", "createtree", "updatetree", "tuftool"}
+		for _, name := range legacyNames {
+			gomega.Eventually(func() bool {
+				return errors.IsNotFound(cli.Get(ctx, types.NamespacedName{Name: name}, &consolev1.ConsoleCLIDownload{}))
+			}).Should(gomega.BeTrue(), "legacy ConsoleCLIDownload %q should be deleted", name)
+		}
+
+		newNames := []string{"rhtas-cosign", "rhtas-rekor-cli", "rhtas-gitsign", "rhtas-ec", "rhtas-fetch-tsa-certs", "rhtas-createtree", "rhtas-updatetree", "rhtas-tuftool", "rhtas-tufcli"}
+		for _, name := range newNames {
+			gomega.Eventually(func(g gomega.Gomega) {
+				cd := &consolev1.ConsoleCLIDownload{}
+				g.Expect(cli.Get(ctx, types.NamespacedName{Name: name}, cd)).To(gomega.Succeed())
+				g.Expect(cd.Spec.Links).ToNot(gomega.BeEmpty(), "ConsoleCLIDownload %q should have download links", name)
+				g.Expect(cd.Spec.Links[0].Href).To(gomega.ContainSubstring("developers.redhat.com"), "ConsoleCLIDownload %q should point to developer portal", name)
+			}).Should(gomega.Succeed())
+		}
 	})
 
 	It("Enforce PSA restricted:latest after upgrade", func(ctx SpecContext) {

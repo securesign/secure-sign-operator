@@ -71,6 +71,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/clidownload"
 	"github.com/securesign/operator/internal/controller/console"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
@@ -368,6 +369,14 @@ func main() {
 	setupController("tsa", tsa.NewReconciler, mgr)
 	setupController("console", console.NewReconciler, mgr)
 	//+kubebuilder:scaffold:builder
+
+	if err := mgr.Add(&clidownload.MigrationComponent{
+		Client: mgr.GetClient(),
+		Log:    setupLog.WithName("clidownload-migration"),
+	}); err != nil {
+		setupLog.Error(err, "unable to set up CLIDownload migration")
+		os.Exit(1)
+	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		// The /convert conversion webhook is auto-registered by controller-runtime's

@@ -112,6 +112,22 @@ rules:
   - list
   - watch
 - apiGroups:
+  - console.openshift.io
+  resourceNames:
+  - cosign
+  - createtree
+  - ec
+  - fetch-tsa-certs
+  - gitsign
+  - rekor-cli
+  - tuftool
+  - updatetree
+  resources:
+  - consoleclidownloads
+  verbs:
+  - delete
+  - get
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases

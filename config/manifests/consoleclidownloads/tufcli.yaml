@@ -1,7 +1,7 @@
 apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
-  name: tufcli
+  name: rhtas-tufcli
   labels:
     app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
