@@ -327,6 +327,7 @@ func main() {
 				DisableFor: []client.Object{
 					&corev1.Secret{},
 					&corev1.ConfigMap{},
+					&consolev1.ConsoleCLIDownload{},
 				},
 			},
 		},
