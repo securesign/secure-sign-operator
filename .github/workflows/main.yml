@@ -215,6 +215,10 @@ jobs:
         with:
           name: tufcli
           path: /tmp/tufcli
+
+      - name: Make tufcli executable
+        run: chmod +x /tmp/tufcli/tufcli
+
       - run: echo "/tmp/tufcli" >> $GITHUB_PATH
 
       - name: Log in to GitHub Container Registry
@@ -795,6 +799,10 @@ jobs:
         with:
           name: tufcli
           path: /tmp/tufcli
+
+      - name: Make tufcli executable
+        run: chmod +x /tmp/tufcli/tufcli
+
       - run: echo "/tmp/tufcli" >> $GITHUB_PATH
 
       - name: Log in to GitHub Container Registry
