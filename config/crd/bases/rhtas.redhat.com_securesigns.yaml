@@ -1869,7 +1869,7 @@ spec:
                             timestamp:
                               description: |-
                                 Timestamp is the Unix timestamp when the STH was signed.
-                                This field preserves microsecond precision required for cryptographic signature verification.
+                                This field preserves millisecond precision required for cryptographic signature verification.
                               format: date-time
                               type: string
                             treeHeadSignature:
