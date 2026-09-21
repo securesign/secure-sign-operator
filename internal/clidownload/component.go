@@ -9,8 +9,17 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 
 	"github.com/go-logr/logr"
+	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	cliServerNamespace = "trusted-artifact-signer"
+	cliServerName      = "cli-server"
 )
 
 //+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,resourceNames=cosign;rekor-cli;gitsign;ec;fetch-tsa-certs;createtree;updatetree;tuftool,verbs=get;delete
@@ -36,6 +45,13 @@ func (c *MigrationComponent) Start(ctx context.Context) error {
 		return nil
 	}
 
+	c.deleteLegacyCLIDownloads(ctx)
+	c.deleteLegacyCLIServer(ctx)
+
+	return nil
+}
+
+func (c *MigrationComponent) deleteLegacyCLIDownloads(ctx context.Context) {
 	c.Log.Info("cleaning up legacy ConsoleCLIDownload resources")
 
 	for _, name := range legacyNames {
@@ -59,7 +75,38 @@ func (c *MigrationComponent) Start(ctx context.Context) error {
 		}
 		c.Log.Info("deleted legacy ConsoleCLIDownload", "name", name)
 	}
-	return nil
+}
+
+func (c *MigrationComponent) deleteLegacyCLIServer(ctx context.Context) {
+	c.Log.Info("cleaning up legacy cli-server resources")
+
+	cliServerResources := []client.Object{
+		&apps.Deployment{ObjectMeta: metav1.ObjectMeta{Name: cliServerName, Namespace: cliServerNamespace}},
+		&core.Service{ObjectMeta: metav1.ObjectMeta{Name: cliServerName, Namespace: cliServerNamespace}},
+		&networking.Ingress{ObjectMeta: metav1.ObjectMeta{Name: cliServerName, Namespace: cliServerNamespace}},
+	}
+
+	for _, obj := range cliServerResources {
+		if err := c.Client.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			c.Log.Error(err, "failed to get legacy cli-server resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
+			continue
+		}
+
+		if obj.GetLabels()[labels.LabelAppPartOf] != constants.AppName {
+			c.Log.Info("skipping resource not owned by this operator", "name", obj.GetName())
+			continue
+		}
+
+		if err := c.Client.Delete(ctx, obj); err != nil {
+			c.Log.Error(err, "failed to delete legacy cli-server resource", "name", obj.GetName())
+			continue
+		}
+		c.Log.Info("deleted legacy cli-server resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
+	}
+
 }
 
 func (c *MigrationComponent) NeedLeaderElection() bool {

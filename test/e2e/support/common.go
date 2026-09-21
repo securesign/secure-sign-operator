@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
+	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
@@ -59,6 +60,7 @@ func CreateClient() (client.Client, error) {
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(configv1.Install(scheme))
+	utilruntime.Must(consolev1.AddToScheme(scheme))
 
 	cfg, err := config.GetConfig()
 	if err != nil {
