@@ -21,4 +21,4 @@ spec:
     - text: "Download createtree for Mac arm64"
       href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/createtree_darwin_arm64.tar.gz"
     - text: "Download createtree for Windows x86_64"
-      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/createtree_windows_amd64.tar.gz"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/createtree_windows_amd64.zip"

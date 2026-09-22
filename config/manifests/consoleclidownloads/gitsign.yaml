@@ -21,4 +21,4 @@ spec:
     - text: "Download gitsign for Mac arm64"
       href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/gitsign_cli_darwin_arm64.tar.gz"
     - text: "Download gitsign for Windows x86_64"
-      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/gitsign_cli_windows_amd64.tar.gz"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/gitsign_cli_windows_amd64.zip"
