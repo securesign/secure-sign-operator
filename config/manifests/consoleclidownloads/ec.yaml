@@ -21,4 +21,4 @@ spec:
     - text: "Download ec for Mac arm64"
       href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_darwin_arm64.tar.gz"
     - text: "Download ec for Windows x86_64"
-      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_windows_amd64.tar.gz"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_windows_amd64.zip"

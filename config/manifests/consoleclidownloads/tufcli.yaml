@@ -21,4 +21,4 @@ spec:
     - text: "Download tufcli for Mac arm64"
       href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_darwin_arm64.tar.gz"
     - text: "Download tufcli for Windows x86_64"
-      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_windows_amd64.tar.gz"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_windows_amd64.zip"

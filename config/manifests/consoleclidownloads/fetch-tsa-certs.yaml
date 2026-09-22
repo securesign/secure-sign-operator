@@ -21,4 +21,4 @@ spec:
     - text: "Download fetch-tsa-certs for Mac arm64"
       href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/fetch_tsa_certs_darwin_arm64.tar.gz"
     - text: "Download fetch-tsa-certs for Windows x86_64"
-      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/fetch_tsa_certs_windows_amd64.tar.gz"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/fetch_tsa_certs_windows_amd64.zip"
