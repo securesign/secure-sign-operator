@@ -4,6 +4,6 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- digest: sha256:0ebc6b3bd992309a914cc0da8ad8fc628224f583b66f1ca2cd10d2281b781cde
+- digest: sha256:9fe463c6ea82e49b7e0321eadd228d5cbe108a5db15a41f4a0ab6b63e0331c17
   name: controller
   newName: registry.redhat.io/rhtas/rhtas-rhel9-operator
