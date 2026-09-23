@@ -4,6 +4,7 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -31,22 +33,35 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-// Companion to kms_file_migration_test.go: a real file-mode install migrated
-// to KMS, then back to file. File -> KMS is not expected to hit
-// SECURESIGN-5653 -- entering KMS mode never reads from .status at all, only
-// from spec (resolve_kms_signer.go / resolve_kms_tink_signer.go require
-// CertificateChainRef to already be set on the incoming spec, which CEL
-// validation enforces). The round trip back to file is kept anyway as a
-// belt-and-suspenders guard: today it's provably the same code path as
-// kms_file_migration_test.go's revert (resolve_kms_signer.go /
-// resolve_kms_tink_signer.go fully overwrite the relevant status fields
-// rather than merging, so KMS-mode status doesn't depend on how KMS mode was
-// reached), but that equivalence could silently break under a future change
-// to those actions, and a round trip catches that where a one-way test can't.
+// limitMigrationAttempts caps retries and supplies a per-attempt deadline to
+// operations that honor context cancellation.
+func limitMigrationAttempts(operation func(context.Context) error) func(context.Context) error {
+	const maxAttempts = 3
+	attempts := 0
+	return func(ctx context.Context) error {
+		if attempts >= maxAttempts {
+			return StopTrying("migration operation exhausted its 3 attempts")
+		}
+		attempts++
+		attemptCtx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		err := operation(attemptCtx)
+		if err != nil && attempts == maxAttempts {
+			return StopTrying("migration operation failed after 3 attempts").Wrap(err)
+		}
+		return err
+	}
+}
+
+// Starts with operator-generated file signers, migrates to KMS, then returns
+// to file mode without providing replacement certificate or private-key refs.
+// The original file Secrets remain present so the round trip checks both stale
+// KMS references (SECURESIGN-5653) and unintended reuse of historical file keys.
 var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, func() {
 	cli, _ := support.CreateClient()
 
@@ -59,12 +74,16 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		targetImageV2 string
 		localCosign   *cosign.LocalCosign
 
-		fileEraFulcioRef  string
-		fileEraTsaRef     string
-		fileEraRekorRef   string
-		fileEraFulcioCert []byte
-		fileEraTsaCert    []byte
-		fileEraRekorPub   []byte
+		fileEraFulcioRef     string
+		fileEraTsaRef        string
+		fileEraRekorRef      string
+		fileEraFulcioCert    []byte
+		fileEraTsaCert       []byte
+		fileEraRekorPub      []byte
+		fileEraFulcioKeyRef  *rhtasv1.SecretKeySelector
+		fileEraTsaKeyRef     *rhtasv1.SecretKeySelector
+		fileEraFulcioKeyHash [sha256.Size]byte
+		fileEraTsaKeyHash    [sha256.Size]byte
 
 		kmsEraFulcioRef  string
 		kmsEraTsaRef     string
@@ -128,18 +147,18 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 		localCosign = cosign.NewLocalCosign(s.Status.TufStatus.URL, s.Status.FulcioStatus.URL, s.Status.RekorStatus.URL, s.Status.TSAStatus.URL)
 
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return clients.Execute("cosign", "initialize", "--mirror="+s.Status.TufStatus.URL, "--root="+s.Status.TufStatus.URL+"/root.json")
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
-		Eventually(func(ctx context.Context) error {
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Sign(ctx, targetImageV1)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
-		Eventually(func(ctx context.Context) error {
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Verify(ctx, targetImageV1)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 	})
 
-	It("captures the file-era secret refs", func(ctx SpecContext) {
+	It("captures the file-era secret refs and key fingerprints", func(ctx SpecContext) {
 		f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 		Expect(f.Status.Certificate).ToNot(BeNil())
 		Expect(f.Status.Certificate.CARef).ToNot(BeNil())
@@ -148,6 +167,13 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		fileEraFulcioCert, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, f.Status.Certificate.CARef)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fileEraFulcioCert).ToNot(BeEmpty())
+		Expect(f.Status.Certificate.PrivateKeyRef).ToNot(BeNil())
+		fileEraFulcioKeyRef = f.Status.Certificate.PrivateKeyRef.DeepCopy()
+		fulcioKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, fileEraFulcioKeyRef)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fulcioKey).ToNot(BeEmpty())
+		// Compare fingerprints so failed assertions do not print private keys.
+		fileEraFulcioKeyHash = sha256.Sum256(fulcioKey)
 
 		t := tsa.Get(ctx, cli, namespace.Name, s.Name)
 		Expect(t.Status.Signer).ToNot(BeNil())
@@ -156,6 +182,13 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		fileEraTsaCert, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, t.Status.Signer.CertificateChainRef)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fileEraTsaCert).ToNot(BeEmpty())
+		Expect(t.Status.Signer.FileSigner).ToNot(BeNil())
+		Expect(t.Status.Signer.FileSigner.PrivateKeyRef).ToNot(BeNil())
+		fileEraTsaKeyRef = t.Status.Signer.FileSigner.PrivateKeyRef.DeepCopy()
+		tsaKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, fileEraTsaKeyRef)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tsaKey).ToNot(BeEmpty())
+		fileEraTsaKeyHash = sha256.Sum256(tsaKey)
 
 		r := rekor.Get(ctx, cli, namespace.Name, s.Name)
 		Expect(r.Status.Signer.KeyRef).ToNot(BeNil(),
@@ -322,21 +355,21 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 	})
 
 	It("signs and verifies a KMS-era image, and confirms the file-era image still verifies", func(ctx SpecContext) {
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return clients.Execute("cosign", "initialize", "--mirror="+s.Status.TufStatus.URL, "--root="+s.Status.TufStatus.URL+"/root.json")
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 
 		targetImageV2 = support.PrepareImage(ctx)
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Sign(ctx, targetImageV2)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
-		Eventually(func(ctx context.Context) error {
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Verify(ctx, targetImageV2)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Verify(ctx, targetImageV1)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 	})
 
 	// This is the actual SECURESIGN-5653 regression path, now exercised from a
@@ -408,15 +441,23 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		}).Should(Succeed())
 	})
 
-	It("Fulcio comes back Ready with a freshly generated file secret (SECURESIGN-5653 regression)", func(ctx SpecContext) {
-		Eventually(func() (bool, error) {
-			if msg := failedMountEvent(ctx, cli, namespace.Name, "fulcio-server"); msg != "" {
-				return false, StopTrying(fmt.Sprintf(
-					"Fulcio pod hit FailedMount — stale KMS secret ref not cleared on mode switch "+
-						"(internal/controller/fulcio/actions/generate_signer.go resolveRef): %s", msg))
+	It("Fulcio returns to Ready with a new file key and certificate while retaining the original Secret", func(ctx SpecContext) {
+		Eventually(func(ctx context.Context) (bool, error) {
+			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+			if f != nil && (f.Spec.Signer.Type == "" || f.Spec.Signer.Type == rhtasv1.SignerTypeFile) &&
+				f.Spec.Signer.Kms == nil && condition.IsReady(f) {
+				ready := meta.FindStatusCondition(f.GetConditions(), constants.ReadyCondition)
+				if ready.ObservedGeneration == f.GetGeneration() {
+					return true, nil
+				}
 			}
-			return condition.IsReady(fulcio.Get(ctx, cli, namespace.Name, s.Name)), nil
-		}).WithTimeout(60*time.Second).WithPolling(3*time.Second).Should(BeTrue(),
+			// Events can outlive a failed rollout; retain them as timeout
+			// diagnostics instead of aborting before the controller can recover.
+			if msg := failedMountEvent(ctx, cli, namespace.Name, "fulcio-server"); msg != "" {
+				return false, fmt.Errorf("Fulcio is not Ready in file mode; recorded FailedMount: %s", msg)
+			}
+			return false, fmt.Errorf("Fulcio is not Ready in file mode for its current generation")
+		}).WithContext(ctx).WithTimeout(60*time.Second).WithPolling(3*time.Second).Should(BeTrue(),
 			"Fulcio never became Ready after reverting to file mode")
 
 		f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
@@ -424,22 +465,46 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		Expect(f.Status.Certificate.CARef).ToNot(BeNil())
 		Expect(f.Status.Certificate.CARef.Name).ToNot(Equal(kmsEraFulcioRef),
 			"Fulcio status still references the old KMS cert-chain secret after reverting to file mode")
+		Expect(f.Status.Certificate.CARef.Name).ToNot(Equal(fileEraFulcioRef),
+			"Fulcio must not reactivate the original file-era certificate Secret")
+		Expect(f.Status.Certificate.PrivateKeyRef).ToNot(BeNil())
+		Expect(f.Status.Certificate.PrivateKeyRef.Name).ToNot(Equal(fileEraFulcioKeyRef.Name),
+			"Fulcio must generate a new file signer Secret after the KMS round trip")
 
 		privKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, f.Status.Certificate.PrivateKeyRef)
 		Expect(err).ToNot(HaveOccurred(),
 			"status.certificate.privateKeyRef must resolve to a real secret key, not a stale KMS ref")
 		Expect(privKey).ToNot(BeEmpty())
+		Expect(sha256.Sum256(privKey)).ToNot(Equal(fileEraFulcioKeyHash),
+			"Fulcio must generate a new private key, not copy the original key into a new Secret")
+
+		newCert, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, f.Status.Certificate.CARef)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newCert).ToNot(BeEmpty())
+		Expect(sha256.Sum256(newCert)).ToNot(Equal(sha256.Sum256(fileEraFulcioCert)),
+			"Fulcio must publish a new certificate after rotating its file signer")
+
+		retainedKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, fileEraFulcioKeyRef)
+		Expect(err).ToNot(HaveOccurred(), "the original Fulcio file signer Secret must be retained")
+		Expect(sha256.Sum256(retainedKey)).To(Equal(fileEraFulcioKeyHash),
+			"the original Fulcio private key must remain unchanged")
 	})
 
-	It("TSA comes back Ready with a freshly generated file secret (SECURESIGN-5653 regression)", func(ctx SpecContext) {
-		Eventually(func() (bool, error) {
-			if msg := failedMountEvent(ctx, cli, namespace.Name, "tsa-server"); msg != "" {
-				return false, StopTrying(fmt.Sprintf(
-					"TSA pod hit FailedMount — stale KMS secret ref not cleared on mode switch "+
-						"(internal/controller/tsa/actions/generate_signer.go resolveRef): %s", msg))
+	It("TSA returns to Ready with a new file key and certificate chain while retaining the original Secret", func(ctx SpecContext) {
+		Eventually(func(ctx context.Context) (bool, error) {
+			t := tsa.Get(ctx, cli, namespace.Name, s.Name)
+			if t != nil && (t.Spec.Signer.Type == "" || t.Spec.Signer.Type == rhtasv1.SignerTypeFile) &&
+				t.Spec.Signer.Kms == nil && t.Spec.Signer.Tink == nil && condition.IsReady(t) {
+				ready := meta.FindStatusCondition(t.GetConditions(), constants.ReadyCondition)
+				if ready.ObservedGeneration == t.GetGeneration() {
+					return true, nil
+				}
 			}
-			return condition.IsReady(tsa.Get(ctx, cli, namespace.Name, s.Name)), nil
-		}).WithTimeout(60*time.Second).WithPolling(3*time.Second).Should(BeTrue(),
+			if msg := failedMountEvent(ctx, cli, namespace.Name, "tsa-server"); msg != "" {
+				return false, fmt.Errorf("TSA is not Ready in file mode; recorded FailedMount: %s", msg)
+			}
+			return false, fmt.Errorf("TSA is not Ready in file mode for its current generation")
+		}).WithContext(ctx).WithTimeout(60*time.Second).WithPolling(3*time.Second).Should(BeTrue(),
 			"TimestampAuthority never became Ready after reverting to file mode")
 
 		t := tsa.Get(ctx, cli, namespace.Name, s.Name)
@@ -447,19 +512,42 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		Expect(t.Status.Signer.CertificateChainRef).ToNot(BeNil())
 		Expect(t.Status.Signer.CertificateChainRef.Name).ToNot(Equal(kmsEraTsaRef),
 			"TSA status still references the old KMS cert-chain secret after reverting to file mode")
+		Expect(t.Status.Signer.CertificateChainRef.Name).ToNot(Equal(fileEraTsaRef),
+			"TSA must not reactivate the original file-era certificate-chain Secret")
 
 		Expect(t.Status.Signer.FileSigner).ToNot(BeNil())
 		Expect(t.Status.Signer.FileSigner.PrivateKeyRef).ToNot(BeNil())
+		Expect(t.Status.Signer.FileSigner.PrivateKeyRef.Name).ToNot(Equal(fileEraTsaKeyRef.Name),
+			"TSA must generate a new file signer Secret after the KMS round trip")
 		leafKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, t.Status.Signer.FileSigner.PrivateKeyRef)
 		Expect(err).ToNot(HaveOccurred(),
 			"status.signer.fileSigner.privateKeyRef must resolve to a real secret key, not a stale KMS ref")
 		Expect(leafKey).ToNot(BeEmpty())
+		Expect(sha256.Sum256(leafKey)).ToNot(Equal(fileEraTsaKeyHash),
+			"TSA must generate a new private key, not copy the original key into a new Secret")
+
+		newChain, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, t.Status.Signer.CertificateChainRef)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newChain).ToNot(BeEmpty())
+		Expect(sha256.Sum256(newChain)).ToNot(Equal(sha256.Sum256(fileEraTsaCert)),
+			"TSA must publish a new certificate chain after rotating its file signer")
+
+		retainedKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, fileEraTsaKeyRef)
+		Expect(err).ToNot(HaveOccurred(), "the original TSA file signer Secret must be retained")
+		Expect(sha256.Sum256(retainedKey)).To(Equal(fileEraTsaKeyHash),
+			"the original TSA private key must remain unchanged")
 	})
 
 	It("Rekor comes back Ready with a freshly generated file secret", func(ctx SpecContext) {
-		Eventually(func() bool {
-			return condition.IsReady(rekor.Get(ctx, cli, namespace.Name, s.Name))
-		}).WithTimeout(60*time.Second).WithPolling(3*time.Second).Should(BeTrue(),
+		Eventually(func(ctx context.Context) bool {
+			r := rekor.Get(ctx, cli, namespace.Name, s.Name)
+			if r != nil && (r.Spec.Signer.Type == "" || r.Spec.Signer.Type == rhtasv1.SignerTypeSecret) &&
+				r.Spec.Signer.Kms == nil && condition.IsReady(r) {
+				ready := meta.FindStatusCondition(r.GetConditions(), constants.ReadyCondition)
+				return ready.ObservedGeneration == r.GetGeneration()
+			}
+			return false
+		}).WithContext(ctx).WithTimeout(60*time.Second).WithPolling(3*time.Second).Should(BeTrue(),
 			"Rekor never became Ready after reverting to file mode")
 
 		r := rekor.Get(ctx, cli, namespace.Name, s.Name)
@@ -476,7 +564,7 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 		oldRef.Name = fileEraRekorRef
 		oldPrivKey, err := kubernetes.GetSecretData(ctx, cli, namespace.Name, oldRef)
 		Expect(err).ToNot(HaveOccurred(), "the original file signer Secret must be retained")
-		Expect(oldPrivKey).ToNot(Equal(privKey), "file signer rotation must create a new key pair")
+		Expect(sha256.Sum256(oldPrivKey)).ToNot(Equal(sha256.Sum256(privKey)), "file signer rotation must create a new key pair")
 		Expect(r.Status.PublicKey).ToNot(Equal(string(fileEraRekorPub)), "Rekor must publish the new file signer's public key")
 	})
 
@@ -530,24 +618,24 @@ var _ = Describe("Securesign file-to-KMS-to-file signer migration", Ordered, fun
 	})
 
 	It("signs a third image and confirms all three generations still verify (full backward compatibility)", func(ctx SpecContext) {
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return clients.Execute("cosign", "initialize", "--mirror="+s.Status.TufStatus.URL, "--root="+s.Status.TufStatus.URL+"/root.json")
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 
 		targetImageV3 := support.PrepareImage(ctx)
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Sign(ctx, targetImageV3)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
-		Eventually(func(ctx context.Context) error {
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Verify(ctx, targetImageV3)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Verify(ctx, targetImageV2)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 
-		Eventually(func(ctx context.Context) error {
+		Eventually(limitMigrationAttempts(func(ctx context.Context) error {
 			return localCosign.Verify(ctx, targetImageV1)
-		}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+		})).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 	})
 })

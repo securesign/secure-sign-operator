@@ -40,6 +40,7 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 			ResolveRef:   resolveRef,
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
+			SecretName:   signerSecretName,
 			IsEnabled: func(i *rhtasv1.Fulcio) bool {
 				return i.Spec.Signer.Type == rhtasv1.SignerTypeFile || i.Spec.Signer.Type == ""
 			},
@@ -51,6 +52,17 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 			},
 		}),
 	)
+}
+
+func signerSecretName(instance *rhtasv1.Fulcio, deterministicName string) string {
+	// KMS status contains a certificate reference without a private key. When
+	// returning to generated file mode, retain the old Secret and rotate into a
+	// new one. The generation makes retries reuse the same new Secret, including
+	// after a restart between Secret creation and status persistence.
+	if st := instance.Status.Certificate; st != nil && st.CARef != nil && st.PrivateKeyRef == nil {
+		return fmt.Sprintf("%s-v%d", deterministicName, instance.GetGeneration())
+	}
+	return deterministicName
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) (*rhtasv1.SecretKeySelector, error) {

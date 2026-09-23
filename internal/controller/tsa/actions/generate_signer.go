@@ -37,6 +37,7 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled:    isEnabled,
+			SecretName:   signerSecretName,
 			MutateSecret: func(_ *rhtasv1.TimestampAuthority, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)
@@ -45,6 +46,18 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 			},
 		}),
 	)
+}
+
+func signerSecretName(instance *rhtasv1.TimestampAuthority, deterministicName string) string {
+	// KMS/Tink status contains a certificate-chain reference without a file
+	// private key. Rotate into a new Secret when returning to generated file
+	// mode, preserving the old material. Use the generation so retries select
+	// the same new Secret even if its creation preceded status persistence.
+	if st := instance.Status.Signer; st != nil && st.CertificateChainRef != nil &&
+		(st.FileSigner == nil || st.FileSigner.PrivateKeyRef == nil) {
+		return fmt.Sprintf("%s-v%d", deterministicName, instance.GetGeneration())
+	}
+	return deterministicName
 }
 
 func isEnabled(instance *rhtasv1.TimestampAuthority) bool {
