@@ -1,4 +1,4 @@
-ARG VERSION="1.3.8"
+ARG VERSION="1.3.9"
 ARG CHANNELS="stable,stable-v1.3"
 ARG DEFAULT_CHANNEL="stable"
 ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
