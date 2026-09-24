@@ -41,7 +41,7 @@ Prerequisites
             restartPolicy: OnFailure
             containers:
             - name: pvc-copy
-              image: registry.redhat.io/openshift4/ose-cli:latest
+              image: registry.redhat.io/openshift4/ose-cli-rhel9:latest
               command: ["/bin/bash","-lc"]
               args:
                 - |

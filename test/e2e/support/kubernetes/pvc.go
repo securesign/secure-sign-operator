@@ -53,7 +53,7 @@ func CreatePVCCopyJob(namespace, srcPVC, destPVC string) *batchv1.Job {
 					Containers: []v1.Container{
 						{
 							Name:    "pvc-copy",
-							Image:   "registry.redhat.io/openshift4/ose-cli:latest",
+							Image:   "registry.redhat.io/openshift4/ose-cli-rhel9:latest",
 							Command: []string{"/bin/bash", "-lc"},
 							Args: []string{`
 								set -euo pipefail
