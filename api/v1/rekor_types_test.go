@@ -223,6 +223,41 @@ var _ = Describe("Rekor", func() {
 					validObject.Spec.Signer.Kms = &KMS{KeyResource: "openbao://rekor-key"}
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
+
+				It("should allow 'kms' with awskms URI", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-awskms")
+					validObject.Spec.Signer.Type = SignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms:///1234abcd-12ab-34cd-56ef-1234567890ab"}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'kms' with awskms ARN URI", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-awskms-arn")
+					validObject.Spec.Signer.Type = SignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms:///arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'kms' with gcpkms URI", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-gcpkms")
+					validObject.Spec.Signer.Type = SignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1"}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'kms' with azurekms URI", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-azurekms")
+					validObject.Spec.Signer.Type = SignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "azurekms://mykeyvault.vault.azure.net/keys/mykey"}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'kms' with hashivault URI", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-hashivault")
+					validObject.Spec.Signer.Type = SignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "hashivault://cosign"}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
 			})
 
 			When("using invalid signer configurations", func() {
@@ -240,6 +275,16 @@ var _ = Describe("Rekor", func() {
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
 						To(MatchError(ContainSubstring("kms is required when type is 'kms'")))
+				})
+
+				It("should reject an invalid KMS URI", func() {
+					invalidObject := generateMinimalRekor("rekor-signer-kms-bad-uri")
+					invalidObject.Spec.Signer.Type = SignerTypeKMS
+					invalidObject.Spec.Signer.Kms = &KMS{KeyResource: "unsupportedkms://key"}
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("keyResource must be a valid KMS URI")))
 				})
 
 				It("should reject 'secret' type with kms config", func() {
