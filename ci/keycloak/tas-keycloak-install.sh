@@ -15,7 +15,18 @@ check_pod_status() {
     local attempts=0
 
     while [[ $attempts -lt $max_attempts ]]; do
-        pod_name=$(oc get pod -n "$namespace" | grep "$pod_name_prefix" | grep "Running" | awk '{print $1}')
+        pods_output=$(oc get pods -n "$namespace" --no-headers 2>&1)
+        pods_status=$?
+        if [ $pods_status -ne 0 ]; then
+            echo "Failed to list pods in namespace $namespace (exit code: $pods_status):"
+            echo "$pods_output"
+            sleep $sleep_interval
+            attempts=$((attempts + 1))
+            continue
+        fi
+
+        matching_pods=$(echo "$pods_output" | awk -v prefix="$pod_name_prefix" 'index($1, prefix) == 1')
+        pod_name=$(echo "$matching_pods" | awk '$3 == "Running" {print $1; exit}')
         if [ -n "$pod_name" ]; then
             pod_status=$(oc get pod -n "$namespace" "$pod_name" -o jsonpath='{.status.phase}')
             if [ "$pod_status" == "Running" ]; then
@@ -24,6 +35,11 @@ check_pod_status() {
             else
                 echo "$pod_name is in state: $pod_status. Retrying in $sleep_interval seconds..."
             fi
+        elif [ -n "$matching_pods" ]; then
+            echo "Pods with the prefix '$pod_name_prefix' exist but none are Running:"
+            echo "NAME READY STATUS RESTARTS AGE"
+            echo "$matching_pods"
+            echo "Retrying in $sleep_interval seconds..."
         else
             echo "No pods with the prefix '$pod_name_prefix' found in namespace $namespace. Retrying in $sleep_interval seconds..."
         fi
@@ -34,6 +50,49 @@ check_pod_status() {
 
     echo "Timed out. No pods with the prefix '$pod_name_prefix' reached the 'Running' state within the specified time."
     return 1
+}
+
+dump_olm_diagnostics() {
+    local namespace="$1"
+    local subscription="$2"
+
+    echo "--- OLM resources in namespace $namespace ---"
+    oc get operatorgroup,subscription,installplan,csv,deployment,pods -n "$namespace" -o wide 2>&1 || true
+
+    echo "--- Subscription $subscription ---"
+    oc describe subscription "$subscription" -n "$namespace" 2>&1 || true
+
+    echo "--- Subscription status conditions ---"
+    oc get subscription "$subscription" -n "$namespace" \
+        -o jsonpath='{range .status.conditions[*]}type={.type}{" status="}{.status}{" reason="}{.reason}{" message="}{.message}{"\n"}{end}' 2>&1 || true
+    echo
+
+    echo "--- InstallPlans ---"
+    oc get installplan -n "$namespace" -o yaml 2>&1 || true
+
+    echo "--- ClusterServiceVersions ---"
+    oc get csv -n "$namespace" \
+        -o custom-columns='NAME:.metadata.name,PHASE:.status.phase,REASON:.status.reason,MESSAGE:.status.message' 2>&1 || true
+
+    echo "--- Pod details ---"
+    oc describe pods -n "$namespace" 2>&1 || true
+
+    echo "--- Operator logs ---"
+    oc logs deployment/"$subscription" -n "$namespace" --all-containers --tail=100 2>&1 || true
+
+    echo "--- Recent namespace events ---"
+    oc get events -n "$namespace" --sort-by='.lastTimestamp' 2>&1 || true
+
+    echo "--- redhat-operators CatalogSource ---"
+    oc get catalogsource redhat-operators -n openshift-marketplace -o yaml 2>&1 || true
+
+    echo "--- Marketplace catalog pods ---"
+    oc get pods -n openshift-marketplace -o wide 2>&1 || true
+
+    echo "--- Available channels for package $subscription ---"
+    oc get packagemanifest "$subscription" -n openshift-marketplace \
+        -o jsonpath='{range .status.channels[*]}{.name}{"\n"}{end}' 2>&1 || true
+    echo
 }
 
 wait_for_realm_import() {
@@ -71,6 +130,7 @@ install_openshift_keycloak() {
     oc apply --kustomize ci/keycloak/operator/overlay/openshift
     check_pod_status "keycloak-system" "rhbk-operator"
     if [ $? -ne 0 ]; then
+        dump_olm_diagnostics "keycloak-system" "rhbk-operator"
         echo "Pod status check failed. Exiting the script."
         exit 1
     fi
