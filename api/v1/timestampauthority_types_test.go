@@ -290,6 +290,42 @@ var _ = Describe("TSA", func() {
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 			})
 
+			It("valid KMS signer with awskms URI", func() {
+				validObject := generateMinimalTSA("tsa-kms-aws")
+				validObject.Spec.Signer = generateTSAKMSSigner("awskms:///1234abcd-12ab-34cd-56ef-1234567890ab")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with awskms ARN URI", func() {
+				validObject := generateMinimalTSA("tsa-kms-aws-arn")
+				validObject.Spec.Signer = generateTSAKMSSigner("awskms:///arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with gcpkms URI", func() {
+				validObject := generateMinimalTSA("tsa-kms-gcp")
+				validObject.Spec.Signer = generateTSAKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with azurekms URI", func() {
+				validObject := generateMinimalTSA("tsa-kms-azure")
+				validObject.Spec.Signer = generateTSAKMSSigner("azurekms://mykeyvault.vault.azure.net/keys/mykey")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with hashivault URI", func() {
+				validObject := generateMinimalTSA("tsa-kms-vault")
+				validObject.Spec.Signer = generateTSAKMSSigner("hashivault://cosign")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with openbao URI", func() {
+				validObject := generateMinimalTSA("tsa-kms-openbao")
+				validObject.Spec.Signer = generateTSAKMSSigner("openbao://cosign")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
 			It("valid Tink signer with certificateChainRef", func() {
 				validObject := generateMinimalTSA("valid-tink-signer")
 				validObject.Spec.Signer = TimestampAuthoritySigner{
@@ -529,6 +565,21 @@ var _ = Describe("TSA", func() {
 		})
 	})
 })
+
+func generateTSAKMSSigner(keyResource string) TimestampAuthoritySigner {
+	return TimestampAuthoritySigner{
+		Type: SignerTypeKMS,
+		CertificateChain: CertificateChain{
+			CertificateChainRef: &SecretKeySelector{
+				Key:                  "chain",
+				LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+			},
+		},
+		Kms: &KMS{
+			KeyResource: keyResource,
+		},
+	}
+}
 
 func generateMinimalTSA(name string) *TimestampAuthority {
 	return &TimestampAuthority{
