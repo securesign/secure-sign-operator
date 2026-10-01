@@ -323,9 +323,21 @@ var _ = Describe("Fulcio", func() {
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 			})
 
+			It("valid KMS signer with gcpkms URI", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-gcp")
+				validObject.Spec.Signer = generateKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
 			It("valid KMS signer with hashivault URI", func() {
 				validObject := generateMinimalFulcio("fulcio-kms-vault")
 				validObject.Spec.Signer = generateKMSSigner("hashivault://cosign")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with openbao URI", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-openbao")
+				validObject.Spec.Signer = generateKMSSigner("openbao://cosign")
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 			})
 
