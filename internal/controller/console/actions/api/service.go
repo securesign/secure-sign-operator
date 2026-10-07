@@ -3,8 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
@@ -14,12 +12,11 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 func NewCreateServiceAction() action.Action[*rhtasv1.Console] {
@@ -39,41 +36,41 @@ func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1.Cons
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Console) *action.Result {
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
+	ownerRef, err := kubernetes.ControllerOwnerRef(instance, i.Client.Scheme())
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not compute owner reference: %w", err), instance)
+	}
 
 	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)
 
 	tlsAnnotations := map[string]string{}
-	if specTLS(instance).CertRef == nil {
+	if kubernetes.IsOpenShift() && specTLS(instance).CertRef == nil {
 		tlsAnnotations[annotations.TLS] = fmt.Sprintf(actions.ApiTLSSecret, instance.Name)
 	}
 
-	ports := []v1.ServicePort{
-		{
-			Name:       actions.ApiPortName,
-			Protocol:   v1.ProtocolTCP,
-			Port:       actions.ApiPort,
-			TargetPort: intstr.FromString(actions.ApiPortName),
-		},
-	}
+	svc := corev1ac.Service(actions.ApiDeploymentName, instance.Namespace).
+		WithLabels(l).
+		WithAnnotations(tlsAnnotations).
+		WithOwnerReferences(ownerRef).
+		WithSpec(corev1ac.ServiceSpec().
+			WithSelector(l).
+			WithPorts(
+				corev1ac.ServicePort().
+					WithName(actions.ApiPortName).
+					WithProtocol(v1.ProtocolTCP).
+					WithPort(actions.ApiPort).
+					WithTargetPort(intstr.FromString(actions.ApiPortName)),
+			),
+		)
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v1.Service{
-			ObjectMeta: metav1.ObjectMeta{Name: actions.ApiDeploymentName, Namespace: instance.Namespace},
-		},
-		kubernetes.EnsureServiceSpec(l, ports...),
-		ensure.ControllerReference[*v1.Service](instance, i.Client),
-		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(l)), l),
-		//TLS: Annotate service
-		ensure.Optional(kubernetes.IsOpenShift(), ensure.Annotations[*v1.Service]([]string{annotations.TLS}, tlsAnnotations)),
-	); err != nil {
+	changed, err := kubernetes.Apply(ctx, i.Client, svc,
+		&v1.Service{ObjectMeta: metav1.ObjectMeta{Name: actions.ApiDeploymentName, Namespace: instance.Namespace}},
+	)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ApiCondition,
 			Status:  metav1.ConditionFalse,
