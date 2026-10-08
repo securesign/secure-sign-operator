@@ -20,7 +20,7 @@ metadata:
     operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
-  name: rhtas-operator.v1.5.0
+  name: rhtas-operator.v1.6.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -150,4 +150,4 @@ spec:
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
-  version: 1.5.0
+  version: 1.6.0
