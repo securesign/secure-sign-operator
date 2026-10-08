@@ -99,16 +99,33 @@ func deploymentRolledOut(ctx context.Context, cli client.Client, d *v1.Deploymen
 
 	if revision != "" {
 		var templateHash string
-		for _, rs := range replicaSets {
+		var currentReplicaSet *v1.ReplicaSet
+		for i := range replicaSets {
+			rs := &replicaSets[i]
 			if rs.Annotations[revisionAnnotation] == revision {
 				templateHash = rs.Labels[podTemplateHash]
+				currentReplicaSet = rs
 			}
 		}
 		if templateHash == "" {
 			return false, fmt.Errorf("%w(%s): %w: revision %d", ErrDeploymentNotReady, d.Name, ErrReplicaSetRevisionNotExists, d.Generation)
 		}
 
-		if progressing == nil || progressing.Status != corev1.ConditionTrue || progressing.Reason != "NewReplicaSetAvailable" || !strings.Contains(progressing.Message, templateHash) {
+		if progressing == nil || progressing.Status != corev1.ConditionTrue || progressing.Reason != "NewReplicaSetAvailable" {
+			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
+		}
+
+		// The Deployment controller can leave Progressing.Message referring to
+		// the previous ReplicaSet while the current revision is already ready.
+		// Prefer the current ReplicaSet's status in that case, and retain the
+		// message check as a fallback for older/incomplete status objects.
+		replicas := int32(1)
+		if d.Spec.Replicas != nil {
+			replicas = *d.Spec.Replicas
+		}
+		currentReplicaSetReady := currentReplicaSet.Status.ReadyReplicas >= replicas &&
+			currentReplicaSet.Status.AvailableReplicas >= replicas
+		if !currentReplicaSetReady && !strings.Contains(progressing.Message, templateHash) {
 			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
 		}
 	} else {
