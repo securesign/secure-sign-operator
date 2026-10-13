@@ -1,0 +1,81 @@
+name: Build k8s upgrade base catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to build from (e.g. rhtas-v1.5.0)'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  CONTAINER_TOOL: podman
+  CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-k8s-catalog
+
+jobs:
+  build-catalog:
+    name: Build and push k8s base catalog
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout source at release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Determine version from tag
+        id: version
+        run: |
+          VERSION="${{ inputs.release_tag }}"
+          VERSION="${VERSION##*-v}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building k8s catalog for version $VERSION"
+
+      - name: Log in to GHCR
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+
+      - name: Build and push k8s bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUNDLE_IMG: ${{ env.CATALOG_IMG }}-bundle:${{ inputs.release_tag }}
+          TARGET_PLATFORM: kubernetes
+        run: |
+          make bundle-build BUNDLE_IMG=$BUNDLE_IMG VERSION=$VERSION TARGET_PLATFORM=$TARGET_PLATFORM
+          podman push $BUNDLE_IMG
+
+      - name: Install OPM
+        uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1.13.1
+        with:
+          source: "github"
+          github_pat: ${{ github.token }}
+          opm: 1.61.0
+
+      - name: Build and push catalog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUNDLE_IMG: ${{ env.CATALOG_IMG }}-bundle:${{ inputs.release_tag }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          opm index add --container-tool podman --mode semver \
+            --tag $CATALOG_IMG:$TAG \
+            --bundles $BUNDLE_IMG
+          podman push $CATALOG_IMG:$TAG
+          echo "Pushed $CATALOG_IMG:$TAG"
+          echo ""
+          echo "Set the GitHub Actions variable K8S_BASE_CATALOG to:"
+          echo "  $CATALOG_IMG:$TAG"
