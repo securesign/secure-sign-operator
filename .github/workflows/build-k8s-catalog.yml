@@ -71,9 +71,15 @@ jobs:
           BUNDLE_IMG: ${{ env.CATALOG_IMG }}-bundle:${{ inputs.release_tag }}
           TAG: ${{ inputs.release_tag }}
         run: |
-          opm index add --container-tool podman --mode semver \
-            --tag $CATALOG_IMG:$TAG \
-            --bundles $BUNDLE_IMG
+          mkdir -p catalog/rhtas-operator
+          opm render $BUNDLE_IMG --output=json > catalog/rhtas-operator/catalog.json
+          echo "{\"schema\":\"olm.package\",\"name\":\"rhtas-operator\",\"defaultChannel\":\"stable\"}" >> catalog/rhtas-operator/catalog.json
+          echo "{\"schema\":\"olm.channel\",\"package\":\"rhtas-operator\",\"name\":\"stable\",\"entries\":[{\"name\":\"rhtas-operator.v${VERSION}\"}]}" >> catalog/rhtas-operator/catalog.json
+          opm validate catalog/rhtas-operator
+
+          printf 'FROM registry.access.redhat.com/ubi9/ubi-micro:latest\nADD catalog /configs\nLABEL operators.operatorframework.io.index.configs.v1=/configs\n' > catalog.Dockerfile
+
+          podman build -f catalog.Dockerfile -t $CATALOG_IMG:$TAG .
           podman push $CATALOG_IMG:$TAG
           echo "Pushed $CATALOG_IMG:$TAG"
           echo ""
