@@ -265,7 +265,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			}
 		}
 
-		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
+		gomega.Eventually(func() error {
+			err := cli.Create(ctx, securesignDeployment)
+			if errors.IsAlreadyExists(err) {
+				return nil
+			}
+			return err
+		}).Should(gomega.Succeed())
 
 		// Before upgrade, only v1alpha1 CRDs are available — verify using v1alpha1 types
 		gomega.Eventually(func(g gomega.Gomega) bool {
