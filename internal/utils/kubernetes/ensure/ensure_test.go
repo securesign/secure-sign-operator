@@ -43,7 +43,7 @@ func Test_Ensure(t *testing.T) {
 	}{
 		{
 			name:   "create new object",
-			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+			object: createService("default", "service", "http", 80, 80, map[string]string{}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(result).To(Equal(controllerutil.OperationResultCreated))
@@ -63,12 +63,12 @@ func Test_Ensure(t *testing.T) {
 			name: "update: labels",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
+					createService("default", "service", "http", 80, 80, map[string]string{
 						"old": "label",
 					}),
 				},
 			},
-			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
+			object: createService("default", "service", "http", 80, 80, map[string]string{
 				"new": "label",
 			}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
@@ -93,13 +93,13 @@ func Test_Ensure(t *testing.T) {
 			name: "remove managed label",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
+					createService("default", "service", "http", 80, 80, map[string]string{
 						"managed":   "value",
 						"unmanaged": "value",
 					}),
 				},
 			},
-			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
+			object: createService("default", "service", "http", 80, 80, map[string]string{
 				"unmanaged": "value",
 			}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
@@ -124,7 +124,7 @@ func Test_Ensure(t *testing.T) {
 			env: env{
 				objects: []client.Object{
 					addAnnotations(
-						kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+						createService("default", "service", "http", 80, 80, map[string]string{}),
 						map[string]string{
 							"old": "annotation",
 						},
@@ -132,7 +132,7 @@ func Test_Ensure(t *testing.T) {
 				},
 			},
 			object: addAnnotations(
-				kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+				createService("default", "service", "http", 80, 80, map[string]string{}),
 				map[string]string{
 					"new": "annotation",
 				}),
@@ -159,7 +159,7 @@ func Test_Ensure(t *testing.T) {
 			env: env{
 				objects: []client.Object{
 					addAnnotations(
-						kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+						createService("default", "service", "http", 80, 80, map[string]string{}),
 						map[string]string{
 							"managed":   "value",
 							"unmanaged": "value",
@@ -167,7 +167,7 @@ func Test_Ensure(t *testing.T) {
 					),
 				},
 			},
-			object: addAnnotations(kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}), map[string]string{}),
+			object: addAnnotations(createService("default", "service", "http", 80, 80, map[string]string{}), map[string]string{}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
@@ -190,10 +190,10 @@ func Test_Ensure(t *testing.T) {
 			name: "update: different spec",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+					createService("default", "service", "http", 80, 80, map[string]string{}),
 				},
 			},
-			object: kubernetes.CreateService("default", "service", "https", 443, 443, map[string]string{}),
+			object: createService("default", "service", "https", 443, 443, map[string]string{}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
@@ -252,10 +252,10 @@ func Test_Ensure(t *testing.T) {
 			name: "not update: same spec",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+					createService("default", "service", "http", 80, 80, map[string]string{}),
 				},
 			},
-			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+			object: createService("default", "service", "http", 80, 80, map[string]string{}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(result).To(Equal(controllerutil.OperationResultNone))
@@ -277,13 +277,13 @@ func Test_Ensure(t *testing.T) {
 			env: env{
 				objects: []client.Object{
 					addAnnotations(
-						kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+						createService("default", "service", "http", 80, 80, map[string]string{}),
 						map[string]string{
 							annotations.PausedReconciliation: "true",
 						}),
 				},
 			},
-			object: kubernetes.CreateService("default", "service", "http", 443, 443, map[string]string{}),
+			object: createService("default", "service", "http", 443, 443, map[string]string{}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(result).To(Equal(controllerutil.OperationResultNone))
@@ -305,13 +305,13 @@ func Test_Ensure(t *testing.T) {
 			env: env{
 				objects: []client.Object{
 					addAnnotations(
-						kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+						createService("default", "service", "http", 80, 80, map[string]string{}),
 						map[string]string{
 							annotations.PausedReconciliation: "false",
 						}),
 				},
 			},
-			object: kubernetes.CreateService("default", "service", "http", 443, 443, map[string]string{}),
+			object: createService("default", "service", "http", 443, 443, map[string]string{}),
 			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
@@ -358,6 +358,26 @@ func Test_Ensure(t *testing.T) {
 			)
 			tt.verify(g, c, got, err)
 		})
+	}
+}
+
+func createService(namespace, name, portName string, port, targetPort int32, labels map[string]string) *v1.Service {
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:       portName,
+					Protocol:   v1.ProtocolTCP,
+					Port:       port,
+					TargetPort: intstr.FromInt32(targetPort),
+				},
+			},
+		},
 	}
 }
 

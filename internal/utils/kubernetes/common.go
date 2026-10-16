@@ -13,17 +13,32 @@ import (
 	cLabels "github.com/securesign/operator/internal/labels"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/util/csaupgrade"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 const (
+	FieldManager             = "securesign-operator"
 	inContainerNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 	kubeConfigEnvVar         = "KUBECONFIG"
+
+	// LegacyFieldManager is the field manager the pre-SSA reconciler
+	// (controllerutil.CreateOrUpdate, an Update operation) left on objects
+	// already running on clusters. The API server derived it from the binary's
+	// User-Agent, i.e. the operator binary name "manager" (see the "-o manager"
+	// build and ENTRYPOINT ["/manager"] in the Dockerfiles). Its lingering
+	// Update ownership co-owns the fields we manage, which blocks SSA from
+	// pruning fields we stop declaring.
+	LegacyFieldManager = "manager"
 )
 
 func FilterOutCommonLabels(labels map[string]string) map[string]string {
@@ -110,6 +125,79 @@ func Create[T client.Object](ctx context.Context, cli client.Client, obj T, fn .
 		return err
 	}
 	return cli.Create(ctx, obj)
+}
+
+// ControllerOwnerRef builds an OwnerReferenceApplyConfiguration suitable for
+// typed SSA apply configs. It mirrors controllerutil.SetControllerReference but
+// returns an apply configuration fragment instead of mutating a live object.
+func ControllerOwnerRef(owner client.Object, scheme *runtime.Scheme) (*metav1ac.OwnerReferenceApplyConfiguration, error) {
+	gvk, err := apiutil.GVKForObject(owner, scheme)
+	if err != nil {
+		return nil, err
+	}
+	return metav1ac.OwnerReference().
+		WithAPIVersion(gvk.GroupVersion().String()).
+		WithKind(gvk.Kind).
+		WithName(owner.GetName()).
+		WithUID(owner.GetUID()).
+		WithController(true).
+		WithBlockOwnerDeletion(true), nil
+}
+
+// migrateLegacyManagedFields converts the stale LegacyFieldManager Update-operation
+// ownership on an existing object into our Apply manager (FieldManager), so that a
+// subsequent server-side apply can prune fields the operator no longer declares.
+// It is idempotent: csaupgrade returns an empty patch once there is nothing left to
+// convert, making this a cheap no-op on every later reconcile.
+func migrateLegacyManagedFields(ctx context.Context, cli client.Client, live client.Object) error {
+	patch, err := csaupgrade.UpgradeManagedFieldsPatch(live, sets.New(LegacyFieldManager), FieldManager)
+	if err != nil {
+		return fmt.Errorf("computing managed-fields upgrade patch: %w", err)
+	}
+	if patch == nil {
+		return nil
+	}
+	if err := cli.Patch(ctx, live, client.RawPatch(types.JSONPatchType, patch)); err != nil {
+		return fmt.Errorf("applying managed-fields upgrade patch: %w", err)
+	}
+	return nil
+}
+
+// Apply performs a Server-Side Apply for named, idempotent resources using typed
+// apply configurations. It checks the pause annotation, migrates legacy field
+// ownership, and returns true when the object was created or changed.
+//
+// For one-shot GenerateName resources (Jobs, config Secrets) use Create instead.
+func Apply(ctx context.Context, cli client.Client, obj runtime.ApplyConfiguration, live client.Object) (bool, error) {
+	key := client.ObjectKeyFromObject(live)
+
+	resourceVersion := ""
+	if err := cli.Get(ctx, key, live); err != nil {
+		if !apiErrors.IsNotFound(err) {
+			return false, err
+		}
+	} else {
+		annoStr, found := live.GetAnnotations()[annotations.PausedReconciliation]
+		if found {
+			if paused, _ := strconv.ParseBool(annoStr); paused {
+				return false, nil
+			}
+		}
+		if err := migrateLegacyManagedFields(ctx, cli, live); err != nil {
+			return false, err
+		}
+		resourceVersion = live.GetResourceVersion()
+	}
+
+	if err := cli.Apply(ctx, obj, client.FieldOwner(FieldManager), client.ForceOwnership); err != nil {
+		return false, err
+	}
+
+	// Re-read to get the post-apply resourceVersion for change detection.
+	if err := cli.Get(ctx, key, live); err != nil {
+		return false, err
+	}
+	return live.GetResourceVersion() != resourceVersion, nil
 }
 
 func CreateOrUpdate[T client.Object](ctx context.Context, cli client.Client, obj T, fn ...func(object T) error) (result controllerutil.OperationResult, err error) {
