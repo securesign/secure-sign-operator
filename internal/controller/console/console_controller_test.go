@@ -164,12 +164,38 @@ var _ = Describe("Console controller", func() {
 				return cond.Reason
 			}).Should(Equal(state.Initialize.String()))
 
+			By("Verifying ApiAvailable and UIAvailable are False before rollout")
+			Eventually(func(g Gomega) bool {
+				found := &rhtasv1.Console{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, actions.ApiCondition, metav1.ConditionFalse)
+			}).Should(BeTrue())
+			Eventually(func(g Gomega) bool {
+				found := &rhtasv1.Console{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, actions.UICondition, metav1.ConditionFalse)
+			}).Should(BeTrue())
+
 			By("Move to Ready phase")
 			deployments := &appsv1.DeploymentList{}
 			Expect(suite.Client().List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
 			for _, d := range deployments.Items {
 				Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), &d)).To(Succeed())
 			}
+
+			By("Verifying ApiAvailable condition is promoted to True")
+			Eventually(func(g Gomega) bool {
+				found := &rhtasv1.Console{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.ApiCondition)
+			}).Should(BeTrue())
+
+			By("Verifying UIAvailable condition is promoted to True")
+			Eventually(func(g Gomega) bool {
+				found := &rhtasv1.Console{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.UICondition)
+			}).Should(BeTrue())
 
 			By("Waiting until Console instance is Ready")
 			Eventually(func(g Gomega) bool {
