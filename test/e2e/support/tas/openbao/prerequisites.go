@@ -39,6 +39,11 @@ const (
 	FulcioKeyName = "fulcio-kms"
 	// TsaKeyName is the transit key backing the TSA KMS signer.
 	TsaKeyName = "tsa-kms"
+	// RekorKeyNameV2, FulcioKeyNameV2 and TsaKeyNameV2 are separate transit
+	// keys used by migration tests to model a real KMS key rotation.
+	RekorKeyNameV2  = "rekor-kms-v2"
+	FulcioKeyNameV2 = "fulcio-kms-v2"
+	TsaKeyNameV2    = "tsa-kms-v2"
 )
 
 // transitKeyNames lists every transit key CreatePrerequisites provisions.
@@ -84,6 +89,17 @@ bao secrets enable transit
 		return fmt.Errorf("configuring openbao transit engine: %w", err)
 	}
 
+	return nil
+}
+
+// CreateTransitKey provisions an additional transit key for rotation tests.
+// Existing keys are intentionally left untouched so their public material can
+// remain available for historical verification.
+func CreateTransitKey(ctx context.Context, namespace, keyName string) error {
+	script := fmt.Sprintf(`export VAULT_ADDR=http://127.0.0.1:%d VAULT_TOKEN=%s; bao write transit/keys/%s type=ecdsa-p256`, port, RootToken, keyName)
+	if err := k8sSupport.ExecInPod(ctx, PodName, containerName, namespace, "/bin/sh", "-c", script); err != nil {
+		return fmt.Errorf("creating transit key %s: %w", keyName, err)
+	}
 	return nil
 }
 

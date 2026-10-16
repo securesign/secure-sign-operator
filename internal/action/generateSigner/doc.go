@@ -43,6 +43,8 @@
 //     adds TUF autodiscovery labels (e.g., fulcio_v1.crt.pem, tsa.certchain.pem).
 //     Also applied to user-provided secrets in the resolved path as a temporary
 //     workaround until dedicated resolve_pub_key actions are implemented.
+//   - SecretName: (optional) override the deterministic managed-secret name for
+//     transitions that require a new secret while retaining the previous one.
 //
 // # Upgrade Path
 //

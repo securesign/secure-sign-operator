@@ -37,6 +37,7 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled:    isEnabled,
+			SecretName:   signerSecretName,
 			MutateSecret: func(_ *rhtasv1.TimestampAuthority, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)
@@ -45,6 +46,18 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 			},
 		}),
 	)
+}
+
+func signerSecretName(instance *rhtasv1.TimestampAuthority, deterministicName string) string {
+	// KMS/Tink status contains a certificate-chain reference without a file
+	// private key. Rotate into a new Secret when returning to generated file
+	// mode, preserving the old material. Use the generation so retries select
+	// the same new Secret even if its creation preceded status persistence.
+	if st := instance.Status.Signer; st != nil && st.CertificateChainRef != nil &&
+		(st.FileSigner == nil || st.FileSigner.PrivateKeyRef == nil) {
+		return fmt.Sprintf("%s-v%d", deterministicName, instance.GetGeneration())
+	}
+	return deterministicName
 }
 
 func isEnabled(instance *rhtasv1.TimestampAuthority) bool {
@@ -69,8 +82,14 @@ func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c cli
 		return instance.Spec.Signer.CertificateChain.CertificateChainRef, nil
 	}
 	var ref *rhtasv1.SecretKeySelector
-	if instance.Status.Signer != nil {
-		ref = instance.Status.Signer.CertificateChainRef
+	if st := instance.Status.Signer; st != nil && st.FileSigner != nil &&
+		st.CertificateChainRef != nil && st.FileSigner.PrivateKeyRef != nil &&
+		st.CertificateChainRef.Name == st.FileSigner.PrivateKeyRef.Name {
+		// Only trust the cached ref as a previously self-generated file secret if
+		// both halves agree on the same secret name. A KMS/Tink-mode reconcile
+		// (resolve_kms_tink_signer.go) only ever populates CertificateChainRef, so
+		// a mode switch back to file can never be mistaken for a reusable secret.
+		ref = st.CertificateChainRef
 	}
 	return generateSigner.ResolveStatusSecret(ctx, c, ref, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }

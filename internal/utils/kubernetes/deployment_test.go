@@ -134,6 +134,32 @@ func TestDeploymentIsRunningByName(t *testing.T) {
 			wantErrs: []error{ErrDeploymentNotReady, ErrNewReplicaSetNotAvailable},
 		},
 		{
+			name: "ready current replicaset, stale progress message",
+			deployment: func() *appsv1.Deployment {
+				d := rolledOutDeployment("ctlog")
+				d.UID = "dep-uid"
+				d.Spec.Replicas = ptr.To(int32(1))
+				d.Annotations = map[string]string{revisionAnnotation: "3"}
+				d.Status.Conditions[1].Message = `ReplicaSet "ctlog-old" has successfully progressed.`
+				return d
+			}(),
+			extraObjs: []client.Object{
+				&appsv1.ReplicaSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ctlog-abc123",
+						Namespace:   "ns",
+						Annotations: map[string]string{revisionAnnotation: "3"},
+						Labels:      map[string]string{podTemplateHash: "ctlog-abc123"},
+						OwnerReferences: []metav1.OwnerReference{
+							{Controller: ptr.To(true), UID: "dep-uid"},
+						},
+					},
+					Status: appsv1.ReplicaSetStatus{ReadyReplicas: 1, AvailableReplicas: 1},
+				},
+			},
+			wantOK: true,
+		},
+		{
 			name: "progress deadline exceeded",
 			deployment: func() *appsv1.Deployment {
 				d := rolledOutDeployment("ctlog")

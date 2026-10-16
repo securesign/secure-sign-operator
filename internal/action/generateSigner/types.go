@@ -34,6 +34,12 @@ type Config[T apis.ConditionsAwareObject] struct {
 	// Nil defaults to true.
 	IsEnabled func(T) bool
 
+	// SecretName returns the operator-managed secret name for the instance. The
+	// default is the deterministic name built from the action's secret name
+	// format. Components may override it when a state transition requires a new
+	// secret while retaining the previous one.
+	SecretName func(T, string) string
+
 	// MutateSecret is called before the secret is created, allowing the component
 	// to add labels, annotations, or modify the secret in any way.
 	// Nil is a no-op.
@@ -71,6 +77,13 @@ func (w *wrapper[T]) IsEnabled() bool {
 		return true
 	}
 	return w.cfg.IsEnabled(w.object)
+}
+
+func (w *wrapper[T]) SecretName(defaultName string) string {
+	if w.cfg.SecretName == nil {
+		return defaultName
+	}
+	return w.cfg.SecretName(w.object, defaultName)
 }
 
 func (w *wrapper[T]) EnsureMutate() func(*corev1.Secret) error {

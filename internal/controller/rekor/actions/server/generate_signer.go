@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
@@ -16,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,8 +34,18 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Rekor] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled:    isEnabled,
+			SecretName:   signerSecretName,
 		}),
 	)
+}
+
+func signerSecretName(instance *rhtasv1.Rekor, deterministicName string) string {
+	condition := meta.FindStatusCondition(instance.GetConditions(), actions.SignerCondition)
+	if condition == nil || condition.Message != kmsSignerStatusMessage || condition.ObservedGeneration >= instance.GetGeneration() {
+		return deterministicName
+	}
+
+	return fmt.Sprintf("%s-v%s", deterministicName, strconv.FormatInt(instance.GetGeneration(), 10))
 }
 
 func isEnabled(instance *rhtasv1.Rekor) bool {
