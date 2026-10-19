@@ -8,7 +8,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main" && (".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
+      == "release-1.6" && (".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
       || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
       || "config/***".pathChanged() || "hack/***".pathChanged()
       || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
@@ -16,15 +16,15 @@ metadata:
       || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator
-    appstudio.openshift.io/component: rhtas-operator
+    appstudio.openshift.io/application: operator-v1-6
+    appstudio.openshift.io/component: rhtas-operator-v1-6
     pipelines.appstudio.openshift.io/type: build
   name: rhtas-operator-on-pull-request
   namespace: rhtas-tenant
 spec:
   params:
   - name: release-version
-    value: "1.6.0"
+    value: "1.7.0"
   - name: git-url
     value: '{{source_url}}'
   - name: revision
@@ -58,7 +58,7 @@ spec:
       value: pipelines/docker-build-multi-platform-oci-ta.yaml
     resolver: git
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator
+    serviceAccountName: build-pipeline-rhtas-operator-v1-6
   workspaces:
   - name: git-auth
     secret:

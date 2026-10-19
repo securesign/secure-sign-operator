@@ -7,7 +7,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && (".tekton/rhtas-operator-bundle-push.yaml".pathChanged() || ".tekton/rhtas-operator-push.yaml".pathChanged()
+      == "release-1.6" && (".tekton/rhtas-operator-bundle-push.yaml".pathChanged() || ".tekton/rhtas-operator-push.yaml".pathChanged()
       || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
       || "config/***".pathChanged() || "hack/***".pathChanged()
       || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
@@ -15,15 +15,15 @@ metadata:
       || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator
-    appstudio.openshift.io/component: rhtas-operator-bundle
+    appstudio.openshift.io/application: operator-v1-6
+    appstudio.openshift.io/component: rhtas-operator-bundle-v1-6
     pipelines.appstudio.openshift.io/type: build
   name: rhtas-operator-bundle-on-push
   namespace: rhtas-tenant
 spec:
   params:
   - name: release-version
-    value: "1.6.0"
+    value: "1.7.0"
   - name: git-url
     value: '{{source_url}}'
   - name: revision
@@ -39,7 +39,7 @@ spec:
   - name: hermetic
     value: "true"
   - name: manager-pipelinerun-selector
-    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming,retest-all-comment)
+    value: appstudio.openshift.io/application=operator-v1-6,appstudio.openshift.io/component=rhtas-operator-v1-6,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming,retest-all-comment)
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
   - name: fips-check
@@ -54,7 +54,7 @@ spec:
       value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator-bundle
+    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-6
   workspaces:
   - name: git-auth
     secret:
