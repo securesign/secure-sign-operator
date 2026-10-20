@@ -75,6 +75,7 @@ jobs:
           opm render $BUNDLE_IMG --output=json > catalog/rhtas-operator/catalog.json
           echo "{\"schema\":\"olm.package\",\"name\":\"rhtas-operator\",\"defaultChannel\":\"stable\"}" >> catalog/rhtas-operator/catalog.json
           echo "{\"schema\":\"olm.channel\",\"package\":\"rhtas-operator\",\"name\":\"stable\",\"entries\":[{\"name\":\"rhtas-operator.v${VERSION}\"}]}" >> catalog/rhtas-operator/catalog.json
+          echo "{\"schema\":\"olm.channel\",\"package\":\"rhtas-operator\",\"name\":\"stable-${VERSION%.*}\",\"entries\":[{\"name\":\"rhtas-operator.v${VERSION}\"}]}" >> catalog/rhtas-operator/catalog.json
           opm validate catalog/rhtas-operator
 
           printf 'FROM quay.io/operator-framework/opm:v1.61.0\nENTRYPOINT ["/bin/opm"]\nCMD ["serve", "/configs", "--cache-dir=/tmp/cache"]\nADD catalog /configs\nRUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]\nLABEL operators.operatorframework.io.index.configs.v1=/configs\n' > catalog.Dockerfile
