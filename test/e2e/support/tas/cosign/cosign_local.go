@@ -56,6 +56,20 @@ func (c *LocalCosign) Sign(ctx context.Context, targetImageName string) error {
 }
 
 func (c *LocalCosign) Verify(ctx context.Context, targetImageName string) error {
+	return c.verify(ctx, targetImageName, "")
+}
+
+// VerifyWithTimestampChain verifies targetImageName against a timestamp
+// certificate chain captured earlier instead of the one the TSA serves now.
+// Verify refetches the live chain, which cannot validate a timestamp issued by
+// a TSA that has since been rotated; pass the chain saved during the era the
+// image was signed in. Has no effect when cosign resolves services from the
+// TUF signing config, since no chain is passed on the command line then.
+func (c *LocalCosign) VerifyWithTimestampChain(ctx context.Context, targetImageName, chainPath string) error {
+	return c.verify(ctx, targetImageName, chainPath)
+}
+
+func (c *LocalCosign) verify(ctx context.Context, targetImageName, chainPath string) error {
 	ensureCosignConfig()
 	verifyArgs := []string{"verify",
 		"--use-signed-timestamps=true",
@@ -63,11 +77,13 @@ func (c *LocalCosign) Verify(ctx context.Context, targetImageName string) error 
 		"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 		targetImageName}
 	if !useSigningConfig {
-		err := tsa.GetCertificateChain(ctx, c.tsaUrl)
-		if err != nil {
-			return fmt.Errorf("failed to get certificate chain: %w", err)
+		if chainPath == "" {
+			chainPath = "ts_chain.pem"
+			if err := tsa.SaveCertificateChain(ctx, c.tsaUrl, chainPath); err != nil {
+				return fmt.Errorf("failed to get certificate chain: %w", err)
+			}
 		}
-		verifyArgs = append(verifyArgs, "--rekor-url="+c.rekorUrl, "--timestamp-certificate-chain=ts_chain.pem")
+		verifyArgs = append(verifyArgs, "--rekor-url="+c.rekorUrl, "--timestamp-certificate-chain="+chainPath)
 	}
 	return clients.Execute("cosign", verifyArgs...)
 }

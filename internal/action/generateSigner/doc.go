@@ -44,6 +44,13 @@
 //     Also applied to user-provided secrets in the resolved path as a temporary
 //     workaround until dedicated resolve_pub_key actions are implemented.
 //
+// # Signer Rotation
+//
+// Generation happens once, when the instance is first installed in file mode
+// without a secret reference. Every later signer change is the user's, so
+// returning from a KMS or Tink signer requires explicit references in the spec;
+// ResolveRef returns a terminal error when they are missing.
+//
 // # Upgrade Path
 //
 // Secrets created by operator versions before 1.5.0 used GenerateName-based naming.

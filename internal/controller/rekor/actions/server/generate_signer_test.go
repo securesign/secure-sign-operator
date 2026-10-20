@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -119,6 +121,67 @@ func TestRekorSigner_GeneratesCorrectKeyData(t *testing.T) {
 	g.Expect(secret.Data[constants.KeyPrivate]).To(ContainSubstring("EC PRIVATE KEY"))
 	g.Expect(secret.Data[constants.KeyPublic]).To(ContainSubstring("PUBLIC KEY"))
 	g.Expect(secret.Labels).ToNot(BeEmpty())
+}
+
+func TestRekorSigner_KMSToSecretWithoutKeyRefFails(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := rekorInstance()
+	instance.Generation = 3
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeSecret
+	instance.Status.Signer = rhtasv1.RekorSignerStatus{Type: rhtasv1.SignerTypeKMS}
+
+	preKMSSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "rekor-signer-config-rekor", Namespace: "default"},
+		Data:       map[string][]byte{constants.KeyPrivate: []byte("pre-kms-key")},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, preKMSSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(errors.Is(result.Err, ErrReturnToSecretNeedsRef)).To(BeTrue())
+	// Not terminal: BaseAction.Error would then force Ready=Failure, and because
+	// state.Failure < state.Pending no action's CanHandle gate lets the component
+	// run again — supplying the missing ref afterwards would never recover it.
+	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeFalse())
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition)).To(BeFalse())
+
+	g.Expect(instance.Status.Signer.KeyRef).To(BeNil())
+}
+
+func TestRekorSigner_KMSToSecretUsesExplicitSecret(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := rekorInstance()
+	instance.Generation = 3
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeSecret
+	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+		Key:                  constants.KeyPrivate,
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "rekor-file-signer-v2"},
+	}
+	instance.Status.Signer = rhtasv1.RekorSignerStatus{Type: rhtasv1.SignerTypeKMS}
+
+	providedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "rekor-file-signer-v2", Namespace: "default"},
+		Data:       map[string][]byte{constants.KeyPrivate: []byte("provided-key")},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, providedSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(instance.Status.Signer.KeyRef).To(Equal(instance.Spec.Signer.KeyRef))
+	g.Expect(instance.Status.Signer.Type).To(Equal(rhtasv1.SignerTypeSecret))
 }
 
 func TestRekorSigner_MigrationFromPreExistingSecret(t *testing.T) {

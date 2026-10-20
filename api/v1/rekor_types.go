@@ -186,6 +186,12 @@ type SearchIndexStatus struct {
 }
 
 type RekorSignerStatus struct {
+	// Type is the signer type the operator last resolved for this instance
+	// (secret or kms). A kms value records that the signer references were
+	// cleared on purpose rather than never set.
+	// +optional
+	Type string `json:"type,omitempty"`
+
 	// Reference to the password used to decrypt the signer private key.
 	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
