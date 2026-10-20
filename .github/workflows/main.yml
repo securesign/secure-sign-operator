@@ -14,6 +14,7 @@ env:
   BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
   NEW_OLM_CHANNEL: rhtas-operator.v1.5.1
+  BASE_CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-k8s-catalog:rhtas-v1.5.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
   TARGET_PLATFORM: kubernetes
   CLI_CGW_VERSION: "1.4.2"
@@ -404,7 +405,7 @@ jobs:
 
       - name: Run tests
         env:
-          TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ vars.OLM_INDEX_VERSION }}
+          TEST_BASE_CATALOG:  ${{ env.BASE_CATALOG_IMG }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           TEST_UPGRADE_CHANNEL: stable-v1.5
           # Keep default .local hostnames — the base operator doesn't support INGRESS_HOST_TEMPLATE,
