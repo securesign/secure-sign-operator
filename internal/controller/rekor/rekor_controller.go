@@ -125,6 +125,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewGeneratePasswordAction(),
 		server.NewFIPSValidationAction(),
 		server.NewGenerateSignerAction(),
+		server.NewResolveKMSSignerAction(),
 
 		tlsadherence.NewAction[*rhtasv1.Rekor]("rekor", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Rekor]),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Rekor](),

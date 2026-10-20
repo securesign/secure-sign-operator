@@ -526,11 +526,16 @@ func openBaoAuthEnv(namespace string) *rhtasv1.Auth {
 // WithKMSOpenBaoSigner configures Rekor to sign with an OpenBao-backed KMS key
 // (transit key "rekor-kms"), authenticating via VAULT_ADDR/VAULT_TOKEN env vars.
 func WithKMSOpenBaoSigner(namespace string) Opts {
+	return WithKMSOpenBaoSignerKey(namespace, openbao.RekorKeyName)
+}
+
+// WithKMSOpenBaoSignerKey configures Rekor with the named OpenBao transit key.
+func WithKMSOpenBaoSignerKey(namespace, keyName string) Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
 			Type: rhtasv1.SignerTypeKMS,
 			Kms: &rhtasv1.KMS{
-				KeyResource: "openbao://" + openbao.RekorKeyName,
+				KeyResource: "openbao://" + keyName,
 			},
 		}
 		s.Spec.Rekor.Auth = openBaoAuthEnv(namespace)
@@ -542,16 +547,22 @@ func WithKMSOpenBaoSigner(namespace string) Opts {
 // referenced here must already exist (see openbao.CreateKMSCertificate) and its
 // public key must match the fulcio-kms transit key.
 func WithKMSOpenBaoFulcioSigner(namespace string) Opts {
+	return WithKMSOpenBaoFulcioSignerKey(namespace, openbao.FulcioKeyName)
+}
+
+// WithKMSOpenBaoFulcioSignerKey configures Fulcio with the named OpenBao
+// transit key and its matching certificate chain Secret.
+func WithKMSOpenBaoFulcioSignerKey(namespace, keyName string) Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
 			Type: rhtasv1.SignerTypeKMS,
 			Kms: &rhtasv1.KMS{
-				KeyResource: "openbao://" + openbao.FulcioKeyName,
+				KeyResource: "openbao://" + keyName,
 			},
 			CertificateChain: rhtasv1.FulcioCertificateChain{
 				CertificateChainRef: &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: openbao.CertChainSecretName(openbao.FulcioKeyName),
+						Name: openbao.CertChainSecretName(keyName),
 					},
 					Key: "cert",
 				},
@@ -569,6 +580,12 @@ func WithKMSOpenBaoFulcioSigner(namespace string) Opts {
 // openbao.CreateKMSCertificate) with a leaf cert usable for RFC 3161
 // timestamping and a public key matching tsa-kms.
 func WithKMSOpenBaoTSASigner(namespace string) Opts {
+	return WithKMSOpenBaoTSASignerKey(namespace, openbao.TsaKeyName)
+}
+
+// WithKMSOpenBaoTSASignerKey configures TSA with the named OpenBao transit
+// key and its matching certificate chain Secret.
+func WithKMSOpenBaoTSASignerKey(namespace, keyName string) Opts {
 	return func(s *rhtasv1.Securesign) {
 		if s.Spec.TimestampAuthority == nil {
 			WithTSA()(s)
@@ -578,13 +595,13 @@ func WithKMSOpenBaoTSASigner(namespace string) Opts {
 			CertificateChain: rhtasv1.CertificateChain{
 				CertificateChainRef: &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: openbao.CertChainSecretName(openbao.TsaKeyName),
+						Name: openbao.CertChainSecretName(keyName),
 					},
 					Key: "cert",
 				},
 			},
 			Kms: &rhtasv1.KMS{
-				KeyResource: "openbao://" + openbao.TsaKeyName,
+				KeyResource: "openbao://" + keyName,
 			},
 		}
 		s.Spec.TimestampAuthority.Auth = openBaoAuthEnv(namespace)
