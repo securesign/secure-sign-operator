@@ -3,6 +3,7 @@ package cosign
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -60,7 +61,7 @@ func (c *LocalCosign) Verify(ctx context.Context, targetImageName string) error 
 	verifyArgs := []string{"verify",
 		"--use-signed-timestamps=true",
 		"--certificate-identity-regexp", ".*@redhat",
-		"--certificate-oidc-issuer-regexp", ".*keycloak.*",
+		"--certificate-oidc-issuer-regexp", regexp.QuoteMeta(support.OidcIssuerUrl()),
 		targetImageName}
 	if !useSigningConfig {
 		err := tsa.GetCertificateChain(ctx, c.tsaUrl)

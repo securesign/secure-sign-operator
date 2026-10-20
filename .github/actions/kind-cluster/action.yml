@@ -13,10 +13,6 @@ inputs:
     description: 'OLM generation to install (v0 or v1)'
     required: false
     default: 'v0'
-  keycloak:
-    description: 'install keycloak'
-    required: true
-    default: 'false'
   prometheus:
     description: 'install prometheus'
     required: true
@@ -25,11 +21,6 @@ inputs:
     description: 'install nfs-csi'
     required: false
     default: 'false'
-
-outputs:
-  oidc_host:
-    value: ${{ steps.install-keycloak.outputs.oidc_host }}
-    description: 'Keycloak OIDC host'
 
 runs:
   using: 'composite'
@@ -95,14 +86,6 @@ runs:
         kubectl wait --for=condition=Established crd/clustercatalogs.olm.operatorframework.io crd/clusterextensions.olm.operatorframework.io --timeout=60s
         kubectl rollout status -n olmv1-system deployment/catalogd-controller-manager --timeout=120s
         kubectl rollout status -n olmv1-system deployment/operator-controller-controller-manager --timeout=120s
-
-    - name: Install keycloak
-      if: ${{ inputs.keycloak  == 'true'}}
-      id: install-keycloak
-      shell: bash
-      run: |
-        bash ci/keycloak/tas-keycloak-install.sh kind
-        echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
 
     - name: Install NFS-CSI
       if: ${{ inputs.nfs-csi  == 'true'}}

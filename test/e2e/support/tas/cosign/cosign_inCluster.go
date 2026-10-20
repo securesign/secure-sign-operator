@@ -3,6 +3,7 @@ package cosign
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -62,7 +63,7 @@ func (c *InClusterCosign) Sign(ctx context.Context, targetImageName string) erro
 }
 
 func (c *InClusterCosign) Verify(ctx context.Context, targetImageName string) error {
-	return c.executeInJob(ctx, fmt.Sprintf("cosign verify --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '.*keycloak.*' %s", targetImageName))
+	return c.executeInJob(ctx, fmt.Sprintf("cosign verify --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '%s' %s", regexp.QuoteMeta(support.OidcIssuerUrl()), targetImageName))
 }
 
 func (c *InClusterCosign) VerifyByCosign(ctx context.Context, targetImageName string) {
@@ -73,8 +74,8 @@ func (c *InClusterCosign) VerifyByCosign(ctx context.Context, targetImageName st
 		g.Expect(oidcToken).ToNot(BeEmpty())
 		return c.executeInJob(ctx, fmt.Sprintf(`cosign initialize --mirror=%s --root=%s/root.json \
 		&& cosign sign -y --identity-token=%s %s \
-		&& cosign verify --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '.*keycloak.*' %s
-		`, c.tufUrl, c.tufUrl, oidcToken, targetImageName, targetImageName))
+		&& cosign verify --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '%s' %s
+		`, c.tufUrl, c.tufUrl, oidcToken, targetImageName, regexp.QuoteMeta(support.OidcIssuerUrl()), targetImageName))
 	}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
 }
 

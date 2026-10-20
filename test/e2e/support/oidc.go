@@ -14,6 +14,7 @@ import (
 const (
 	OIDC_ISSUER_URL = "OIDC_ISSUER_URL"
 	OIDC_CLIENT_ID  = "OIDC_CLIENT_ID"
+	OIDC_TOKEN      = "OIDC_TOKEN"
 
 	OIDC_USER = "OIDC_USER"
 
@@ -21,7 +22,7 @@ const (
 )
 
 func OidcIssuerUrl() string {
-	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/realms/trusted-artifact-signer")
+	return EnvOrDefault(OIDC_ISSUER_URL, "")
 }
 
 func OidcClientID() string {
@@ -29,6 +30,10 @@ func OidcClientID() string {
 }
 
 func OidcToken(ctx context.Context) (string, error) {
+	if token := EnvOrDefault(OIDC_TOKEN, ""); token != "" {
+		return token, nil
+	}
+
 	data := url.Values{}
 	data.Set("username", EnvOrDefault(OIDC_USER, "jdoe"))
 	data.Set("password", EnvOrDefault(OIDC_PASSWORD, "secure"))

@@ -1,0 +1,101 @@
+name: 'Run local OIDC provider'
+description: 'Starts Dex on the runner and exposes it to a Kind cluster'
+
+inputs:
+  network:
+    description: 'Docker network shared with the Kind cluster'
+    required: false
+    default: 'kind'
+
+outputs:
+  oidc_issuer_url:
+    value: ${{ steps.token.outputs.oidc_issuer_url }}
+    description: 'OIDC issuer URL'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Cleanup existing local OIDC provider
+      shell: bash
+      run: docker rm --force tas-oidc >/dev/null 2>&1 || true
+
+    - name: Start local OIDC provider
+      shell: bash
+      env:
+        OIDC_NETWORK: ${{ inputs.network }}
+      run: |
+        DEX_CONFIG="${RUNNER_TEMP:-/tmp}/dex-config.yaml"
+
+        if ! docker network inspect "${OIDC_NETWORK}" >/dev/null 2>&1; then
+          docker network create "${OIDC_NETWORK}"
+        fi
+        KIND_GATEWAY=$(docker network inspect "${OIDC_NETWORK}" --format '{{(index .IPAM.Config 0).Gateway}}')
+        if [[ ! "${KIND_GATEWAY}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Unable to determine the Kind network gateway: ${KIND_GATEWAY}" >&2
+          exit 1
+        fi
+        OIDC_ISSUER_URL="http://${KIND_GATEWAY}:5556/dex"
+
+        cat > "${DEX_CONFIG}" <<EOF
+        issuer: ${OIDC_ISSUER_URL}
+        storage:
+          type: memory
+        web:
+          http: 0.0.0.0:5556
+        oauth2:
+          passwordConnector: local
+          grantTypes:
+            - authorization_code
+            - refresh_token
+            - password
+        expiry:
+          idTokens: 1h
+        enablePasswordDB: true
+        staticClients:
+          - id: trusted-artifact-signer
+            name: Trusted Artifact Signer
+            public: true
+            redirectURIs:
+              - urn:ietf:wg:oauth:2.0:oob
+        staticPasswords:
+          - email: jdoe@redhat.com
+            hash: '\$2a\$10\$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W'
+            username: jdoe
+            userID: 08a8684b-db88-4b73-90a9-3cd1661f5466
+        EOF
+
+        docker create --name tas-oidc \
+          --network "${OIDC_NETWORK}" \
+          --publish 0.0.0.0:5556:5556 \
+          ghcr.io/dexidp/dex:v2.45.1 /usr/local/bin/dex serve /tmp/dex-config.yaml
+        docker cp "${DEX_CONFIG}" tas-oidc:/tmp/dex-config.yaml
+        docker start tas-oidc
+
+        echo "OIDC_ISSUER_URL=${OIDC_ISSUER_URL}" >> "$GITHUB_ENV"
+
+    - name: Wait for OIDC provider and get token
+      id: token
+      shell: bash
+      run: |
+        DISCOVERY_URL="${OIDC_ISSUER_URL}/.well-known/openid-configuration"
+        if ! curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors \
+          "${DISCOVERY_URL}" >/dev/null; then
+          docker logs tas-oidc
+          exit 1
+        fi
+
+        TOKEN_RESPONSE=$(curl --fail --silent --show-error \
+          --user trusted-artifact-signer: \
+          --data-urlencode grant_type=password \
+          --data-urlencode scope='openid profile email' \
+          --data-urlencode username=jdoe@redhat.com \
+          --data-urlencode password=password \
+          "${OIDC_ISSUER_URL}/token")
+        OIDC_TOKEN=$(jq -er '.id_token' <<<"${TOKEN_RESPONSE}")
+
+        {
+          echo 'OIDC_TOKEN<<EOF'
+          echo "${OIDC_TOKEN}"
+          echo 'EOF'
+        } >> "$GITHUB_ENV"
+        echo "oidc_issuer_url=${OIDC_ISSUER_URL}" >> "$GITHUB_OUTPUT"

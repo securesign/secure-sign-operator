@@ -206,6 +206,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: Start local OIDC provider and get token
+        uses: ./.github/actions/oidc-provider
+
       - name: Install Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -251,7 +254,6 @@ jobs:
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
-          keycloak: 'true'
           olm: 'true'
 
       - name: Pull Container image from GHCR
@@ -286,9 +288,6 @@ jobs:
             sleep 2
           done
 
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
 
@@ -328,6 +327,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: Start local OIDC provider and get token
+        uses: ./.github/actions/oidc-provider
+
       - name: Install Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -362,7 +364,6 @@ jobs:
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
-          keycloak: 'true'
           olm: 'true'
           olm-version: ${{ matrix.olm }}
 
@@ -395,7 +396,7 @@ jobs:
       # so it produces static .local hostnames that require /etc/hosts entries.
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local tsa-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         #keep upgrade scenario on cosign v2 (latest released version does not support cosign v3)
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
@@ -439,6 +440,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: Start local OIDC provider and get token
+        uses: ./.github/actions/oidc-provider
+
       - name: Install Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -473,7 +477,6 @@ jobs:
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
-          keycloak: 'true'
           olm: 'true'
           nfs-csi: 'true'
 
@@ -508,10 +511,6 @@ jobs:
             echo "Waiting for conversion webhook... ($i/60)"
             sleep 2
           done
-
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
 
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
@@ -578,7 +577,6 @@ jobs:
         with:
           config: ./ci/config.yaml
           nfs-csi: true
-          keycloak: 'false' # keycloak use a lot of resources and is not needed for custom_intall tests
 
       - name: Pull Container image from GHCR
         run: |
@@ -628,6 +626,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Start local OIDC provider and get token
+        id: oidc
+        uses: ./.github/actions/oidc-provider
       - name: Checkout test source repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -664,11 +665,9 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
-        id: kind
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
-          keycloak: 'true'
           olm: 'true'
           prometheus: 'true'
 
@@ -680,10 +679,6 @@ jobs:
         run: |
           podman save ${{ env.IMG }} -o operator-oci.tar
           kind load image-archive operator-oci.tar
-
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
 
       - name: Replace images
         run: make dev-images generate && cat config/default/images.env
@@ -711,7 +706,7 @@ jobs:
 
       - name: Install securesign
         run: |
-          sed -i 's#https://your-oidc-issuer-url#http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer#' config/samples/rhtas_v1_securesign.yaml
+          sed -i 's#https://your-oidc-issuer-url#${{ steps.oidc.outputs.oidc_issuer_url }}#' config/samples/rhtas_v1_securesign.yaml
           kubectl create ns ${{ env.TEST_NAMESPACE }}
           kubectl create -f config/samples/rhtas_v1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
           sleep 1
@@ -721,7 +716,7 @@ jobs:
         env:
           DOCKER_CONFIG: /tmp
         run: |
-          export OIDC_ISSUER_URL="http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer"
+          export OIDC_ISSUER_URL="${{ steps.oidc.outputs.oidc_issuer_url }}"
           export TUF_URL=$(kubectl get tuf -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export REKOR_URL=$(kubectl get rekor -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
@@ -785,6 +780,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: Start local OIDC provider and get token
+        uses: ./.github/actions/oidc-provider
+
       - name: Install Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -835,7 +833,6 @@ jobs:
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
-          keycloak: 'true'
           olm: 'true'
 
       - name: Pull coverage image from GHCR
@@ -871,10 +868,6 @@ jobs:
             echo "Waiting for conversion webhook... ($i/60)"
             sleep 2
           done
-
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
 
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
