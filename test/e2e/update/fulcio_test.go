@@ -276,7 +276,15 @@ var _ = Describe("Fulcio update", Ordered, func() {
 				g.Expect(fulcioPod).NotTo(BeNil())
 			}).Should(Succeed())
 
-			Expect(fulcioPod.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(f.Status.ServerConfigRef.Name))
+			Expect(fulcioPod.Spec.Volumes).To(ContainElement(
+				And(
+					HaveField("Name", Equal("fulcio-config")),
+					HaveField(
+						"VolumeSource.ConfigMap.Name",
+						Equal(f.Status.ServerConfigRef.Name),
+					),
+				),
+			))
 
 			cm := &v1.ConfigMap{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: f.Status.ServerConfigRef.Name}, cm)).To(Succeed())

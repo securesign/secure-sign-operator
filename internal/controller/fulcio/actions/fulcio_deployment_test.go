@@ -40,9 +40,10 @@ func TestSimpleDeployment(t *testing.T) {
 	})), "PASSWORD env should not be set")
 
 	// oidc-info volume
-	oidcVolume := findVolume("ca-trust", dp.Spec.Template.Spec.Volumes)
+	oidcVolume := findVolume("oidc-info", dp.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(oidcVolume.VolumeSource.Projected.Sources).Should(BeEmpty())
+	g.Expect(oidcVolume.EmptyDir).ShouldNot(BeNil())
+	g.Expect(oidcVolume.Projected).Should(BeNil())
 }
 
 func TestPrivateKeyPassword(t *testing.T) {
@@ -314,6 +315,7 @@ func handleDeployment(t *testing.T, instance *rhtasv1.Fulcio, objects ...client.
 	allObjects := append([]client.Object{instance}, objects...)
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(allObjects...).
 		WithStatusSubresource(instance).
 		Build()
