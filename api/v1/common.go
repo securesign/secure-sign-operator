@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"slices"
+
 	core "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -336,6 +338,26 @@ func (v *AdditionalVolume) ToVolume() core.Volume {
 			CSI:                   v.CSI,
 			Projected:             v.Projected,
 		},
+	}
+}
+
+func (c *InitContainerSpec) ToContainer() core.Container {
+	resources := core.ResourceRequirements{}
+	if c.Resources != nil {
+		resources = *c.Resources
+	}
+	return core.Container{
+		Name:            c.Name,
+		Image:           c.Image,
+		Command:         c.Command,
+		Args:            c.Args,
+		EnvFrom:         c.EnvFrom,
+		SecurityContext: c.SecurityContext,
+		Resources:       resources,
+		ImagePullPolicy: c.ImagePullPolicy,
+		RestartPolicy:   c.RestartPolicy,
+		Env:             slices.Clone(c.Env),
+		VolumeMounts:    slices.Clone(c.VolumeMounts),
 	}
 }
 

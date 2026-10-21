@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -220,4 +221,13 @@ func RemoveVolumeMountByName(container *corev1.Container, name string) {
 			return
 		}
 	}
+}
+
+func FindContainerByName(podSpec *corev1ac.PodSpecApplyConfiguration, containerName string) *corev1ac.ContainerApplyConfiguration {
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name != nil && *podSpec.Containers[i].Name == containerName {
+			return &podSpec.Containers[i]
+		}
+	}
+	return nil
 }
