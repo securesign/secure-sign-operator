@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
@@ -79,6 +80,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		),
 	)
 	if err != nil {
+		if errors.Is(err, traits.ErrPodExtensionConflict) {
+			return i.Error(ctx, reconcile.TerminalError(err), instance)
+		}
 		return i.Error(ctx, fmt.Errorf("could not build Fulcio deployment: %w", err), instance, metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,

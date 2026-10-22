@@ -1,6 +1,7 @@
 package traits
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -72,16 +73,19 @@ func Auth(auth *rhtasv1.Auth, containerNames ...string) Trait[*corev1ac.PodSpecA
 	}
 }
 
+var ErrPodExtensionConflict = errors.New("pod extension conflict")
+
 // PodExtensions applies user-defined init containers, volumes, and volume
 // mounts to a pod spec apply configuration. Existing entries are preserved by
 // name so operator-managed values take precedence.
+// Returns ErrPodExtensionConflict if a conflict is detected.
 func PodExtensions(ext rhtasv1.PodExtensions, containerNames ...string) Trait[*corev1ac.PodSpecApplyConfiguration] {
 	return func(podSpecApply *corev1ac.PodSpecApplyConfiguration) error {
 		for _, v := range ext.Volumes {
 			if slices.ContainsFunc(podSpecApply.Volumes, func(volume corev1ac.VolumeApplyConfiguration) bool {
 				return volume.Name != nil && *volume.Name == v.Name
 			}) {
-				continue
+				return fmt.Errorf("%w: volume %q already exists", ErrPodExtensionConflict, v.Name)
 			}
 
 			vac, err := ConvertViaJSON[corev1.Volume, corev1ac.VolumeApplyConfiguration](v.ToVolume())
@@ -110,7 +114,7 @@ func PodExtensions(ext rhtasv1.PodExtensions, containerNames ...string) Trait[*c
 				if slices.ContainsFunc(container.VolumeMounts, func(existing corev1ac.VolumeMountApplyConfiguration) bool {
 					return existing.Name != nil && volumeMount.Name != nil && *existing.Name == *volumeMount.Name
 				}) {
-					continue
+					return fmt.Errorf("%w: volume mount %q already exists", ErrPodExtensionConflict, *volumeMount.Name)
 				}
 				container.WithVolumeMounts(volumeMount)
 			}
@@ -120,7 +124,7 @@ func PodExtensions(ext rhtasv1.PodExtensions, containerNames ...string) Trait[*c
 			if slices.ContainsFunc(podSpecApply.InitContainers, func(container corev1ac.ContainerApplyConfiguration) bool {
 				return container.Name != nil && *container.Name == ic.Name
 			}) {
-				continue
+				return fmt.Errorf("%w: init container %q already exists", ErrPodExtensionConflict, ic.Name)
 			}
 
 			icc, err := ConvertViaJSON[corev1.Container, corev1ac.ContainerApplyConfiguration](ic.ToContainer())
