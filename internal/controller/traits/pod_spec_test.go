@@ -1,6 +1,7 @@
 package traits
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -82,7 +83,7 @@ func TestAuth(t *testing.T) {
 func TestPodExtensions(t *testing.T) {
 	t.Parallel()
 
-	t.Run("adds extensions without overwriting existing volumes and mounts", func(t *testing.T) {
+	t.Run("adds extensions alongside existing volumes and mounts", func(t *testing.T) {
 		t.Parallel()
 		g := NewWithT(t)
 		podSpec := podSpecWithContainers("server")
@@ -108,14 +109,14 @@ func TestPodExtensions(t *testing.T) {
 				RestartPolicy:   &restartPolicy,
 			}},
 			Volumes: []rhtasv1.AdditionalVolume{{
-				Name: "custom",
+				Name: "settings",
 				AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
 					ConfigMap: &core.ConfigMapVolumeSource{
 						LocalObjectReference: core.LocalObjectReference{Name: "settings"},
 					},
 				},
 			}},
-			VolumeMounts: []core.VolumeMount{{Name: "custom", MountPath: "/config", ReadOnly: true}},
+			VolumeMounts: []core.VolumeMount{{Name: "settings", MountPath: "/config", ReadOnly: true}},
 		}
 
 		g.Expect(PodExtensions(ext, "server")(podSpec)).To(Succeed())
@@ -139,28 +140,75 @@ func TestPodExtensions(t *testing.T) {
 		g.Expect(podSpec.InitContainers[0].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
 		g.Expect(podSpec.InitContainers[0].ImagePullPolicy).To(HaveValue(Equal(core.PullAlways)))
 		g.Expect(podSpec.InitContainers[0].RestartPolicy).To(HaveValue(Equal(core.ContainerRestartPolicyAlways)))
-		g.Expect(podSpec.Volumes).To(HaveLen(1))
+		g.Expect(podSpec.Volumes).To(HaveLen(2))
+		g.Expect(podSpec.Volumes[0].Name).To(HaveValue(Equal("custom")))
 		g.Expect(podSpec.Volumes[0].ConfigMap).To(BeNil())
 		g.Expect(podSpec.Volumes[0].EmptyDir).ToNot(BeNil())
-		g.Expect(podSpec.Containers[0].VolumeMounts).To(HaveLen(1))
+		g.Expect(podSpec.Volumes[1].Name).To(HaveValue(Equal("settings")))
+		g.Expect(podSpec.Volumes[1].ConfigMap).ToNot(BeNil())
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(HaveLen(2))
 		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(HaveValue(Equal("/old")))
 		g.Expect(podSpec.Containers[0].VolumeMounts[0].ReadOnly).To(BeNil())
+		g.Expect(podSpec.Containers[0].VolumeMounts[1].Name).To(HaveValue(Equal("settings")))
+		g.Expect(podSpec.Containers[0].VolumeMounts[1].MountPath).To(HaveValue(Equal("/config")))
+		g.Expect(podSpec.Containers[0].VolumeMounts[1].ReadOnly).To(HaveValue(BeTrue()))
 	})
 
-	t.Run("does not overwrite an existing init container", func(t *testing.T) {
-		t.Parallel()
-		g := NewWithT(t)
-		podSpec := corev1ac.PodSpec().WithInitContainers(
-			corev1ac.Container().WithName("setup").WithImage("operator:latest"),
-		)
-		ext := rhtasv1.PodExtensions{InitContainers: []rhtasv1.InitContainerSpec{{
-			Name:  "setup",
-			Image: "user:latest",
-		}}}
+	t.Run("returns ErrPodExtensionConflict for duplicate extensions", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			podSpec        *corev1ac.PodSpecApplyConfiguration
+			ext            rhtasv1.PodExtensions
+			containerNames []string
+		}{
+			{
+				name: "volume",
+				podSpec: corev1ac.PodSpec().WithVolumes(
+					corev1ac.Volume().WithName("custom"),
+				),
+				ext: rhtasv1.PodExtensions{Volumes: []rhtasv1.AdditionalVolume{{
+					Name: "custom",
+					AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+						EmptyDir: &core.EmptyDirVolumeSource{},
+					},
+				}}},
+			},
+			{
+				name: "volume mount",
+				podSpec: func() *corev1ac.PodSpecApplyConfiguration {
+					podSpec := podSpecWithContainers("server")
+					podSpec.Containers[0].WithVolumeMounts(
+						corev1ac.VolumeMount().WithName("custom").WithMountPath("/old"),
+					)
+					return podSpec
+				}(),
+				ext: rhtasv1.PodExtensions{VolumeMounts: []core.VolumeMount{{
+					Name: "custom", MountPath: "/new",
+				}}},
+				containerNames: []string{"server"},
+			},
+			{
+				name: "init container",
+				podSpec: corev1ac.PodSpec().WithInitContainers(
+					corev1ac.Container().WithName("setup").WithImage("operator:latest"),
+				),
+				ext: rhtasv1.PodExtensions{InitContainers: []rhtasv1.InitContainerSpec{{
+					Name:  "setup",
+					Image: "user:latest",
+				}}},
+			},
+		}
 
-		g.Expect(PodExtensions(ext)(podSpec)).To(Succeed())
-		g.Expect(podSpec.InitContainers).To(HaveLen(1))
-		g.Expect(podSpec.InitContainers[0].Image).To(HaveValue(Equal("operator:latest")))
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				g := NewWithT(t)
+
+				err := PodExtensions(tt.ext, tt.containerNames...)(tt.podSpec)
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(errors.Is(err, ErrPodExtensionConflict)).To(BeTrue())
+			})
+		}
 	})
 }
 
