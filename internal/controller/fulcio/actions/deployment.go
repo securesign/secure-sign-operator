@@ -4,31 +4,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
-	v1 "k8s.io/api/apps/v1"
+	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/serviceresolver"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 const containerName = "fulcio-server"
@@ -50,11 +50,6 @@ func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) boo
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
-
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
 	ctlogUrl, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Ctlog, instance.Namespace, &rhtasv1.CTlog{})
@@ -68,48 +63,44 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		})
 	}
 
-	// PodExtensions (user overrides) are applied first; operator ensure functions
-	// run after, so operator-managed volumes take precedence over user collisions.
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v1.Deployment{
+	dp, err := traits.Apply(
+		appsv1ac.Deployment(DeploymentName, instance.Namespace),
+		traits.ControllerReference[*appsv1ac.DeploymentApplyConfiguration](instance, i.Client),
+		traits.Labels[*appsv1ac.DeploymentApplyConfiguration](labels),
+		i.createFulcioDeployment(instance, ctlogUrl),
+		traits.PodRequirements(instance.Spec.PodRequirements, containerName),
+		traits.WithPodSpecTraits(
+			traits.Proxy([]string{containerName}, "@fulcio-legacy-grpc-socket"),
+			traits.GODEBUG(instance.GetAnnotations(), containerName),
+			traits.TrustedCA(instance.GetTrustedCA(), containerName),
+			traits.SecurityContexts(containerName),
+			traits.ServiceAccount(RBACName),
+			traits.Auth(instance.Spec.Auth, containerName),
+			traits.PodExtensions(instance.Spec.PodExtensions, containerName),
+		),
+	)
+	if err != nil {
+		if errors.Is(err, traits.ErrPodExtensionConflict) {
+			return i.Error(ctx, reconcile.TerminalError(err), instance)
+		}
+		return i.Error(ctx, fmt.Errorf("could not build Fulcio deployment: %w", err), instance, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Failed to build deployment: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
+	}
+
+	changed, err := kubernetes.Apply(ctx, i.Client, dp,
+		&apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      DeploymentName,
 				Namespace: instance.Namespace,
 			},
 		},
-		deployment.PodExtensions(instance.Spec.PodExtensions, containerName),
-		i.ensureCommonDeployment(instance, RBACName, labels, ctlogUrl),
-		ensure.OptionalToggle(instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == "",
-			ensure.Toggleable[*v1.Deployment]{
-				Ensure: i.ensureFileCADeployment(instance),
-				Managed: &v1.Deployment{
-					Spec: v1.DeploymentSpec{
-						Template: core.PodTemplateSpec{
-							Spec: core.PodSpec{
-								Containers: []core.Container{{
-									Name: containerName,
-									Env:  []core.EnvVar{{Name: "PASSWORD"}},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11,
-			i.ensurePKCS11Deployment(instance)),
-		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.SignerTypeKMS,
-			i.ensureKMSCADeployment(instance)),
-		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
-		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		deployment.Auth(containerName, instance.Spec.Auth),
-		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
-		// rest v1 api will be routed through proxy
-		deployment.Proxy("@fulcio-legacy-grpc-socket"),
-		deployment.GODEBUG(instance.GetAnnotations()),
-		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
-		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
-		deployment.PodSecurityContext(),
-	); err != nil {
+	)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance, metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -119,150 +110,164 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		})
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
+		if instance.Spec.Signer.Type != rhtasv1.SignerTypePKCS11 {
+			meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
+		}
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.ReadyCondition,
 			Status: metav1.ConditionFalse, Reason: state.Creating.String(), Message: "Deployment created",
 			ObservedGeneration: instance.Generation})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
-		return i.Continue()
 	}
+	return i.Continue()
 }
 
-// ensureCommonDeployment sets up the shared deployment scaffolding used by all signer modes:
-// replicas, selector, labels, service account, ports, probes, and ct-log-url.
-func (i deployAction) ensureCommonDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string, ctlogUrl string) func(*v1.Deployment) error {
-	return func(dp *v1.Deployment) error {
-		spec := &dp.Spec
-		spec.Replicas = utils.Pointer[int32](1)
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
+// createFulcioDeployment builds a fresh desired spec before converting it to a
+// typed apply configuration. Building from scratch is important for SSA: fields
+// removed from the desired state can then be pruned instead of being copied from
+// the live object as they were with CreateOrUpdate.
+func (i deployAction) createFulcioDeployment(instance *rhtasv1.Fulcio, ctlogURL string) traits.Trait[*appsv1ac.DeploymentApplyConfiguration] {
+	return func(dp *appsv1ac.DeploymentApplyConfiguration) error {
+
+		ports := []*corev1ac.ContainerPortApplyConfiguration{
+			{
+				Name:          ptr.To("http"),
+				ContainerPort: ptr.To(int32(5555)),
+				Protocol:      ptr.To(core.ProtocolTCP),
+			},
+			{
+				Name:          ptr.To("grpc"),
+				ContainerPort: ptr.To(int32(5554)),
+				Protocol:      ptr.To(core.ProtocolTCP),
+			},
 		}
-
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = sa
-		template.Spec.AutomountServiceAccountToken = &[]bool{true}[0]
-
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
-		container.Image = images.Registry.Get(images.FulcioServer)
-
-		http := kubernetes.FindPortByNameOrCreate(container, "http")
-		http.ContainerPort = 5555
-		http.Protocol = core.ProtocolTCP
-
-		grpc := kubernetes.FindPortByNameOrCreate(container, "grpc")
-		grpc.ContainerPort = 5554
-		grpc.Protocol = core.ProtocolTCP
-
 		if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
-			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
-			monitoringPort.ContainerPort = 2112
-			monitoringPort.Protocol = core.ProtocolTCP
+			ports = append(ports, &corev1ac.ContainerPortApplyConfiguration{
+				Name:          ptr.To("monitoring"),
+				ContainerPort: ptr.To(int32(2112)),
+				Protocol:      ptr.To(core.ProtocolTCP),
+			})
 		}
 
-		if container.LivenessProbe == nil {
-			container.LivenessProbe = &core.Probe{}
-		}
-		if container.LivenessProbe.HTTPGet == nil {
-			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.LivenessProbe.HTTPGet.Path = constants.HealthzPath
-		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(5555)
-		container.LivenessProbe.InitialDelaySeconds = 0
-		container.LivenessProbe.PeriodSeconds = 10
-		container.LivenessProbe.TimeoutSeconds = 1
-		container.LivenessProbe.FailureThreshold = 3
-
-		if container.ReadinessProbe == nil {
-			container.ReadinessProbe = &core.Probe{}
-		}
-		if container.ReadinessProbe.HTTPGet == nil {
-			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.ReadinessProbe.HTTPGet.Path = constants.HealthzPath
-		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(5555)
-		container.ReadinessProbe.InitialDelaySeconds = 0
-		container.ReadinessProbe.PeriodSeconds = 10
-		container.ReadinessProbe.TimeoutSeconds = 1
-		container.ReadinessProbe.FailureThreshold = 3
-
-		if container.StartupProbe == nil {
-			container.StartupProbe = &core.Probe{}
-		}
-		if container.StartupProbe.HTTPGet == nil {
-			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.StartupProbe.HTTPGet.Path = constants.HealthzPath
-		container.StartupProbe.HTTPGet.Port = intstr.FromInt32(5555)
-		container.StartupProbe.PeriodSeconds = 5
-		container.StartupProbe.TimeoutSeconds = 5
-		container.StartupProbe.FailureThreshold = 12
-
-		container.Args = []string{
+		args := []string{
 			"serve",
 			"--port=5555",
 			"--grpc-port=5554",
 			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
-			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
+			fmt.Sprintf("--ct-log-url=%s", ctlogURL),
+		}
+		if fips.Enabled() {
+			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
 		}
 
-		if fips.Enabled() {
-			container.Args = append(container.Args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
+		container := corev1ac.Container().
+			WithName(containerName).
+			WithImage(images.Registry.Get(images.FulcioServer)).
+			WithPorts(ports...).
+			WithArgs(args...).
+			WithLivenessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath(constants.HealthzPath).
+					WithPort(intstr.FromInt32(5555))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithReadinessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath(constants.HealthzPath).
+					WithPort(intstr.FromInt32(5555))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithStartupProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath(constants.HealthzPath).
+					WithPort(intstr.FromInt32(5555)).
+					WithScheme(core.URISchemeHTTP)).
+				WithPeriodSeconds(5).
+				WithTimeoutSeconds(5).
+				WithFailureThreshold(12))
+
+		podSpec := corev1ac.PodSpec().
+			WithAutomountServiceAccountToken(true).
+			WithContainers(container)
+
+		switch instance.Spec.Signer.Type {
+		case rhtasv1.SignerTypePKCS11:
+			if err := i.ensurePKCS11Deployment(instance)(podSpec); err != nil {
+				return fmt.Errorf("ensure PKCS#11 deployment: %w", err)
+			}
+		case rhtasv1.SignerTypeKMS:
+			if err := i.ensureKMSCADeployment(instance)(podSpec); err != nil {
+				return fmt.Errorf("ensure KMS CA deployment: %w", err)
+			}
+		default:
+			if err := i.ensureFileCADeployment(instance)(podSpec); err != nil {
+				return fmt.Errorf("ensure file CA deployment: %w", err)
+			}
 		}
+
+		dp.
+			WithSpec(appsv1ac.DeploymentSpec().
+				WithSelector(metav1ac.LabelSelector().WithMatchLabels(dp.Labels)).
+				WithStrategy(appsv1ac.DeploymentStrategy().
+					WithType(apps.RollingUpdateDeploymentStrategyType)).
+				WithTemplate(corev1ac.PodTemplateSpec().
+					WithLabels(dp.Labels).
+					WithSpec(podSpec)))
 
 		return nil
 	}
 }
 
-func ensureSignerVolumes(container *core.Container, template *core.PodTemplateSpec, instance *rhtasv1.Fulcio) {
-	certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
-	certMount.MountPath = "/var/run/fulcio-secrets"
-	certMount.ReadOnly = true
+func ensureSignerVolumes(container *corev1ac.ContainerApplyConfiguration, template *corev1ac.PodSpecApplyConfiguration, instance *rhtasv1.Fulcio) {
+	container.WithVolumeMounts(
+		corev1ac.VolumeMount().
+			WithName("fulcio-cert").
+			WithMountPath("/var/run/fulcio-secrets").
+			WithReadOnly(true),
+		corev1ac.VolumeMount().
+			WithName("fulcio-config").
+			WithMountPath("/etc/fulcio-config"),
+		corev1ac.VolumeMount().
+			WithName("oidc-info").
+			WithMountPath("/var/run/fulcio"),
+	)
 
-	configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
-	configMount.MountPath = "/etc/fulcio-config"
-
-	oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
-	oidcInfoMount.MountPath = "/var/run/fulcio"
-
-	config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
-	config.VolumeSource = core.VolumeSource{
-		ConfigMap: &core.ConfigMapVolumeSource{
-			LocalObjectReference: core.LocalObjectReference{
-				Name: instance.Status.ServerConfigRef.Name,
-			},
-			DefaultMode: ptr.To(int32(0644)),
-		},
-	}
-
-	oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
-	oidcInfo.VolumeSource = core.VolumeSource{
-		Projected: &core.ProjectedVolumeSource{
-			DefaultMode: ptr.To(int32(0644)),
-		},
-	}
-	oidcInfo.Projected.Sources = []core.VolumeProjection{
-		{
-			ConfigMap: &core.ConfigMapProjection{
-				LocalObjectReference: core.LocalObjectReference{
-					Name: "kube-root-ca.crt",
-				},
-				Items: []core.KeyToPath{
-					{
-						Key:  kubeRootCACertKey,
-						Path: kubeRootCACertKey,
-						Mode: ptr.To(int32(0666)),
-					},
-				},
-			},
-		},
-	}
-
+	template.WithVolumes(
+		corev1ac.Volume().
+			WithName("fulcio-cert").
+			WithProjected(corev1ac.ProjectedVolumeSource().
+				WithDefaultMode(0644).
+				WithSources(corev1ac.VolumeProjection().
+					WithSecret(corev1ac.SecretProjection().
+						WithName(instance.Status.Certificate.CARef.LocalObjectReference.Name).
+						WithItems(corev1ac.KeyToPath().
+							WithKey(instance.Status.Certificate.CARef.Key).
+							WithPath(fulcioCertPemKey))))),
+		corev1ac.Volume().
+			WithName("fulcio-config").
+			WithConfigMap(corev1ac.ConfigMapVolumeSource().
+				WithName(instance.Status.ServerConfigRef.Name).
+				WithDefaultMode(0644)),
+		corev1ac.Volume().
+			WithName("oidc-info").
+			WithProjected(corev1ac.ProjectedVolumeSource().
+				WithDefaultMode(0644).
+				WithSources(corev1ac.VolumeProjection().
+					WithConfigMap(corev1ac.ConfigMapProjection().
+						WithName("kube-root-ca.crt").
+						WithItems(corev1ac.KeyToPath().
+							WithKey(kubeRootCACertKey).
+							WithPath(kubeRootCACertKey).
+							WithMode(0666))))),
+	)
 }
 
-func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(deployment *v1.Deployment) error {
-	return func(dp *v1.Deployment) error {
+func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(*corev1ac.PodSpecApplyConfiguration) error {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
 		if instance.Status.ServerConfigRef == nil {
 			return errors.New("server config ref is not specified")
 		}
@@ -277,22 +282,40 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 			return errors.New("CA secret is not specified")
 		}
 
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
-		template := &dp.Spec.Template
+		container := kubernetes.FindContainerByName(podSpec, containerName)
+		if container == nil {
+			return errors.New("container not found")
+		}
 
-		// Clean up PKCS#11-specific volumes when switching back to file mode
-		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11ConfigVolumeName)
-		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11CertVolumeName)
-		kubernetes.RemoveVolumeMountByName(container, PKCS11ConfigVolumeName)
-		kubernetes.RemoveVolumeMountByName(container, PKCS11CertVolumeName)
-		pkcs11helpers.CleanupHSMResources(&template.Spec, container)
-		meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
+		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
+			container.WithEnv(corev1ac.EnvVar().
+				WithName("PASSWORD").
+				WithValueFrom(corev1ac.EnvVarSource().
+					WithSecretKeyRef(corev1ac.SecretKeySelector().
+						WithKey(instance.Status.Certificate.PrivateKeyPasswordRef.Key).WithName(instance.Status.Certificate.PrivateKeyPasswordRef.Name))))
+			container.WithArgs("--fileca-key-passwd", "$(PASSWORD)")
+		}
 
-		container.Env = slices.DeleteFunc(container.Env, func(e core.EnvVar) bool {
-			return e.Name == "PASSWORD"
-		})
+		ensureSignerVolumes(container, podSpec, instance)
 
-		container.Args = append(container.Args,
+		for i := range podSpec.Volumes {
+			volume := &podSpec.Volumes[i]
+			if volume.Name == nil || *volume.Name != "fulcio-cert" {
+				continue
+			}
+			if volume.Projected == nil {
+				return errors.New("fulcio-cert projected volume is not configured")
+			}
+
+			volume.Projected.WithSources(corev1ac.VolumeProjection().
+				WithSecret(corev1ac.SecretProjection().
+					WithName(instance.Status.Certificate.PrivateKeyRef.Name).
+					WithItems(corev1ac.KeyToPath().
+						WithKey(instance.Status.Certificate.PrivateKeyRef.Key).
+						WithPath("key.pem"))))
+		}
+
+		container.WithArgs(
 			"--ca=fileca",
 			"--fileca-key",
 			"/var/run/fulcio-secrets/key.pem",
@@ -300,62 +323,12 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 			"/var/run/fulcio-secrets/cert.pem",
 		)
 
-		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
-			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
-			env.ValueFrom = &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
-					},
-				},
-			}
-			container.Args = append(container.Args, "--fileca-key-passwd", "$(PASSWORD)")
-		}
-
-		ensureSignerVolumes(container, template, instance)
-
-		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
-		cert.VolumeSource = core.VolumeSource{
-			Projected: &core.ProjectedVolumeSource{
-				DefaultMode: ptr.To(int32(0644)),
-			},
-		}
-		cert.Projected.Sources = []core.VolumeProjection{
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyRef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.PrivateKeyRef.Key,
-							Path: "key.pem",
-						},
-					},
-				},
-			},
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.CARef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.CARef.Key,
-							Path: fulcioCertPemKey,
-						},
-					},
-				},
-			},
-		}
-
 		return nil
 	}
 }
 
-func (i deployAction) ensureKMSCADeployment(instance *rhtasv1.Fulcio) func(deployment *v1.Deployment) error {
-	return func(dp *v1.Deployment) error {
+func (i deployAction) ensureKMSCADeployment(instance *rhtasv1.Fulcio) func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
 		if instance.Status.ServerConfigRef == nil {
 			return errors.New("server config ref is not specified")
 		}
@@ -369,54 +342,25 @@ func (i deployAction) ensureKMSCADeployment(instance *rhtasv1.Fulcio) func(deplo
 			return errors.New("kms config is required when type is kms")
 		}
 
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
-		template := &dp.Spec.Template
+		container := kubernetes.FindContainerByName(podSpec, containerName)
+		if container == nil {
+			return errors.New("container not found")
+		}
 
-		// Clean up PKCS#11-specific volumes when switching to KMS mode
-		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11ConfigVolumeName)
-		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11CertVolumeName)
-		kubernetes.RemoveVolumeMountByName(container, PKCS11ConfigVolumeName)
-		kubernetes.RemoveVolumeMountByName(container, PKCS11CertVolumeName)
-		pkcs11helpers.CleanupHSMResources(&template.Spec, container)
-		meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
+		ensureSignerVolumes(container, podSpec, instance)
 
-		container.Args = append(container.Args,
+		container.WithArgs(
 			"--ca=kmsca",
 			"--kms-resource", instance.Spec.Signer.Kms.KeyResource,
+			"--kms-cert-chain-path", "/var/run/fulcio-secrets/cert.pem",
 		)
-
-		ensureSignerVolumes(container, template, instance)
-
-		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
-		cert.VolumeSource = core.VolumeSource{
-			Projected: &core.ProjectedVolumeSource{
-				DefaultMode: ptr.To(int32(0644)),
-			},
-		}
-		cert.Projected.Sources = []core.VolumeProjection{
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.CARef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.CARef.Key,
-							Path: fulcioCertPemKey,
-						},
-					},
-				},
-			},
-		}
-
-		container.Args = append(container.Args, "--kms-cert-chain-path", "/var/run/fulcio-secrets/cert.pem")
 
 		return nil
 	}
 }
 
-func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*v1.Deployment) error {
-	return func(dp *v1.Deployment) error {
+func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*corev1ac.PodSpecApplyConfiguration) error {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
 		if instance.Spec.Signer.PKCS11 == nil {
 			return errors.New("PKCS#11 config not specified")
 		}
@@ -427,17 +371,15 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*v1.
 			return errors.New("CA certificate reference not yet resolved")
 		}
 
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
-		template := &dp.Spec.Template
-
-		// Clean up file-mode volumes that should not be present in PKCS#11 mode
-		kubernetes.RemoveVolumeByName(&template.Spec, "fulcio-cert")
-		kubernetes.RemoveVolumeMountByName(container, "fulcio-cert")
+		container := kubernetes.FindContainerByName(podSpec, containerName)
+		if container == nil {
+			return errors.New("container not found")
+		}
 
 		pkcs11Cfg := instance.Spec.Signer.PKCS11
 		configRef := pkcs11Cfg.ConfigRef
 
-		container.Args = append(container.Args,
+		container.WithArgs(
 			"--ca=pkcs11ca",
 			fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configRef.Key),
 			fmt.Sprintf("--aws-hsm-root-ca-path=%s/%s",
@@ -446,70 +388,63 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*v1.
 		)
 
 		// PKCS#11-specific volume mounts
-		pkcs11ConfigMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11ConfigVolumeName)
-		pkcs11ConfigMount.MountPath = PKCS11ConfigMountPath
-		pkcs11ConfigMount.ReadOnly = true
 
-		pkcs11CertMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11CertVolumeName)
-		pkcs11CertMount.MountPath = PKCS11CertMountPath
-		pkcs11CertMount.ReadOnly = true
+		container.WithVolumeMounts(
+			corev1ac.VolumeMount().
+				WithName(PKCS11ConfigVolumeName).
+				WithMountPath(PKCS11ConfigMountPath).
+				WithReadOnly(true),
+			corev1ac.VolumeMount().
+				WithName(PKCS11CertVolumeName).
+				WithMountPath(PKCS11CertMountPath).
+				WithReadOnly(true),
+			corev1ac.VolumeMount().
+				WithName("fulcio-config").
+				WithMountPath("/etc/fulcio-config"),
+			corev1ac.VolumeMount().
+				WithName("oidc-info").
+				WithMountPath("/var/run/fulcio"),
+		)
 
-		pkcs11helpers.EnsureHSMResources(&template.Spec, container, instance.Spec.Volumes)
+		pkcs11helpers.ApplyHSMResources(podSpec, container, instance.Spec.Volumes)
 
-		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
-		configMount.MountPath = "/etc/fulcio-config"
+		podSpec.WithVolumes(
+			// PKCS#11-specific volumes
+			corev1ac.Volume().
+				WithName(PKCS11ConfigVolumeName).
+				WithSecret(corev1ac.SecretVolumeSource().
+					WithSecretName(configRef.Name).
+					WithDefaultMode(0644).
+					WithItems(corev1ac.KeyToPath().
+						WithKey(configRef.Key).
+						WithPath(configRef.Key))),
+			corev1ac.Volume().
+				WithName(PKCS11CertVolumeName).
+				WithSecret(corev1ac.SecretVolumeSource().
+					WithSecretName(instance.Status.Certificate.CARef.Name).
+					WithDefaultMode(0644).
+					WithItems(corev1ac.KeyToPath().
+						WithKey(instance.Status.Certificate.CARef.Key).
+						WithPath(instance.Status.Certificate.CARef.Key))),
 
-		oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
-		oidcInfoMount.MountPath = "/var/run/fulcio"
-
-		// PKCS#11-specific volumes
-		pkcs11ConfigVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11ConfigVolumeName)
-		pkcs11ConfigVol.VolumeSource = core.VolumeSource{
-			Secret: &core.SecretVolumeSource{
-				SecretName:  configRef.Name,
-				DefaultMode: ptr.To(int32(0644)),
-				Items: []core.KeyToPath{
-					{Key: configRef.Key, Path: configRef.Key},
-				},
-			},
-		}
-
-		pkcs11CertVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11CertVolumeName)
-		pkcs11CertVol.VolumeSource = core.VolumeSource{
-			Secret: &core.SecretVolumeSource{
-				SecretName:  instance.Status.Certificate.CARef.Name,
-				DefaultMode: ptr.To(int32(0644)),
-				Items: []core.KeyToPath{
-					{Key: instance.Status.Certificate.CARef.Key, Path: instance.Status.Certificate.CARef.Key},
-				},
-			},
-		}
-
-		// Shared volumes (same as file mode)
-		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
-		config.VolumeSource = core.VolumeSource{
-			ConfigMap: &core.ConfigMapVolumeSource{
-				LocalObjectReference: core.LocalObjectReference{
-					Name: instance.Status.ServerConfigRef.Name,
-				},
-				DefaultMode: ptr.To(int32(0644)),
-			},
-		}
-
-		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
-		oidcInfo.VolumeSource = core.VolumeSource{
-			Projected: &core.ProjectedVolumeSource{
-				DefaultMode: ptr.To(int32(0644)),
-				Sources: []core.VolumeProjection{{
-					ConfigMap: &core.ConfigMapProjection{
-						LocalObjectReference: core.LocalObjectReference{Name: "kube-root-ca.crt"},
-						Items: []core.KeyToPath{
-							{Key: kubeRootCACertKey, Path: kubeRootCACertKey, Mode: ptr.To(int32(0666))},
-						},
-					},
-				}},
-			},
-		}
+			// Shared volumes (same as file mode)
+			corev1ac.Volume().
+				WithName("fulcio-config").
+				WithConfigMap(corev1ac.ConfigMapVolumeSource().
+					WithName(instance.Status.ServerConfigRef.Name).
+					WithDefaultMode(0644)),
+			corev1ac.Volume().
+				WithName("oidc-info").
+				WithProjected(corev1ac.ProjectedVolumeSource().
+					WithDefaultMode(0644).
+					WithSources(corev1ac.VolumeProjection().
+						WithConfigMap(corev1ac.ConfigMapProjection().
+							WithName("kube-root-ca.crt").
+							WithItems(corev1ac.KeyToPath().
+								WithKey(kubeRootCACertKey).
+								WithPath(kubeRootCACertKey).
+								WithMode(0666))))),
+		)
 
 		return nil
 	}
