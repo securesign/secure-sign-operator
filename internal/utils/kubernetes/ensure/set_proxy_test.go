@@ -135,3 +135,81 @@ func TestSetProxyEnvs(t *testing.T) {
 		})
 	}
 }
+
+func TestProxy(t *testing.T) {
+	tests := []struct {
+		name    string
+		envVars []corev1.EnvVar
+		noProxy []string
+		verify  func(Gomega, *corev1.PodSpec)
+	}{
+		{
+			name:    "sets proxy on containers and init containers",
+			envVars: mockReadProxyVarsFromEnv(),
+			verify: func(g Gomega, spec *corev1.PodSpec) {
+				expectedEnvVars := append(mockReadProxyVarsFromEnv(), corev1.EnvVar{
+					Name:  "answer",
+					Value: "42",
+				})
+
+				g.Expect(spec.Containers).Should(HaveLen(1))
+				g.Expect(spec.Containers[0].Env).Should(HaveLen(7))
+				g.Expect(spec.Containers[0].Env).Should(ConsistOf(expectedEnvVars))
+
+				g.Expect(spec.InitContainers).Should(HaveLen(1))
+				g.Expect(spec.InitContainers[0].Env).Should(HaveLen(7))
+				g.Expect(spec.InitContainers[0].Env).Should(ConsistOf(expectedEnvVars))
+			},
+		},
+		{
+			name: "does nothing when no proxy env is configured",
+			verify: func(g Gomega, spec *corev1.PodSpec) {
+				defaultEnv := mockSetProxyContainer().Env
+
+				g.Expect(spec.Containers[0].Env).Should(HaveLen(2))
+				g.Expect(spec.Containers[0].Env).Should(BeEquivalentTo(defaultEnv))
+
+				g.Expect(spec.InitContainers[0].Env).Should(HaveLen(2))
+				g.Expect(spec.InitContainers[0].Env).Should(BeEquivalentTo(defaultEnv))
+			},
+		},
+		{
+			name:    "honors noProxy on both container lists",
+			envVars: mockReadProxyVarsFromEnv(),
+			noProxy: []string{"extra", "socket"},
+			verify: func(g Gomega, spec *corev1.PodSpec) {
+				expectedEnvVars := mockReadProxyVarsFromEnv()
+				for i, envVar := range expectedEnvVars {
+					if strings.ToLower(envVar.Name) == "no_proxy" {
+						expectedEnvVars[i].Value = "extra,socket," + envVar.Value
+					}
+				}
+				expectedEnvVars = append(expectedEnvVars, corev1.EnvVar{
+					Name:  "answer",
+					Value: "42",
+				})
+
+				g.Expect(spec.Containers[0].Env).Should(ConsistOf(expectedEnvVars))
+				g.Expect(spec.InitContainers[0].Env).Should(ConsistOf(expectedEnvVars))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			for _, e := range tt.envVars {
+				t.Setenv(e.Name, e.Value)
+			}
+
+			spec := &corev1.PodSpec{
+				Containers:     []corev1.Container{mockSetProxyContainer()},
+				InitContainers: []corev1.Container{mockSetProxyContainer()},
+			}
+
+			err := Proxy(tt.noProxy...)(spec)
+			g.Expect(err).ShouldNot(HaveOccurred())
+			tt.verify(g, spec)
+		})
+	}
+}
