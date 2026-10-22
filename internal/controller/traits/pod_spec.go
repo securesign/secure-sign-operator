@@ -228,6 +228,39 @@ func TrustedCA(lor *rhtasv1.LocalObjectReference, containerNames ...string) Trai
 	}
 }
 
+// TLS adds a projected volume containing the configured certificate and private
+// key Secrets and mounts it read-only in the selected containers. The entries
+// are exposed as tls.crt and tls.key at the standard TLS mount path.
+func TLS(tlsCfg rhtasv1.TLS, containerNames ...string) Trait[*corev1ac.PodSpecApplyConfiguration] {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+		for i := range podSpec.Containers {
+			if podSpec.Containers[i].Name != nil && slices.Contains(containerNames, *podSpec.Containers[i].Name) {
+				podSpec.Containers[i].WithVolumeMounts(corev1ac.VolumeMount().
+					WithName(tls.TLSVolumeName).
+					WithMountPath(tls.TLSVolumeMount).
+					WithReadOnly(true))
+			}
+		}
+
+		podSpec.WithVolumes(corev1ac.Volume().
+			WithName(tls.TLSVolumeName).
+			WithProjected(corev1ac.ProjectedVolumeSource().
+				WithSources(corev1ac.VolumeProjection().
+					WithSecret(corev1ac.SecretProjection().
+						WithName(tlsCfg.CertRef.Name).
+						WithItems(corev1ac.KeyToPath().
+							WithKey(tlsCfg.CertRef.Key).
+							WithPath("tls.crt"))),
+					corev1ac.VolumeProjection().
+						WithSecret(corev1ac.SecretProjection().
+							WithName(tlsCfg.PrivateKeyRef.Name).
+							WithItems(corev1ac.KeyToPath().
+								WithKey(tlsCfg.PrivateKeyRef.Key).
+								WithPath("tls.key"))))))
+		return nil
+	}
+}
+
 // SecurityContexts applies the standard pod security context and container
 // security context to matching containers.
 func SecurityContexts(containerNames ...string) Trait[*corev1ac.PodSpecApplyConfiguration] {
