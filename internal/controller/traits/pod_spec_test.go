@@ -302,6 +302,43 @@ func TestTrustedCA(t *testing.T) {
 	})
 }
 
+func TestTLS(t *testing.T) {
+	t.Parallel()
+	g := NewWithT(t)
+	podSpec := podSpecWithContainers("server", "sidecar")
+	tlsConfig := rhtasv1.TLS{
+		CertRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tls-certificate"},
+			Key:                  "certificate",
+		},
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tls-private-key"},
+			Key:                  "private-key",
+		},
+	}
+
+	g.Expect(TLS(tlsConfig, "server")(podSpec)).To(Succeed())
+
+	g.Expect(podSpec.Containers[0].VolumeMounts).To(HaveLen(1))
+	g.Expect(podSpec.Containers[0].VolumeMounts[0].Name).To(HaveValue(Equal(tls.TLSVolumeName)))
+	g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(HaveValue(Equal(tls.TLSVolumeMount)))
+	g.Expect(podSpec.Containers[0].VolumeMounts[0].ReadOnly).To(HaveValue(BeTrue()))
+	g.Expect(podSpec.Containers[1].VolumeMounts).To(BeEmpty())
+
+	g.Expect(podSpec.Volumes).To(HaveLen(1))
+	g.Expect(podSpec.Volumes[0].Name).To(HaveValue(Equal(tls.TLSVolumeName)))
+	g.Expect(podSpec.Volumes[0].Projected).ToNot(BeNil())
+	g.Expect(podSpec.Volumes[0].Projected.Sources).To(HaveLen(2))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[0].Secret.Name).To(HaveValue(Equal("tls-certificate")))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[0].Secret.Items).To(HaveLen(1))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[0].Secret.Items[0].Key).To(HaveValue(Equal("certificate")))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[0].Secret.Items[0].Path).To(HaveValue(Equal("tls.crt")))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[1].Secret.Name).To(HaveValue(Equal("tls-private-key")))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[1].Secret.Items).To(HaveLen(1))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[1].Secret.Items[0].Key).To(HaveValue(Equal("private-key")))
+	g.Expect(podSpec.Volumes[0].Projected.Sources[1].Secret.Items[0].Path).To(HaveValue(Equal("tls.key")))
+}
+
 func TestSecurityContexts(t *testing.T) {
 	originalOpenShift := config.Openshift
 	t.Cleanup(func() { config.Openshift = originalOpenShift })
