@@ -44,7 +44,7 @@ go.work
 k8s-dump-*.tar.gz
 
 #tsa certificate chain file
-ts_chain.pem
+ts_chain*.pem
 
 # HELM Charts
 ci/**/charts
