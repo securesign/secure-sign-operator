@@ -7485,7 +7485,7 @@ spec:
 
                           Examples of valid URLs:
                           - Amazon S3: "s3://my-bucket?region=us-west-1"
-                          - S3-Compatible Storage: "s3://my-bucket?endpoint=my.minio.local:8080&s3ForcePathStyle=true"
+                          - S3-Compatible Storage: "s3://my-bucket?endpoint=my.minio.local:8080&use_path_style=true"
                           - Google Cloud Storage: "gs://my-bucket"
                           - Azure Blob Storage: "azblob://my-container"
                           - In-memory (for testing/development): "mem://"
@@ -23381,7 +23381,7 @@ spec:
 
                           Examples of valid URLs:
                           - Amazon S3: "s3://my-bucket?region=us-west-1"
-                          - S3-Compatible Storage: "s3://my-bucket?endpoint=my.minio.local:8080&s3ForcePathStyle=true"
+                          - S3-Compatible Storage: "s3://my-bucket?endpoint=my.minio.local:8080&use_path_style=true"
                           - Google Cloud Storage: "gs://my-bucket"
                           - Azure Blob Storage: "azblob://my-container"
                           - In-memory (for testing/development): "mem://"
