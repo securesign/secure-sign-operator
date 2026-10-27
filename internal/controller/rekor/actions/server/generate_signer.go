@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -20,6 +21,8 @@ import (
 )
 
 const signerSecretNameFormat = "rekor-signer-config-%s"
+
+var ErrReturnToSecretNeedsRef = errors.New("returning to secret mode requires spec.signer.keyRef: a signer is generated only on first install")
 
 func NewGenerateSignerAction() action.Action[*rhtasv1.Rekor] {
 	return generateSigner.NewAction(
@@ -47,6 +50,13 @@ func resolveRef(ctx context.Context, instance *rhtasv1.Rekor, c client.Client) (
 		}
 		return instance.Spec.Signer.KeyRef, nil
 	}
+
+	// The KMS type is what resolve_kms_signer.go leaves behind: the key lived
+	// outside the cluster, so coming back is a rotation, not a first install.
+	if instance.Status.Signer.Type == rhtasv1.SignerTypeKMS {
+		return nil, ErrReturnToSecretNeedsRef
+	}
+
 	return generateSigner.ResolveStatusSecret(ctx, c, instance.Status.Signer.KeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }
 
@@ -62,7 +72,7 @@ func generateData(_ context.Context, _ *rhtasv1.Rekor, _ client.Client) (map[str
 }
 
 func alignStatus(instance *rhtasv1.Rekor, ref rhtasv1.SecretKeySelector) {
-	newSigner := rhtasv1.RekorSignerStatus{}
+	newSigner := rhtasv1.RekorSignerStatus{Type: rhtasv1.SignerTypeSecret}
 	if instance.Spec.Signer.KeyRef != nil {
 		newSigner.KeyRef = instance.Spec.Signer.KeyRef.DeepCopy()
 	} else {

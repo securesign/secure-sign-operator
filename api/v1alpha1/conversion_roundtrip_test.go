@@ -439,8 +439,11 @@ func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
-// rekorStatusFuzzerFuncs clears RekorStatus.Signer.KMS which has no v1 equivalent
-// in the slim RekorSignerStatus type.
+// rekorStatusFuzzerFuncs clears the signer status fields that exist on only one
+// side of the conversion: v1alpha1 RekorSigner.KMS holds a URI that the slim v1
+// RekorSignerStatus has no room for, and v1 RekorSignerStatus.Type was added
+// after v1alpha1 was frozen. v1 is the storage version, so the operator never
+// loses Type; only a read through the deprecated v1alpha1 API drops it.
 func rekorStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *RekorStatus, c randfill.Continue) {
@@ -449,6 +452,11 @@ func rekorStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Signer.KMS = ""
 			// no v1 equivalent — removed from v1 API
 			s.RekorSearchUIUrl = ""
+		},
+		func(s *rhtasv1.RekorSignerStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// no v1alpha1 equivalent — added to the v1 status after the freeze
+			s.Type = ""
 		},
 	}
 }

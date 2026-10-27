@@ -3389,6 +3389,12 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
+                  type:
+                    description: |-
+                      Type is the signer type the operator last resolved for this instance
+                      (secret or kms). A kms value records that the signer references were
+                      cleared on purpose rather than never set.
+                    type: string
                 type: object
               treeID:
                 description: The ID of a Trillian tree that stores the log data.
