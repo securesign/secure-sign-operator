@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -316,10 +317,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			}).Should(BeTrue())
 			createTreeLog, err := testKubernetes.GetPodLogs(ctx, createPod.Name, "createtree", namespace.Name)
 			Expect(err).ToNot(HaveOccurred())
-			lines := strings.Split(strings.TrimSpace(createTreeLog), "\n")
-			newTreeId, err := strconv.ParseInt(lines[len(lines)-1], 10, 64)
-			Expect(err).ToNot(HaveOccurred())
 
+			match := regexp.MustCompile(`(?m)^[ \t]*([0-9]+)[ \t\r]*$`).
+				FindStringSubmatch(createTreeLog)
+
+			Expect(match).To(HaveLen(2), "createtree output did not contain a tree ID")
+
+			newTreeId, err := strconv.ParseInt(match[1], 10, 64)
+			Expect(err).NotTo(HaveOccurred())
 			secretName := "new-ctlog"
 			newCtlConfig = ctlog.CreateSecret(namespace.Name, secretName)
 

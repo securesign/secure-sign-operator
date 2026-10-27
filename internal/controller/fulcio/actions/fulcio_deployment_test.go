@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -10,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
@@ -40,9 +42,10 @@ func TestSimpleDeployment(t *testing.T) {
 	})), "PASSWORD env should not be set")
 
 	// oidc-info volume
-	oidcVolume := findVolume("ca-trust", dp.Spec.Template.Spec.Volumes)
+	oidcVolume := findVolume("oidc-info", dp.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(oidcVolume.VolumeSource.Projected.Sources).Should(BeEmpty())
+	g.Expect(oidcVolume.Projected).ShouldNot(BeNil())
+	g.Expect(oidcVolume.EmptyDir).Should(BeNil())
 }
 
 func TestPrivateKeyPassword(t *testing.T) {
@@ -314,6 +317,7 @@ func handleDeployment(t *testing.T, instance *rhtasv1.Fulcio, objects ...client.
 	allObjects := append([]client.Object{instance}, objects...)
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(allObjects...).
 		WithStatusSubresource(instance).
 		Build()
@@ -503,9 +507,9 @@ func TestUserDefinedInitContainersInFileMode(t *testing.T) {
 	g.Expect(initMount.MountPath).Should(Equal("/mnt/data"))
 }
 
-// TestFulcioOperatorVolumePrecedence verifies that operator-managed volumes
-// are NOT overwritten by user volumes with the same name.
-func TestFulcioOperatorVolumePrecedence(t *testing.T) {
+// TestFulcioOperatorVolumeConflict verifies that duplicate operator-managed
+// and user-defined volume names are reported as pod extension conflicts.
+func TestFulcioOperatorVolumeConflict(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createInstance()
@@ -519,15 +523,9 @@ func TestFulcioOperatorVolumePrecedence(t *testing.T) {
 		},
 	}
 
-	dp, err := handleDeployment(t, instance)
-	g.Expect(err).ShouldNot(HaveOccurred())
-	g.Expect(dp).ShouldNot(BeNil())
-
-	configVol := findVolume("fulcio-config", dp.Spec.Template.Spec.Volumes)
-	g.Expect(configVol).ShouldNot(BeNil(), "fulcio-config volume should be present")
-	g.Expect(configVol.ConfigMap).ShouldNot(BeNil(), "fulcio-config should have ConfigMap source (operator wins)")
-	g.Expect(configVol.ConfigMap.Name).Should(Equal("config"))
-	g.Expect(configVol.EmptyDir).Should(BeNil(), "fulcio-config should NOT have EmptyDir source")
+	_, err := handleDeployment(t, instance)
+	g.Expect(err).Should(HaveOccurred())
+	g.Expect(errors.Is(err, traits.ErrPodExtensionConflict)).Should(BeTrue())
 }
 
 func TestAuthInjectionInFileMode(t *testing.T) {

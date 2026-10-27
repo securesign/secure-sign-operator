@@ -1,22 +1,21 @@
 package actions
 
 import (
-	"maps"
-	"slices"
+	"errors"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	testAction "github.com/securesign/operator/internal/testing/action"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func createCTLogInstance() *rhtasv1.CTlog {
@@ -57,28 +56,37 @@ func createCTLogInstance() *rhtasv1.CTlog {
 	}
 }
 
-func createCTLogDeployment(instance *rhtasv1.CTlog) (*apps.Deployment, error) {
-	l := labels.For(ComponentName, DeploymentName, instance.Name)
-	dp := &apps.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      DeploymentName,
-			Namespace: instance.Namespace,
-		},
+func createCTLogDeployment(t *testing.T, instance *rhtasv1.CTlog) (*apps.Deployment, error) {
+	t.Helper()
+	return applyCTLogDeployment(t, createCTLogClient(instance), instance)
+}
+
+func createCTLogClient(instance *rhtasv1.CTlog) client.Client {
+	return testAction.FakeClientBuilder().
+		WithReturnManagedFields().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+}
+
+func applyCTLogDeployment(t *testing.T, c client.Client, instance *rhtasv1.CTlog) (*apps.Deployment, error) {
+	t.Helper()
+	ctx := t.Context()
+
+	action := testAction.PrepareAction(c, NewDeployAction())
+	result := action.Handle(ctx, instance)
+	if result != nil && result.Err != nil {
+		return nil, result.Err
 	}
 
-	action := deployAction{}
-	ensures := []func(*apps.Deployment) error{
-		deployment.PodExtensions(instance.Spec.PodExtensions, containerName),
-		action.ensureDeployment(instance, RBACName, l),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
-		deployment.Auth(containerName, instance.Spec.Auth),
+	dep := &apps.Deployment{}
+	if err := c.Get(ctx, client.ObjectKey{
+		Name:      DeploymentName,
+		Namespace: instance.Namespace,
+	}, dep); err != nil {
+		return nil, err
 	}
-	for _, en := range ensures {
-		if err := en(dp); err != nil {
-			return nil, err
-		}
-	}
-	return dp, nil
+	return dep, nil
 }
 
 func findCTLogVolume(name string, volumes []core.Volume) *core.Volume {
@@ -140,7 +148,7 @@ func TestCTLogUserDefinedVolumesInFileMode(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
@@ -191,7 +199,7 @@ func TestCTLogUserDefinedInitContainersInFileMode(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
@@ -226,7 +234,7 @@ func TestCTLogAuthInjectionInFileMode(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
@@ -272,7 +280,7 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
@@ -298,8 +306,9 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 	g.Expect(hsmLibMount.ReadOnly).Should(BeTrue())
 
 	// Verify --pkcs11_module_path arg uses path.Base of modulePath
-	g.Expect(container.Args).Should(ContainElement(
-		Equal("--pkcs11_module_path=/var/run/hsm-lib/libsofthsm2.so")))
+	g.Expect(container.Args).Should(ContainElements(
+		ContainSubstring("--pkcs11_module_path"),
+		ContainSubstring("/var/run/hsm-lib/libsofthsm2.so")))
 }
 
 // TestCTLogPKCS11CleanupOnFileMode verifies that switching from PKCS#11 to file mode
@@ -323,29 +332,21 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
+	c := createCTLogClient(instance)
+	dp, err := applyCTLogDeployment(t, c, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(findCTLogVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)).ShouldNot(BeNil(),
 		"precondition: hsm-tokens should be present in PKCS#11 mode")
 	g.Expect(findCTLogVolume(constants.HSMLibVolumeName, dp.Spec.Template.Spec.Volumes)).ShouldNot(BeNil(),
 		"precondition: hsm-lib should be present in PKCS#11 mode")
 
-	// Now switch to file mode and re-apply the deployment ensures
+	// Now switch to file mode and apply to the existing deployment.
 	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
 	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
-	l := labels.For(ComponentName, DeploymentName, instance.Name)
-	action := deployAction{}
-	ensures := []func(*apps.Deployment) error{
-		deployment.PodExtensions(instance.Spec.PodExtensions, containerName),
-		action.ensureDeployment(instance, RBACName, l),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
-		deployment.Auth(containerName, instance.Spec.Auth),
-	}
-	for _, en := range ensures {
-		err := en(dp)
-		g.Expect(err).ShouldNot(HaveOccurred())
-	}
+	dp, err = applyCTLogDeployment(t, c, instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
 
 	// Verify PKCS#11 volumes are removed
 	g.Expect(findCTLogVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
@@ -392,7 +393,7 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
@@ -406,9 +407,9 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 		"hsm-tokens should NOT have EmptyDir when user provides PVC")
 }
 
-// TestCTLogOperatorVolumePrecedence verifies that an operator-managed volume
-// is NOT overwritten by a user volume with the same name.
-func TestCTLogOperatorVolumePrecedence(t *testing.T) {
+// TestCTLogOperatorVolumeConflict verifies that duplicate operator-managed
+// and user-defined volume names are reported as pod extension conflicts.
+func TestCTLogOperatorVolumeConflict(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
@@ -422,16 +423,10 @@ func TestCTLogOperatorVolumePrecedence(t *testing.T) {
 		},
 	}
 
-	dp, err := createCTLogDeployment(instance)
-	g.Expect(err).ShouldNot(HaveOccurred())
-	g.Expect(dp).ShouldNot(BeNil())
-
-	// Verify the "keys" volume has Secret source (operator wins), NOT EmptyDir
-	keysVol := findCTLogVolume(volumeName, dp.Spec.Template.Spec.Volumes)
-	g.Expect(keysVol).ShouldNot(BeNil(), "keys volume should be present")
-	g.Expect(keysVol.Secret).ShouldNot(BeNil(), "keys volume should have Secret source (operator wins)")
-	g.Expect(keysVol.Secret.SecretName).Should(Equal("ctlog-config"))
-	g.Expect(keysVol.EmptyDir).Should(BeNil(), "keys volume should NOT have EmptyDir source")
+	dp, err := createCTLogDeployment(t, instance)
+	g.Expect(err).Should(HaveOccurred())
+	g.Expect(errors.Is(err, traits.ErrPodExtensionConflict)).Should(BeTrue())
+	g.Expect(dp).Should(BeNil())
 }
 
 // TestCTLogPKCS11ConflictingModulePaths verifies that multiple PKCS#11 logs with
@@ -484,7 +479,7 @@ func TestCTLogPKCS11ConflictingModulePaths(t *testing.T) {
 		},
 	})
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).Should(HaveOccurred())
 	g.Expect(err.Error()).Should(ContainSubstring("conflicting PKCS#11 module paths"))
 	g.Expect(dp).Should(BeNil())
@@ -540,18 +535,22 @@ func TestCTLogPKCS11MultipleWithSameModulePath(t *testing.T) {
 		},
 	})
 
-	dp, err := createCTLogDeployment(instance)
+	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
 	// Verify only one --pkcs11_module_path arg exists
 	container := dp.Spec.Template.Spec.Containers[0]
+	g.Expect(container.Args).Should(ContainElements(
+		"--pkcs11_module_path",
+		"/var/run/hsm-lib/libsofthsm2.so",
+	))
+
 	var pkcs11Args []string
 	for _, arg := range container.Args {
-		if strings.HasPrefix(arg, "--pkcs11_module_path=") {
+		if strings.HasPrefix(arg, "--pkcs11_module_path") {
 			pkcs11Args = append(pkcs11Args, arg)
 		}
 	}
 	g.Expect(pkcs11Args).Should(HaveLen(1))
-	g.Expect(pkcs11Args[0]).Should(Equal("--pkcs11_module_path=/var/run/hsm-lib/libsofthsm2.so"))
 }
