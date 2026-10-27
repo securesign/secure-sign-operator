@@ -26,8 +26,9 @@ const (
 )
 
 var (
-	ErrMissingPrivateKey = errors.New("missing private key for CA certificate")
-	ErrMissingCACert     = errors.New("missing CA certificate for private key")
+	ErrMissingPrivateKey    = errors.New("missing private key for CA certificate")
+	ErrMissingCACert        = errors.New("missing CA certificate for private key")
+	ErrReturnToFileNeedsRef = errors.New("returning to file mode requires spec.signer.file.privateKeyRef and spec.signer.certificateChain.certificateChainRef: a signer is generated only on first install")
 )
 
 func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
@@ -74,6 +75,13 @@ func resolveRef(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) 
 		}
 		return certificateChainRef, nil
 	}
+	// A CA ref without a private key is what resolve_kms_signer.go and
+	// ensure_pkcs11_config.go leave behind: the key lived outside the cluster, so
+	// coming back to file mode is a rotation, not a first install.
+	if st := instance.Status.Certificate; st != nil && st.CARef != nil && st.PrivateKeyRef == nil {
+		return nil, ErrReturnToFileNeedsRef
+	}
+
 	var ref *rhtasv1.SecretKeySelector
 	if instance.Status.Certificate != nil {
 		ref = instance.Status.Certificate.CARef

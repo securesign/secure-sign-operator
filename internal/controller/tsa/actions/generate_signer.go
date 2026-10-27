@@ -24,7 +24,10 @@ const (
 	signerSecretNameFormat = "tsa-signer-config-%s"
 )
 
-var ErrMissingPrivateKey = errors.New("missing private key for certificate chain")
+var (
+	ErrMissingPrivateKey    = errors.New("missing private key for certificate chain")
+	ErrReturnToFileNeedsRef = errors.New("returning to file mode requires spec.signer.file.privateKeyRef and spec.signer.certificateChain.certificateChainRef: a signer is generated only on first install")
+)
 
 func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return generateSigner.NewAction(
@@ -68,6 +71,14 @@ func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c cli
 		}
 		return instance.Spec.Signer.CertificateChain.CertificateChainRef, nil
 	}
+	// A chain ref without a file private key is what resolve_kms_tink_signer.go
+	// leaves behind: the key lived outside the cluster, so coming back to file
+	// mode is a rotation, not a first install.
+	if st := instance.Status.Signer; st != nil && st.CertificateChainRef != nil &&
+		(st.FileSigner == nil || st.FileSigner.PrivateKeyRef == nil) {
+		return nil, ErrReturnToFileNeedsRef
+	}
+
 	var ref *rhtasv1.SecretKeySelector
 	if instance.Status.Signer != nil {
 		ref = instance.Status.Signer.CertificateChainRef

@@ -65,6 +65,14 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 }
 
 func GetCertificateChain(ctx context.Context, url string) error {
+	return SaveCertificateChain(ctx, url, "ts_chain.pem")
+}
+
+// SaveCertificateChain writes the chain the TSA currently serves to path.
+// Verifying a timestamp issued before a TSA rotation needs the chain captured
+// while that TSA was live, so callers spanning a rotation must keep one file
+// per era rather than reusing the default location.
+func SaveCertificateChain(ctx context.Context, url, path string) error {
 	var resp *http.Response
 	var err error
 	req, err := http.NewRequestWithContext(ctx, "GET", url+"/certchain", nil)
@@ -90,7 +98,7 @@ func GetCertificateChain(ctx context.Context, url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
-	err = os.WriteFile("ts_chain.pem", body, 0644)
+	err = os.WriteFile(path, body, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
