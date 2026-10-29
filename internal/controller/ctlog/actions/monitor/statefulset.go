@@ -88,6 +88,10 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 		},
 		i.ensureMonitorStatefulSet(instance, actions.RBACMonitorName, labels, ctlogServerHost, tufServerHost),
 		i.ensureInitContainer(ctlogServerHost, tufServerHost),
+		// Must run after ensureInitContainer: SetProxyEnvs only touches containers that already exist.
+		func(object *v1.StatefulSet) error {
+			return ensure.Proxy()(&object.Spec.Template.Spec)
+		},
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
 		func(object *v1.StatefulSet) error {

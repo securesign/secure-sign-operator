@@ -22,3 +22,13 @@ func SetProxyEnvs(containers []v1.Container, noProxy ...string) {
 		}
 	}
 }
+
+// Proxy sets the standard proxy environment variables on all of the PodSpec's
+// containers and init containers.
+func Proxy(noProxy ...string) func(*v1.PodSpec) error {
+	return func(spec *v1.PodSpec) error {
+		SetProxyEnvs(spec.InitContainers, noProxy...)
+		SetProxyEnvs(spec.Containers, noProxy...)
+		return nil
+	}
+}
