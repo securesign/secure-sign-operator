@@ -4,94 +4,82 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
-	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
-const initContainerName = "wait-for-trillian-db"
+const WaitForDBInitContainer = "wait-for-trillian-db"
 
-func EnsureDB(instance *rhtasv1.Trillian, containerName, caPath string) []func(*apps.Deployment) error {
-	return append(ensureDbAuth(instance, containerName), ensureDbParams(instance, containerName, UseTLSDb(instance), caPath))
-}
-
-func ensureDbAuth(instance *rhtasv1.Trillian, containerName string) []func(dp *apps.Deployment) error {
-	return []func(dp *apps.Deployment) error{
-		deployment.Auth(containerName, instance.Spec.Auth),
-		ensure.Optional(instance.Status.Db.DatabaseSecretRef != nil,
-			deployment.Auth(containerName, dbsecret.DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))),
-	}
-}
-
-func ensureDbParams(instance *rhtasv1.Trillian, containerName string, useTls bool, caPath string) func(dp *apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
+func EnsureDB(instance *rhtasv1.Trillian, containerName, caPath string) traits.Trait[*corev1ac.PodSpecApplyConfiguration] {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+		container := kubernetes.FindContainerByName(podSpec, containerName)
 		switch instance.Spec.Db.Provider {
 		case "mysql":
 			uri, err := mysql.ParseDSN(instance.Spec.Db.Uri)
 			if err != nil {
 				return fmt.Errorf("can't parse db uri: %w", err)
 			}
-
 			host, port, err := net.SplitHostPort(uri.Addr)
 			if err != nil {
 				return err
 			}
 			if port == "" {
-				// mysql default port
 				port = "3306"
 			}
-
-			container.Args = append(container.Args, "--mysql_uri", instance.Spec.Db.Uri)
-			container.Args = append(container.Args, "--mysql_max_conns", "30")
-			container.Args = append(container.Args, "--mysql_max_idle_conns", "10")
-
-			if useTls {
-
+			container.WithArgs("--mysql_uri", instance.Spec.Db.Uri, "--mysql_max_conns", "30", "--mysql_max_idle_conns", "10")
+			if UseTLSDb(instance) {
 				//DB secret is hostname created WITHOUT the .svc suffix (can't change for backward compat) that does not match TLS hostname
 				if utils.OptionalBool(instance.Spec.Db.Create) && !strings.HasSuffix(host, fmt.Sprintf(".%s.svc", instance.Namespace)) {
 					host = fmt.Sprintf("%s.%s.svc", host, instance.Namespace)
 				}
-
-				container.Args = append(container.Args, "--mysql_tls_ca", caPath, "--mysql_server_name", host)
+				container.WithArgs("--mysql_tls_ca", caPath, "--mysql_server_name", host)
 			}
-
-			initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, initContainerName)
-			initContainer.Image = images.Registry.Get(images.TrillianNetcat)
-			initContainer.Command = []string{"sh", "-c"}
-			initContainer.Args = []string{`until nc -z -v -w30 $1 $2; do echo "Waiting for MySQL to start"; sleep 5; done;`, "inlineScript", host, port}
-
-			ref := &dp.Spec.Template.Spec
-			err = ensure.ContainerAuth(initContainer, instance.Spec.Auth)(ref)
-			if err != nil {
-				return err
-			}
-			// ensure dbSecret auth
-			if instance.Status.Db.DatabaseSecretRef != nil {
-				err = ensure.ContainerAuth(initContainer, dbsecret.DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
-				if err != nil {
-					return err
-				}
-			}
-
+			initContainer := corev1ac.Container().WithName(WaitForDBInitContainer).
+				WithImage(images.Registry.Get(images.TrillianNetcat)).WithCommand("sh", "-c").
+				WithArgs(`until nc -z -v -w30 $1 $2; do echo "Waiting for MySQL to start"; sleep 5; done;`, "inlineScript", host, port).
+				WithSecurityContext(traits.SSAContainerSecurityContext())
+			podSpec.WithInitContainers(initContainer)
 		case "postgresql":
-			container.Args = append(container.Args, "--postgresql_uri", instance.Spec.Db.Uri)
-
-			if useTls {
-				container.Args = append(container.Args, "--postgresql_tls_ca", caPath)
+			container.WithArgs("--postgresql_uri", instance.Spec.Db.Uri)
+			if UseTLSDb(instance) {
+				container.WithArgs("--postgresql_tls_ca", caPath)
 			}
 		default:
 			return errors.New("unsupported DB provider")
-
 		}
 		return nil
 	}
+}
+
+// WithDbAuth adds database credentials to a copy of auth, replacing matching env
+// vars by name. The root password is excluded.
+func WithDbAuth(auth *rhtasv1.Auth, databaseSecretRef *rhtasv1.LocalObjectReference) *rhtasv1.Auth {
+	merged := auth.DeepCopy()
+	if databaseSecretRef == nil {
+		return merged
+	}
+	if merged == nil {
+		merged = &rhtasv1.Auth{}
+	}
+	for _, env := range dbsecret.ConnectionEnv(databaseSecretRef.Name) {
+		index := slices.IndexFunc(merged.Env, func(existing core.EnvVar) bool {
+			return existing.Name == env.Name
+		})
+		if index >= 0 {
+			merged.Env[index] = env
+		} else {
+			merged.Env = append(merged.Env, env)
+		}
+	}
+	return merged
 }

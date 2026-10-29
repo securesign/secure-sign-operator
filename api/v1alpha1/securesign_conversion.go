@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
@@ -142,7 +141,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	dst.Spec.Trillian.PodExtensions = restored.Spec.Trillian.PodExtensions
 	if src.Spec.Trillian.Db.DatabaseSecretRef != nil {
 		v1Ref := &rhtasv1.LocalObjectReference{Name: src.Spec.Trillian.Db.DatabaseSecretRef.Name}
-		auth := dbsecret.DbSecretToAuth(v1Ref)
+		auth := DbSecretToAuth(v1Ref)
 		if dst.Spec.Trillian.Auth == nil {
 			dst.Spec.Trillian.Auth = auth
 		} else {

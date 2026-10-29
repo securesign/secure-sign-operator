@@ -2,23 +2,24 @@ package logserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
+	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/tls"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 )
@@ -40,33 +41,47 @@ func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.Trillian) b
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
-
-	labels := labels.For(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
 
 	caPath, err := tls.CAPath(ctx, i.Client, instance)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("failed to get CA path: %w", err), instance)
 	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&apps.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      actions.LogserverDeploymentName,
-				Namespace: instance.Namespace,
-			},
-		},
-		append(trillianUtils.EnsureServerDeployment(instance, labels, caPath),
-			ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-			ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
-			ensure.Optional(
+	dp, err := traits.Apply(
+		appsv1ac.Deployment(actions.LogserverDeploymentName, instance.Namespace),
+		traits.ControllerReference[*appsv1ac.DeploymentApplyConfiguration](instance, i.Client),
+		traits.Labels[*appsv1ac.DeploymentApplyConfiguration](labels.For(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)),
+		trillianUtils.EnsureDeployment(instance, images.Registry.Get(images.TrillianServer), actions.LogserverDeploymentName),
+		traits.PodRequirements(instance.Spec.LogServer.PodRequirements, actions.LogserverDeploymentName),
+		traits.WithPodSpecTraits(
+			traits.Proxy([]string{actions.LogserverDeploymentName}),
+			traits.GODEBUG(instance.GetAnnotations(), actions.LogserverDeploymentName),
+			traits.TrustedCA(instance.GetTrustedCA(), actions.LogserverDeploymentName),
+			trillianUtils.EnsureDB(instance, actions.LogserverDeploymentName, caPath),
+			traits.Auth(trillianUtils.WithDbAuth(instance.Spec.Auth, instance.Status.Db.DatabaseSecretRef), actions.LogserverDeploymentName, trillianUtils.WaitForDBInitContainer),
+			traits.SecurityContexts(actions.LogserverDeploymentName),
+			traits.ServiceAccount(actions.RBACServerName),
+			traits.Optional(
 				statusTLS(instance).CertRef != nil,
 				trillianUtils.EnsureTLS(statusTLS(instance), actions.LogserverDeploymentName),
-			))...,
-	); err != nil {
+			),
+			traits.PodExtensions(instance.Spec.PodExtensions, actions.LogserverDeploymentName),
+		),
+	)
+	if err != nil {
+		if errors.Is(err, traits.ErrPodExtensionConflict) {
+			return i.Error(ctx, reconcile.TerminalError(err), instance)
+		}
+		return i.Error(ctx, fmt.Errorf("could not build Trillian server deployment: %w", err), instance, metav1.Condition{
+			Type: actions.ServerCondition, Status: metav1.ConditionFalse,
+			Reason: state.Failure.String(), Message: err.Error(),
+		})
+	}
+
+	changed, err := kubernetes.Apply(ctx, i.Client, dp, &apps.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: actions.LogserverDeploymentName, Namespace: instance.Namespace},
+	})
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -75,7 +90,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *a
 		})
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               actions.ServerCondition,
 			Status:             metav1.ConditionFalse,

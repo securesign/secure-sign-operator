@@ -22,14 +22,19 @@ const (
 )
 
 // Auth adds authentication environment variables and mounts referenced Secrets
-// into the selected containers through a shared projected volume.
+// into the selected containers/init containers through a shared projected volume.
 func Auth(auth *rhtasv1.Auth, containerNames ...string) Trait[*corev1ac.PodSpecApplyConfiguration] {
 	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
 		if auth == nil {
 			return nil
 		}
 
-		projected := corev1ac.ProjectedVolumeSource()
+		// Without SecretMount entries, projected: {} can be lost during SSA and
+		// the API server defaults the volume to emptyDir. Explicit defaultMode
+		// gives SSA a concrete field to retain under projected, keeping the object
+		// non-empty and preventing that defaulting. This avoids a volume-type
+		// conflict on the next apply while preserving the default 0644 permissions.
+		projected := corev1ac.ProjectedVolumeSource().WithDefaultMode(corev1.ProjectedVolumeSourceDefaultMode)
 		for _, secret := range auth.SecretMount {
 			projected.WithSources(
 				corev1ac.VolumeProjection().WithSecret(
@@ -44,12 +49,7 @@ func Auth(auth *rhtasv1.Auth, containerNames ...string) Trait[*corev1ac.PodSpecA
 				WithProjected(projected),
 		)
 
-		for i := range podSpec.Containers {
-			container := &podSpec.Containers[i]
-			if container.Name == nil || !slices.Contains(containerNames, *container.Name) {
-				continue
-			}
-
+		addAuth := func(container *corev1ac.ContainerApplyConfiguration) error {
 			for _, env := range auth.Env {
 				envc, err := ConvertViaJSON[
 					corev1.EnvVar,
@@ -67,6 +67,27 @@ func Auth(auth *rhtasv1.Auth, containerNames ...string) Trait[*corev1ac.PodSpecA
 					WithMountPath(AuthMountPath).
 					WithReadOnly(true),
 			)
+			return nil
+		}
+		for i := range podSpec.Containers {
+			container := &podSpec.Containers[i]
+			if container.Name == nil || !slices.Contains(containerNames, *container.Name) {
+				continue
+			}
+
+			if err := addAuth(container); err != nil {
+				return err
+			}
+		}
+
+		for i := range podSpec.InitContainers {
+			container := &podSpec.InitContainers[i]
+			if container.Name == nil || !slices.Contains(containerNames, *container.Name) {
+				continue
+			}
+			if err := addAuth(container); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -210,20 +231,18 @@ func TrustedCA(lor *rhtasv1.LocalObjectReference, containerNames ...string) Trai
 			return nil
 		}
 
-		volume := corev1ac.Volume().
-			WithName(tls.CaTrustVolumeName)
-
-		if lor == nil {
-			// Specify the volume explicitly; otherwise emptyDir is defaulted and conflicts with the SSA owner.
-			volume.WithEmptyDir(corev1ac.EmptyDirVolumeSource())
-		} else {
-			volume.WithProjected(corev1ac.ProjectedVolumeSource().
-				WithSources(corev1ac.VolumeProjection().
-					WithConfigMap(corev1ac.ConfigMapProjection().
-						WithName(lor.Name))))
+		// Without a CA reference, projected: {} can be lost during SSA and the
+		// API server defaults the volume to emptyDir. Explicit defaultMode gives
+		// SSA a concrete field to retain under projected, keeping the object
+		// non-empty and preventing that defaulting. This avoids a volume-type
+		// conflict on the next apply while preserving the default 0644 permissions.
+		projected := corev1ac.ProjectedVolumeSource().WithDefaultMode(corev1.ProjectedVolumeSourceDefaultMode)
+		if lor != nil {
+			projected.WithSources(corev1ac.VolumeProjection().
+				WithConfigMap(corev1ac.ConfigMapProjection().WithName(lor.Name)))
 		}
 
-		podSpec.WithVolumes(volume)
+		podSpec.WithVolumes(corev1ac.Volume().WithName(tls.CaTrustVolumeName).WithProjected(projected))
 		return nil
 	}
 }

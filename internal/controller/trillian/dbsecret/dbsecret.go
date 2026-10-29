@@ -24,7 +24,6 @@ package dbsecret
 import (
 	"strings"
 
-	rhtasv1 "github.com/securesign/operator/api/v1"
 	core "k8s.io/api/core/v1"
 )
 
@@ -37,30 +36,26 @@ const (
 	SecretHost         = "mysql-host"
 )
 
-// DbSecretToAuth builds Auth env vars from a legacy database secret reference.
-// Shared with the v1alpha1->v1 conversion webhooks for the deprecated DatabaseSecretRef field.
-func DbSecretToAuth(databaseSecretRef *rhtasv1.LocalObjectReference) *rhtasv1.Auth {
-	if databaseSecretRef == nil {
-		return nil
-	}
-	auth := rhtasv1.Auth{}
-	keys := []string{SecretUser, SecretPassword, SecretHost, SecretPort, SecretDatabaseName}
+// EnvName maps a database secret key to its MYSQL_* environment variable name.
+func EnvName(key string) string {
+	return strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
+}
 
-	for _, v := range keys {
-		temp := strings.ReplaceAll(v, "-", "_")
-		temp = strings.ToUpper(temp)
-
-		auth.Env = append(auth.Env, core.EnvVar{
-			Name: temp,
+// ConnectionEnv returns the environment variables needed by database clients.
+// The root password is only used by the managed database, never by clients.
+func ConnectionEnv(secretName string) []core.EnvVar {
+	keys := [...]string{SecretUser, SecretPassword, SecretHost, SecretPort, SecretDatabaseName}
+	env := make([]core.EnvVar, 0, len(keys))
+	for _, key := range keys {
+		env = append(env, core.EnvVar{
+			Name: EnvName(key),
 			ValueFrom: &core.EnvVarSource{
 				SecretKeyRef: &core.SecretKeySelector{
-					Key: v,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: databaseSecretRef.Name,
-					},
+					LocalObjectReference: core.LocalObjectReference{Name: secretName},
+					Key:                  key,
 				},
 			},
 		})
 	}
-	return &auth
+	return env
 }
