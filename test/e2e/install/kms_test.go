@@ -189,9 +189,9 @@ var _ = Describe("Securesign install with KMS (OpenBao) signer", Ordered, func()
 			container := findContainer(dep, tsaactions.DeploymentName)
 			Expect(container).NotTo(BeNil())
 
-			Expect(container.Command).To(ContainElements(
-				"--timestamp-signer=kms",
-				"--kms-key-resource=openbao://"+openbao.TsaKeyName,
+			Expect(container.Args).To(ContainElements(
+				"--timestamp-signer", "kms",
+				"--kms-key-resource", "openbao://"+openbao.TsaKeyName,
 			))
 
 			Expect(container.Env).To(ContainElements(

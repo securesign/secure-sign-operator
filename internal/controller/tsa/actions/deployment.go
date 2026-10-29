@@ -2,29 +2,29 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
-	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -55,34 +55,55 @@ func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1.Timestamp
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
-	var (
-		result controllerutil.OperationResult
-		err    error
+
+	dp, err := traits.Apply(
+		appsv1ac.Deployment(DeploymentName, instance.Namespace),
+		traits.ControllerReference[*appsv1ac.DeploymentApplyConfiguration](instance, i.Client),
+		traits.Labels[*appsv1ac.DeploymentApplyConfiguration](labels.For(ComponentName, DeploymentName, instance.Name)),
+		i.ensureDeployment(instance),
+		traits.PodRequirements(instance.Spec.PodRequirements, DeploymentName),
+		traits.WithPodSpecTraits(
+			traits.Proxy([]string{DeploymentName}),
+			traits.GODEBUG(instance.GetAnnotations(), DeploymentName),
+			traits.TrustedCA(instance.GetTrustedCA(), DeploymentName),
+			traits.SecurityContexts(DeploymentName),
+			traits.ServiceAccount(RBACName),
+			traits.Auth(instance.Spec.Auth, DeploymentName),
+			traits.PodExtensions(instance.Spec.PodExtensions, DeploymentName),
+		),
 	)
+	if err != nil {
+		if errors.Is(err, traits.ErrPodExtensionConflict) {
+			return i.Error(ctx, reconcile.TerminalError(err), instance)
+		}
+		return i.Error(ctx, fmt.Errorf("could not build Timestamp Authority deployment: %w", err), instance, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Failed to build deployment: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
+	}
 
-	labels := labels.For(ComponentName, DeploymentName, instance.Name)
-
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	changed, err := kubernetes.Apply(ctx, i.Client, dp,
 		&apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      DeploymentName,
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureDeployment(instance, RBACName, labels),
-		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		deployment.Auth(DeploymentName, instance.Spec.Auth),
-		deployment.Proxy(),
-		deployment.GODEBUG(instance.GetAnnotations()),
-		deployment.TrustedCA(instance.GetTrustedCA(), DeploymentName),
-		deployment.PodRequirements(instance.Spec.PodRequirements, DeploymentName),
-		deployment.PodSecurityContext(),
-	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance)
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create Timestamp Authority server: %w", err), instance, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Failed to create deployment: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -91,231 +112,143 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAut
 			ObservedGeneration: instance.Generation,
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
-		return i.Continue()
 	}
+	return i.Continue()
 }
 
-func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa string, labels map[string]string) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
+func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority) traits.Trait[*appsv1ac.DeploymentApplyConfiguration] {
+	return func(dp *appsv1ac.DeploymentApplyConfiguration) error {
 
-		appArgs := []string{
-			"timestamp-server",
-			"serve",
-			"--host=0.0.0.0",
-			"--port=3000",
-			fmt.Sprintf("--log-type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
-			fmt.Sprintf("--certificate-chain-path=%s/certificate-chain.pem", certChainMountPath),
-			fmt.Sprintf("--disable-ntp-monitoring=%v", !utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled)),
-		}
+		container := corev1ac.Container().
+			WithName(DeploymentName).
+			WithImage(images.Registry.Get(images.TimestampAuthority)).
+			WithCommand("timestamp-server", "serve").
+			WithArgs(
+				"--host", "0.0.0.0",
+				"--port", "3000",
+				"--log-type", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
+				"--certificate-chain-path", fmt.Sprintf("%s/certificate-chain.pem", certChainMountPath),
+				// disable-ntp-monitoring is a boolean flag, so we need to use the `=` assignment operator
+				fmt.Sprintf("--disable-ntp-monitoring=%t", !utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled))).
+			WithPorts(corev1ac.ContainerPort().
+				WithName("3000-tcp").
+				WithContainerPort(3000).
+				WithProtocol(core.ProtocolTCP)).
+			WithVolumeMounts(corev1ac.VolumeMount().
+				WithName(chainVolumeName).
+				WithMountPath(certChainMountPath).
+				WithReadOnly(true)).
+			WithLivenessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath("/ping").
+					WithPort(intstr.FromInt32(3000))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithReadinessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath("/ping").
+					WithPort(intstr.FromInt32(3000))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			// StartupProbe verifies TSA is fully initialized by checking certificate chain endpoint
+			// This runs only at startup, allowing heavy checks without impacting ongoing probes
+			WithStartupProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath("/api/v1/timestamp/certchain").
+					WithPort(intstr.FromInt32(3000))).
+				WithPeriodSeconds(5).
+				WithTimeoutSeconds(5).
+				WithFailureThreshold(12))
+
+		podSpec := corev1ac.PodSpec().
+			WithVolumes(corev1ac.Volume().
+				WithName(chainVolumeName).
+				WithSecret(corev1ac.SecretVolumeSource().
+					WithSecretName(instance.Status.Signer.CertificateChainRef.Name).
+					WithItems(corev1ac.KeyToPath().
+						WithKey(instance.Status.Signer.CertificateChainRef.Key).
+						WithPath("certificate-chain.pem"))))
+
 		if instance.Spec.MaxRequestBodySize != nil {
-			appArgs = append(appArgs, "--max-request-body-size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
+			container.WithArgs("--max-request-body-size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
 		}
 
-		spec := &dp.Spec
-		spec.Replicas = utils.Pointer[int32](1)
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
+		if utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled) && instance.Status.NtpConfigRef != nil {
+			container.WithArgs("--ntp-monitoring", fmt.Sprintf("%s/ntp-config.yaml", NtpMountPath))
+			container.WithVolumeMounts(corev1ac.VolumeMount().
+				WithName(ntpConfigVolumeName).
+				WithMountPath(NtpMountPath).
+				WithReadOnly(true))
+
+			podSpec.WithVolumes(corev1ac.Volume().
+				WithName(ntpConfigVolumeName).
+				WithConfigMap(corev1ac.ConfigMapVolumeSource().
+					WithName(instance.Status.NtpConfigRef.Name)))
 		}
 
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = sa
-
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, DeploymentName)
-
-		chainVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, chainVolumeName)
-		if chainVolume.Secret == nil {
-			chainVolume.Secret = &core.SecretVolumeSource{}
-		}
-		chainVolume.Secret.SecretName = instance.Status.Signer.CertificateChainRef.Name
-		chainVolume.Secret.Items = []core.KeyToPath{
-			{
-				Key:  instance.Status.Signer.CertificateChainRef.Key,
-				Path: "certificate-chain.pem",
-			},
-		}
-
-		chainVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, chainVolumeName)
-		chainVolumeMount.MountPath = certChainMountPath
-		chainVolumeMount.ReadOnly = true
-
-		if err := ensure.OptionalToggle(utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled) && instance.Status.NtpConfigRef != nil, ensure.Toggleable[*core.PodSpec]{
-			Ensure: func(spec *core.PodSpec) error {
-				appArgs = append(appArgs,
-					fmt.Sprintf("--ntp-monitoring=%s/ntp-config.yaml", NtpMountPath),
-				)
-
-				ntpConfigVolume := kubernetes.FindVolumeByNameOrCreate(spec, ntpConfigVolumeName)
-				if ntpConfigVolume.ConfigMap == nil {
-					ntpConfigVolume.ConfigMap = &core.ConfigMapVolumeSource{}
-				}
-				ntpConfigVolume.ConfigMap.Name = instance.Status.NtpConfigRef.Name
-
-				c := kubernetes.FindContainerByNameOrCreate(spec, DeploymentName)
-				ntpConfigVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, ntpConfigVolumeName)
-				ntpConfigVolumeMount.ReadOnly = true
-				ntpConfigVolumeMount.MountPath = NtpMountPath
-				return nil
-			},
-			Managed: &core.PodSpec{
-				Volumes: []core.Volume{{Name: ntpConfigVolumeName}},
-				Containers: []core.Container{{
-					Name:         DeploymentName,
-					VolumeMounts: []core.VolumeMount{{Name: ntpConfigVolumeName}},
-				}},
-			},
-		})(&template.Spec); err != nil {
-			return err
-		}
-
-		signerType := tsaUtils.GetSignerType(&instance.Spec.Signer)
-		switch signerType {
+		switch instance.Spec.Signer.Type {
 		case rhtasv1.SignerTypeKMS:
-			appArgs = append(appArgs,
-				"--timestamp-signer=kms",
-				fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.Kms.KeyResource),
-			)
+			container.WithArgs("--timestamp-signer", "kms", "--kms-key-resource", instance.Spec.Signer.Kms.KeyResource)
+		case rhtasv1.SignerTypeTink:
+			container.
+				WithArgs("--timestamp-signer", "tink",
+					"--tink-key-resource", instance.Spec.Signer.Tink.KeyResource,
+					"--tink-keyset-path", fmt.Sprintf("%s/encryptedKeySet", tinkSignerMountPath)).
+				WithVolumeMounts(corev1ac.VolumeMount().
+					WithName(tinkSignerVolumeName).
+					WithMountPath(tinkSignerMountPath).
+					WithReadOnly(true))
+
+			podSpec.WithVolumes(corev1ac.Volume().
+				WithName(tinkSignerVolumeName).
+				WithSecret(corev1ac.SecretVolumeSource().
+					WithSecretName(instance.Spec.Signer.Tink.KeysetRef.Name).
+					WithItems(corev1ac.KeyToPath().
+						WithKey(instance.Spec.Signer.Tink.KeysetRef.Key).
+						WithPath("encryptedKeySet"))))
+
+			if strings.HasPrefix(instance.Spec.Signer.Tink.KeyResource, "hcvault://") {
+				container.WithArgs("--tink-hcvault-token", "$(VAULT_TOKEN)")
+			}
+
 		default:
-			// file and tink: args and resources handled by OptionalToggle below
+			container.WithArgs("--timestamp-signer", "file", "--file-signer-key-path", fmt.Sprintf("%s/private_key.pem", fileSignerMountPath))
+			container.WithVolumeMounts(corev1ac.VolumeMount().
+				WithName(fileSignerVolumeName).
+				WithMountPath(fileSignerMountPath).
+				WithReadOnly(true))
+
+			podSpec.WithVolumes(corev1ac.Volume().
+				WithName(fileSignerVolumeName).
+				WithSecret(corev1ac.SecretVolumeSource().
+					WithSecretName(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).
+					WithItems(corev1ac.KeyToPath().
+						WithKey(instance.Status.Signer.FileSigner.PrivateKeyRef.Key).
+						WithPath("private_key.pem"))))
+
+			if instance.Status.Signer.FileSigner.PasswordRef != nil {
+				container.WithArgs("--file-signer-passwd", "$(SIGNER_PASSWORD)").
+					WithEnv(corev1ac.EnvVar().
+						WithName("SIGNER_PASSWORD").
+						WithValueFrom(corev1ac.EnvVarSource().
+							WithSecretKeyRef(corev1ac.SecretKeySelector().
+								WithName(instance.Status.Signer.FileSigner.PasswordRef.Name).
+								WithKey(instance.Status.Signer.FileSigner.PasswordRef.Key))))
+			}
 		}
 
-		if err := ensure.OptionalToggle(signerType == rhtasv1.SignerTypeFile, ensure.Toggleable[*core.PodSpec]{
-			Ensure: func(spec *core.PodSpec) error {
-				appArgs = append(appArgs,
-					"--timestamp-signer=file",
-					fmt.Sprintf("--file-signer-key-path=%s/private_key.pem", fileSignerMountPath),
-				)
-
-				fileSignerVolume := kubernetes.FindVolumeByNameOrCreate(spec, fileSignerVolumeName)
-				if fileSignerVolume.Secret == nil {
-					fileSignerVolume.Secret = &core.SecretVolumeSource{}
-				}
-				fileSignerVolume.Secret.SecretName = instance.Status.Signer.FileSigner.PrivateKeyRef.Name
-				fileSignerVolume.Secret.Items = []core.KeyToPath{
-					{
-						Key:  instance.Status.Signer.FileSigner.PrivateKeyRef.Key,
-						Path: "private_key.pem",
-					},
-				}
-
-				c := kubernetes.FindContainerByNameOrCreate(spec, DeploymentName)
-				fileSignerVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, fileSignerVolumeName)
-				fileSignerVolumeMount.MountPath = fileSignerMountPath
-				fileSignerVolumeMount.ReadOnly = true
-
-				if instance.Status.Signer.FileSigner.PasswordRef != nil {
-					appArgs = append(appArgs, "--file-signer-passwd=$(SIGNER_PASSWORD)")
-					env := kubernetes.FindEnvByNameOrCreate(c, "SIGNER_PASSWORD")
-					env.ValueFrom = &core.EnvVarSource{
-						SecretKeyRef: &core.SecretKeySelector{
-							LocalObjectReference: core.LocalObjectReference{
-								Name: instance.Status.Signer.FileSigner.PasswordRef.Name,
-							},
-							Key: instance.Status.Signer.FileSigner.PasswordRef.Key,
-						},
-					}
-				}
-				return nil
-			},
-			Managed: &core.PodSpec{
-				Volumes: []core.Volume{{Name: fileSignerVolumeName}},
-				Containers: []core.Container{{
-					Name:         DeploymentName,
-					VolumeMounts: []core.VolumeMount{{Name: fileSignerVolumeName}},
-					Env:          []core.EnvVar{{Name: "SIGNER_PASSWORD"}},
-				}},
-			},
-		})(&template.Spec); err != nil {
-			return err
-		}
-
-		if err := ensure.OptionalToggle(signerType == rhtasv1.SignerTypeTink, ensure.Toggleable[*core.PodSpec]{
-			Ensure: func(spec *core.PodSpec) error {
-				appArgs = append(appArgs,
-					"--timestamp-signer=tink",
-					fmt.Sprintf("--tink-key-resource=%s", instance.Spec.Signer.Tink.KeyResource),
-					fmt.Sprintf("--tink-keyset-path=%s/encryptedKeySet", tinkSignerMountPath),
-				)
-				if strings.HasPrefix(instance.Spec.Signer.Tink.KeyResource, "hcvault://") {
-					appArgs = append(appArgs, "--tink-hcvault-token=$(VAULT_TOKEN)")
-				}
-
-				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(spec, tinkSignerVolumeName)
-				if tinkSignerVolume.Secret == nil {
-					tinkSignerVolume.Secret = &core.SecretVolumeSource{}
-				}
-				tinkSignerVolume.Secret.SecretName = instance.Spec.Signer.Tink.KeysetRef.Name
-				tinkSignerVolume.Secret.Items = []core.KeyToPath{
-					{
-						Key:  instance.Spec.Signer.Tink.KeysetRef.Key,
-						Path: "encryptedKeySet",
-					},
-				}
-
-				c := kubernetes.FindContainerByNameOrCreate(spec, DeploymentName)
-				tinkSignerVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, tinkSignerVolumeName)
-				tinkSignerVolumeMount.MountPath = tinkSignerMountPath
-				tinkSignerVolumeMount.ReadOnly = true
-				return nil
-			},
-			Managed: &core.PodSpec{
-				Volumes: []core.Volume{{Name: tinkSignerVolumeName}},
-				Containers: []core.Container{{
-					Name:         DeploymentName,
-					VolumeMounts: []core.VolumeMount{{Name: tinkSignerVolumeName}},
-				}},
-			},
-		})(&template.Spec); err != nil {
-			return err
-		}
-
-		container.Image = images.Registry.Get(images.TimestampAuthority)
-		container.Command = appArgs
-
-		port := kubernetes.FindPortByNameOrCreate(container, "3000-tcp")
-		port.ContainerPort = 3000
-		port.Protocol = core.ProtocolTCP
-
-		if container.LivenessProbe == nil {
-			container.LivenessProbe = &core.Probe{}
-		}
-		if container.LivenessProbe.HTTPGet == nil {
-			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.LivenessProbe.HTTPGet.Path = "/ping"
-		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(3000)
-		container.LivenessProbe.InitialDelaySeconds = 0
-		container.LivenessProbe.PeriodSeconds = 10
-		container.LivenessProbe.TimeoutSeconds = 1
-		container.LivenessProbe.FailureThreshold = 3
-
-		if container.ReadinessProbe == nil {
-			container.ReadinessProbe = &core.Probe{}
-		}
-		if container.ReadinessProbe.HTTPGet == nil {
-			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.ReadinessProbe.HTTPGet.Path = "/ping"
-		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(3000)
-		container.ReadinessProbe.InitialDelaySeconds = 0
-		container.ReadinessProbe.PeriodSeconds = 10
-		container.ReadinessProbe.TimeoutSeconds = 1
-		container.ReadinessProbe.FailureThreshold = 3
-
-		// StartupProbe verifies TSA is fully initialized by checking certificate chain endpoint
-		// This runs only at startup, allowing heavy checks without impacting ongoing probes
-		if container.StartupProbe == nil {
-			container.StartupProbe = &core.Probe{}
-		}
-		if container.StartupProbe.HTTPGet == nil {
-			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.StartupProbe.HTTPGet.Path = "/api/v1/timestamp/certchain"
-		container.StartupProbe.HTTPGet.Port = intstr.FromInt32(3000)
-		container.StartupProbe.PeriodSeconds = 5
-		container.StartupProbe.TimeoutSeconds = 5
-		container.StartupProbe.FailureThreshold = 12
+		dp.
+			WithSpec(appsv1ac.DeploymentSpec().
+				WithSelector(metav1ac.LabelSelector().WithMatchLabels(dp.Labels)).
+				WithStrategy(appsv1ac.DeploymentStrategy().
+					WithType(apps.RollingUpdateDeploymentStrategyType)).
+				WithTemplate(corev1ac.PodTemplateSpec().
+					WithLabels(dp.Labels).
+					WithSpec(podSpec.WithContainers(container))))
 
 		return nil
 	}
