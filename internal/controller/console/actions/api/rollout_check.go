@@ -9,8 +9,9 @@ import (
 
 func NewRolloutCheckAction() action.Action[*rhtasv1.Console] {
 	return deploymentRollout.NewAction(deploymentRollout.Config[*rhtasv1.Console]{
-		Name:           "api rollout check",
-		ConditionType:  actions.ApiCondition,
-		DeploymentName: actions.ApiDeploymentName,
+		Name:             "api rollout check",
+		ConditionType:    actions.ApiCondition,
+		DeploymentName:   actions.ApiDeploymentName,
+		PromoteOnSuccess: true,
 	})
 }
