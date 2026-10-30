@@ -69,7 +69,7 @@ func (src *Trillian) ConvertTo(dstRaw conversion.Hub) error {
 
 	if src.Spec.Db.DatabaseSecretRef != nil {
 		v1Ref := &rhtasv1.LocalObjectReference{Name: src.Spec.Db.DatabaseSecretRef.Name}
-		auth := dbsecret.DbSecretToAuth(v1Ref)
+		auth := DbSecretToAuth(v1Ref)
 		if dst.Spec.Auth == nil {
 			dst.Spec.Auth = auth
 		} else {
@@ -78,6 +78,15 @@ func (src *Trillian) ConvertTo(dstRaw conversion.Hub) error {
 	}
 
 	return nil
+}
+
+// DbSecretToAuth builds Auth env vars from a legacy database secret reference.
+// Shared with the v1alpha1->v1 conversion webhooks for the deprecated DatabaseSecretRef field.
+func DbSecretToAuth(databaseSecretRef *rhtasv1.LocalObjectReference) *rhtasv1.Auth {
+	if databaseSecretRef == nil {
+		return nil
+	}
+	return &rhtasv1.Auth{Env: dbsecret.ConnectionEnv(databaseSecretRef.Name)}
 }
 
 func (dst *Trillian) ConvertFrom(srcRaw conversion.Hub) error {

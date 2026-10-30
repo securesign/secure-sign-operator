@@ -12,6 +12,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
@@ -46,52 +47,24 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
-		dsn := "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(my-mysql.$(NAMESPACE).svc:3300)/$(MYSQL_DB)"
+		dsn := "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(my-mysql.$(NAMESPACE).svc:3300)/$(MYSQL_DATABASE)"
 		if testSupportKubernetes.IsRemoteClusterOpenshift() {
 			dsn += "?tls=true"
 		}
 
+		dbAuthEnv := dbsecret.ConnectionEnv(dbAuth)
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
-			securesign.WithExternalDatabase(dbAuth),
+			securesign.WithExternalDatabase(dbAuthEnv),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Auth = &rhtasv1.Auth{
-					Env: []v1.EnvVar{
-						{
-							Name: "MYSQL_USER",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: dbAuth,
-								},
-								Key: "mysql-user",
-							}},
-						},
-						{
-							Name: "MYSQL_PASSWORD",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: dbAuth,
-								},
-								Key: "mysql-password",
-							}},
-						},
-						{
-							Name: "MYSQL_DB",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: dbAuth,
-								},
-								Key: "mysql-database",
-							}},
-						},
-						{
-							Name: "NAMESPACE",
-							ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{
-								APIVersion: "v1",
-								FieldPath:  "metadata.namespace",
-							}},
-						},
-					},
+					Env: append(dbAuthEnv, v1.EnvVar{
+						Name: "NAMESPACE",
+						ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{
+							APIVersion: "v1",
+							FieldPath:  "metadata.namespace",
+						}},
+					}),
 				}
 				v.Spec.Rekor.BackFillRedis = rhtasv1.BackFillRedis{
 					Enabled:  ptr.To(true),

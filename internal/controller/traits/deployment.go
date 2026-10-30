@@ -20,6 +20,8 @@ func PodRequirements(req rhtasv1.PodRequirements, containerName ...string) Trait
 
 		if req.Replicas != nil {
 			dp.Spec.WithReplicas(*req.Replicas)
+		} else {
+			dp.Spec.WithReplicas(1)
 		}
 
 		podSpec := dp.Spec.Template.Spec

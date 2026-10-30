@@ -62,6 +62,7 @@ func TestAuth(t *testing.T) {
 		g.Expect(podSpec.Volumes).To(HaveLen(1))
 		g.Expect(podSpec.Volumes[0].Name).To(HaveValue(Equal(authVolumeName)))
 		g.Expect(podSpec.Volumes[0].Projected).ToNot(BeNil())
+		g.Expect(podSpec.Volumes[0].Projected.DefaultMode).To(HaveValue(Equal(core.ProjectedVolumeSourceDefaultMode)))
 		g.Expect(podSpec.Volumes[0].Projected.Sources).To(HaveLen(2))
 		g.Expect(podSpec.Volumes[0].Projected.Sources[0].Secret.Name).To(HaveValue(Equal("credentials")))
 		g.Expect(podSpec.Volumes[0].Projected.Sources[0].Secret.Items).To(BeEmpty())
@@ -283,14 +284,16 @@ func TestTrustedCA(t *testing.T) {
 		g.Expect(*podSpec.Volumes[0].Projected.Sources[0].ConfigMap.Name).To(Equal("my-ca"))
 	})
 
-	t.Run("nil reference declares an emptyDir volume", func(t *testing.T) {
+	t.Run("nil reference declares an empty projection with explicit mode", func(t *testing.T) {
 		g := NewWithT(t)
 		podSpec := podSpecWithContainers("server")
 
 		g.Expect(TrustedCA(nil, "server")(podSpec)).To(Succeed())
 		g.Expect(podSpec.Volumes).To(HaveLen(1))
-		g.Expect(podSpec.Volumes[0].EmptyDir).ToNot(BeNil())
-		g.Expect(podSpec.Volumes[0].Projected).To(BeNil())
+		g.Expect(podSpec.Volumes[0].EmptyDir).To(BeNil())
+		g.Expect(podSpec.Volumes[0].Projected).NotTo(BeNil())
+		g.Expect(podSpec.Volumes[0].Projected.Sources).To(BeEmpty())
+		g.Expect(podSpec.Volumes[0].Projected.DefaultMode).To(HaveValue(Equal(core.ProjectedVolumeSourceDefaultMode)))
 	})
 
 	t.Run("no matching container skips the volume", func(t *testing.T) {
