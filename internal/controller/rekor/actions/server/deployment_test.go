@@ -76,6 +76,7 @@ func TestFIPSClientSigningAlgorithms(t *testing.T) {
 	instance := createRekorInstance()
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(instance).
 		WithStatusSubresource(instance).
 		Build()
@@ -107,6 +108,7 @@ func TestNonFIPSNoClientSigningAlgorithms(t *testing.T) {
 	instance := createRekorInstance()
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(instance).
 		WithStatusSubresource(instance).
 		Build()
@@ -134,6 +136,7 @@ func TestDeployAction_Handle_PreservesCachedPublicKeyOnDeploymentChange(t *testi
 	instance.Status.PublicKey = "-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(instance).
 		WithStatusSubresource(instance).
 		Build()
@@ -193,6 +196,7 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 	})
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(instance, &rhtasv1.Trillian{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-trillian",
@@ -259,6 +263,7 @@ func TestDeployAction_Handle_AutodiscoveryTrillianAddress(t *testing.T) {
 	})
 
 	c := testAction.FakeClientBuilder().
+		WithReturnManagedFields().
 		WithObjects(instance, &rhtasv1.Trillian{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trillian",
