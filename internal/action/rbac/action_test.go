@@ -154,7 +154,7 @@ func testHandle(t *testing.T) {
 					rb := rbacv1.RoleBinding{}
 					g.Expect(c.Get(ctx, nnObject, &rb)).To(Succeed())
 					g.Expect(rb.RoleRef).To(Equal(rbacv1.RoleRef{
-						APIGroup: corev1.SchemeGroupVersion.Group,
+						APIGroup: rbacv1.GroupName,
 						Kind:     "Role",
 						Name:     r.Name,
 					}))
@@ -224,7 +224,7 @@ func testHandle(t *testing.T) {
 					rb := rbacv1.RoleBinding{}
 					g.Expect(c.Get(ctx, nnObject, &rb)).To(Succeed())
 					g.Expect(rb.RoleRef).To(Equal(rbacv1.RoleRef{
-						APIGroup: corev1.SchemeGroupVersion.Group,
+						APIGroup: rbacv1.GroupName,
 						Kind:     "Role",
 						Name:     r.Name,
 					}))
@@ -363,11 +363,13 @@ func testServiceAccount(t *testing.T) {
 			desc: "empty imagePullSecrets clears SA",
 			pre: pre{
 				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
-					g.Expect(c.Apply(ctx,
-						corev1ac.ServiceAccount(nnObject.Name, nnObject.Namespace).
-							WithImagePullSecrets(corev1ac.LocalObjectReference().WithName("old-secret")),
-						client.FieldOwner(kubernetes.FieldManager),
-					)).To(Succeed())
+					g.Expect(c.Create(ctx, &corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnObject.Name,
+							Namespace: nnObject.Namespace,
+						},
+						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "old-secret"}},
+					}, client.FieldOwner(kubernetes.LegacyFieldManager))).To(Succeed())
 				},
 				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
 					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
@@ -564,7 +566,7 @@ func testRoleBinding(t *testing.T) {
 					rb := rbacv1.RoleBinding{}
 					g.Expect(c.Get(ctx, nnObject, &rb)).To(Succeed())
 					g.Expect(rb.RoleRef).To(Equal(rbacv1.RoleRef{
-						APIGroup: corev1.SchemeGroupVersion.Group,
+						APIGroup: rbacv1.GroupName,
 						Kind:     "Role",
 						Name:     nnObject.Name,
 					}))
@@ -631,6 +633,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 		}
 
 		c := testAction.FakeClientBuilder().
+			WithReturnManagedFields().
 			WithObjects(instance).
 			WithStatusSubresource(instance).
 			Build()
@@ -779,11 +782,11 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 		{
 			name: "RoleBinding creation failure is retryable",
 			intercept: interceptor.Funcs{
-				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
-					if _, ok := obj.(*rbacv1.RoleBinding); ok {
+				Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+					if _, ok := obj.(*rbacv1ac.RoleBindingApplyConfiguration); ok {
 						return injectedErr
 					}
-					return c.Create(ctx, obj, opts...)
+					return c.Apply(ctx, obj, opts...)
 				},
 			},
 			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {

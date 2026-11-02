@@ -159,24 +159,29 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 		return i.Error(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
 
-	// RoleBinding
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      rbacName,
-			Namespace: instance.GetNamespace(),
-		},
-	},
-		ensure.ControllerReference[*rbacv1.RoleBinding](instance, i.Client),
-		ensure.Labels[*rbacv1.RoleBinding](slices.Collect(maps.Keys(labels)), labels),
-		kubernetes.EnsureRoleBinding(
+	binding, err := traits.Apply(
+		rbacv1ac.RoleBinding(rbacName, instance.GetNamespace()),
+		traits.ControllerReference[*rbacv1ac.RoleBindingApplyConfiguration](instance, i.Client),
+		traits.Labels[*rbacv1ac.RoleBindingApplyConfiguration](labels),
+		traits.RoleBinding(
 			rbacv1.RoleRef{
-				APIGroup: corev1.SchemeGroupVersion.Group,
+				APIGroup: rbacv1.GroupName,
 				Kind:     "Role",
 				Name:     rbacName,
 			},
 			rbacv1.Subject{Kind: "ServiceAccount", Name: rbacName, Namespace: instance.GetNamespace()},
 		),
-	); err != nil {
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build RoleBinding: %w", err), instance)
+	}
+
+	if _, err = kubernetes.Apply(ctx, i.Client, binding, &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rbacName,
+			Namespace: instance.GetNamespace(),
+		},
+	}); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)
 	}
 

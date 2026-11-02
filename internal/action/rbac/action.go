@@ -3,8 +3,6 @@ package rbac
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
@@ -13,7 +11,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +43,11 @@ func NewAction[T apis.ConditionsAwareObject](componentName, rbacName string, opt
 		rbacName:      rbacName,
 		rules:         make([]rbacv1.PolicyRule, 0),
 		canHandle:     defaultCanHandle[T],
+	}
+
+	// Default to no image pull secrets - optional callback
+	if a.imagePullSecrets == nil {
+		a.imagePullSecrets = func(T) []v1.LocalObjectReference { return nil }
 	}
 
 	for _, opt := range opts {
@@ -103,15 +105,10 @@ func (i rbacAction[T]) handleServiceAccount(ctx context.Context, instance T) *ac
 		corev1ac.ServiceAccount(i.rbacName, instance.GetNamespace()),
 		traits.ControllerReference[*corev1ac.ServiceAccountApplyConfiguration](instance, i.Client),
 		traits.Labels[*corev1ac.ServiceAccountApplyConfiguration](l),
+		traits.ImagePullSecrets(i.imagePullSecrets(instance)...),
 	)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not build SA: %w", err), instance)
-	}
-
-	if i.imagePullSecrets != nil {
-		for _, secret := range i.imagePullSecrets(instance) {
-			sa.WithImagePullSecrets(corev1ac.LocalObjectReference().WithName(secret.Name))
-		}
 	}
 
 	if _, err = kubernetes.Apply(ctx, i.Client, sa, &v1.ServiceAccount{
@@ -178,24 +175,29 @@ func (i rbacAction[T]) handleRoleBinding(ctx context.Context, instance T) *actio
 		return i.Continue()
 	}
 
-	// RoleBinding
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      i.rbacName,
-			Namespace: instance.GetNamespace(),
-		},
-	},
-		ensure.ControllerReference[*rbacv1.RoleBinding](instance, i.Client),
-		ensure.Labels[*rbacv1.RoleBinding](slices.Collect(maps.Keys(l)), l),
-		kubernetes.EnsureRoleBinding(
+	binding, err := traits.Apply(
+		rbacv1ac.RoleBinding(i.rbacName, instance.GetNamespace()),
+		traits.ControllerReference[*rbacv1ac.RoleBindingApplyConfiguration](instance, i.Client),
+		traits.Labels[*rbacv1ac.RoleBindingApplyConfiguration](l),
+		traits.RoleBinding(
 			rbacv1.RoleRef{
-				APIGroup: v1.SchemeGroupVersion.Group,
+				APIGroup: rbacv1.GroupName,
 				Kind:     "Role", //nolint:goconst
 				Name:     i.rbacName,
 			},
 			rbacv1.Subject{Kind: "ServiceAccount", Name: i.rbacName, Namespace: instance.GetNamespace()}, //nolint:goconst
 		),
-	); err != nil {
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build RoleBinding: %w", err), instance)
+	}
+
+	if _, err = kubernetes.Apply(ctx, i.Client, binding, &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      i.rbacName,
+			Namespace: instance.GetNamespace(),
+		},
+	}); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)
 	}
 
