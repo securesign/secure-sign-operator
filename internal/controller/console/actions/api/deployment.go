@@ -3,28 +3,29 @@ package api
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/console/actions"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
+
+const waitForTUFCommand = `curl -fL --no-progress-meter --output /dev/null --retry 50 --retry-delay 5 --retry-all-errors "${TUF_URL}/root.json" && echo 'Successfully connected to TUF repository'`
 
 func NewDeployAction() action.Action[*rhtasv1.Console] {
 	return &deployAction{}
@@ -43,11 +44,6 @@ func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.Console) bo
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *action.Result {
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
-
 	tufURL, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance, metav1.Condition{
@@ -59,30 +55,40 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		})
 	}
 
-	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)
+	dp, err := traits.Apply(
+		appsv1ac.Deployment(actions.ApiDeploymentName, instance.Namespace),
+		traits.ControllerReference[*appsv1ac.DeploymentApplyConfiguration](instance, i.Client),
+		traits.Labels[*appsv1ac.DeploymentApplyConfiguration](labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)),
+		ensureDeployment(tufURL),
+		traits.PodRequirements(instance.Spec.Api.PodRequirements, actions.ApiDeploymentName),
+		traits.WithPodSpecTraits(
+			traits.Proxy([]string{actions.ApiDeploymentName}),
+			traits.GODEBUG(instance.GetAnnotations(), actions.ApiDeploymentName),
+			traits.TrustedCA(instance.GetTrustedCA(), actions.ApiDeploymentName),
+			traits.SecurityContexts(actions.ApiDeploymentName),
+			traits.ServiceAccount(actions.RBACApiName),
+			traits.Optional(
+				statusTLS(instance).CertRef != nil,
+				ensureTLS(statusTLS(instance)),
+			),
+		),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build console api deployment: %w", err), instance, metav1.Condition{
+			Type: actions.ApiCondition, Status: metav1.ConditionFalse,
+			Reason: state.Failure.String(), Message: err.Error(),
+		})
+	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	changed, err := kubernetes.Apply(ctx, i.Client, dp,
 		&apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      actions.ApiDeploymentName,
 				Namespace: instance.Namespace,
 			},
 		},
-		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
-		ensureApiDeployment(l, tufURL),
-		ensureTUFWaitInitContainer(tufURL),
-		ensureApiProbes(),
-		deployment.PodRequirements(instance.Spec.Api.PodRequirements, actions.ApiDeploymentName),
-		deployment.Proxy(),
-		deployment.GODEBUG(instance.GetAnnotations()),
-		deployment.TrustedCA(instance.GetTrustedCA(), actions.ApiDeploymentName),
-		deployment.PodSecurityContext(),
-		ensure.Optional(
-			statusTLS(instance).CertRef != nil,
-			ensureTLS(statusTLS(instance)),
-		),
-	); err != nil {
+	)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create console api: %w", err), instance, metav1.Condition{
 			Type:    actions.ApiCondition,
 			Status:  metav1.ConditionFalse,
@@ -91,7 +97,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		})
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ApiCondition,
 			Status:  metav1.ConditionFalse,
@@ -103,106 +109,76 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 	return i.Continue()
 }
 
-func ensureApiDeployment(labels map[string]string, tufURL string) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		spec := &dp.Spec
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
-		}
+func ensureDeployment(tufURL string) traits.Trait[*appsv1ac.DeploymentApplyConfiguration] {
+	return func(dp *appsv1ac.DeploymentApplyConfiguration) error {
+		container := corev1ac.Container().
+			WithName(actions.ApiDeploymentName).
+			WithImage(images.Registry.Get(images.ConsoleApi)).
+			WithArgs("--tuf-repo-url=" + tufURL).
+			WithPorts(corev1ac.ContainerPort().
+				WithName(actions.ApiPortName).
+				WithContainerPort(actions.ApiPort).
+				WithProtocol(core.ProtocolTCP)).
+			WithLivenessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath(constants.HealthzPath).
+					WithPort(intstr.FromInt32(actions.ApiPort))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithReadinessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath(constants.HealthzPath).
+					WithPort(intstr.FromInt32(actions.ApiPort))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithStartupProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath(constants.HealthzPath).
+					WithPort(intstr.FromInt32(actions.ApiPort))).
+				WithPeriodSeconds(5).
+				WithTimeoutSeconds(5).
+				WithFailureThreshold(12))
 
-		replicas := int32(1)
-		spec.Replicas = &replicas
+		initContainer := corev1ac.Container().
+			WithName("wait-for-tuf").
+			WithImage(images.Registry.Get(images.TrillianNetcat)).
+			WithSecurityContext(traits.SSAContainerSecurityContext()).
+			WithEnv(corev1ac.EnvVar().WithName("TUF_URL").WithValue(tufURL)).
+			WithCommand("sh", "-c").
+			WithArgs(waitForTUFCommand)
 
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = actions.RBACApiName
-
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.ApiDeploymentName)
-		container.Image = images.Registry.Get(images.ConsoleApi)
-		container.Args = []string{"--tuf-repo-url=" + tufURL}
-
-		port := kubernetes.FindPortByNameOrCreate(container, actions.ApiPortName)
-		port.ContainerPort = actions.ApiPort
-		port.Protocol = core.ProtocolTCP
-
-		return nil
-	}
-}
-
-func ensureTUFWaitInitContainer(tufURL string) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-tuf")
-		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
-		initContainer.Command = []string{"sh", "-c"}
-		initContainer.Args = []string{
-			fmt.Sprintf(`
-echo "Waiting for TUF server...";
-until curl -f %s/root.json > /dev/null 2>&1; do
-    echo "TUF server not ready...";
-    sleep 5;
-done;
-echo "TUF server is ready."
-`, tufURL),
-		}
-
-		return nil
-	}
-}
-
-func ensureApiProbes() func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ApiDeploymentName)
-
-		if container.LivenessProbe == nil {
-			container.LivenessProbe = &core.Probe{}
-		}
-		if container.LivenessProbe.HTTPGet == nil {
-			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.LivenessProbe.HTTPGet.Path = "/healthz"
-		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(actions.ApiPort)
-		container.LivenessProbe.InitialDelaySeconds = 20
-		container.LivenessProbe.PeriodSeconds = 10
-		container.LivenessProbe.TimeoutSeconds = 5
-		container.LivenessProbe.FailureThreshold = 3
-
-		if container.ReadinessProbe == nil {
-			container.ReadinessProbe = &core.Probe{}
-		}
-		if container.ReadinessProbe.HTTPGet == nil {
-			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.ReadinessProbe.HTTPGet.Path = "/healthz"
-		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(actions.ApiPort)
-		container.ReadinessProbe.InitialDelaySeconds = 10
-		container.ReadinessProbe.PeriodSeconds = 10
-		container.ReadinessProbe.TimeoutSeconds = 5
-		container.ReadinessProbe.FailureThreshold = 3
+		dp.WithSpec(appsv1ac.DeploymentSpec().
+			WithSelector(metav1ac.LabelSelector().WithMatchLabels(dp.Labels)).
+			WithTemplate(corev1ac.PodTemplateSpec().
+				WithLabels(dp.Labels).
+				WithSpec(corev1ac.PodSpec().
+					WithContainers(container).
+					WithInitContainers(initContainer))))
 
 		return nil
 	}
 }
 
-func ensureTLS(tlsConfig rhtasv1.TLS) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		if err := deployment.TLS(tlsConfig, actions.ApiDeploymentName)(dp); err != nil {
+func ensureTLS(tlsConfig rhtasv1.TLS) traits.Trait[*corev1ac.PodSpecApplyConfiguration] {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+		if err := traits.TLS(tlsConfig, actions.ApiDeploymentName)(podSpec); err != nil {
 			return err
 		}
 
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ApiDeploymentName)
+		container := kubernetes.FindContainerByName(podSpec, actions.ApiDeploymentName)
 
-		container.Args = append(container.Args,
+		container.WithArgs(
 			"--tls-cert="+tls.TLSCertPath,
 			"--tls-key="+tls.TLSKeyPath,
 		)
 
-		if container.ReadinessProbe != nil && container.ReadinessProbe.HTTPGet != nil {
-			container.ReadinessProbe.HTTPGet.Scheme = core.URISchemeHTTPS
-		}
-
-		if container.LivenessProbe != nil && container.LivenessProbe.HTTPGet != nil {
-			container.LivenessProbe.HTTPGet.Scheme = core.URISchemeHTTPS
-		}
+		container.ReadinessProbe.HTTPGet.WithScheme(core.URISchemeHTTPS)
+		container.LivenessProbe.HTTPGet.WithScheme(core.URISchemeHTTPS)
+		container.StartupProbe.HTTPGet.WithScheme(core.URISchemeHTTPS)
 
 		return nil
 	}

@@ -137,8 +137,15 @@ var _ = Describe("Console controller", func() {
 				}
 			}
 			Expect(waitForTuf).ToNot(BeNil())
-			Expect(waitForTuf.Args[0]).To(ContainSubstring("http://tuf.default.svc"))
-			Expect(waitForTuf.Args[0]).ToNot(ContainSubstring("apps.example.com"))
+			Expect(waitForTuf.Env).To(ContainElement(corev1.EnvVar{
+				Name: "TUF_URL", Value: "http://tuf.default.svc:80",
+			}))
+			Expect(waitForTuf.Command).To(Equal([]string{"sh", "-c"}))
+			Expect(waitForTuf.Args).To(ConsistOf(And(
+				ContainSubstring("curl -fL --no-progress-meter --output /dev/null --retry 50 --retry-delay 5 --retry-all-errors"),
+				ContainSubstring(`"${TUF_URL}/root.json"`),
+				ContainSubstring("&& echo 'Successfully connected to TUF repository'"),
+			)))
 
 			By("API Service created")
 			Eventually(func() error {
