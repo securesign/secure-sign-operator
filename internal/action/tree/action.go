@@ -32,6 +32,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -112,21 +113,25 @@ func (i resolveTree[T]) handleManual(ctx context.Context, instance T) *action.Re
 }
 
 func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Result {
-	var err error
 	rbacName := fmt.Sprintf(RBACNameMask, i.resourceBase(instance))
 
 	labels := labels.For("createtree", i.component, instance.GetName())
 
-	// ServiceAccount
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &corev1.ServiceAccount{
+	sa, err := traits.Apply(
+		corev1ac.ServiceAccount(rbacName, instance.GetNamespace()),
+		traits.ControllerReference[*corev1ac.ServiceAccountApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ServiceAccountApplyConfiguration](labels),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build SA: %w", err), instance)
+	}
+
+	if _, err = kubernetes.Apply(ctx, i.Client, sa, &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rbacName,
 			Namespace: instance.GetNamespace(),
 		},
-	},
-		ensure.ControllerReference[*corev1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*corev1.ServiceAccount](slices.Collect(maps.Keys(labels)), labels),
-	); err != nil {
+	}); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 

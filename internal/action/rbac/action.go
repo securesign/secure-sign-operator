@@ -17,6 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -96,28 +97,29 @@ func (i rbacAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 }
 
 func (i rbacAction[T]) handleServiceAccount(ctx context.Context, instance T) *action.Result {
-	var err error
 	l := labels.For(i.componentName, i.rbacName, instance.GetName())
 
-	ensureFns := []func(*v1.ServiceAccount) error{
-		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(l)), l),
+	sa, err := traits.Apply(
+		corev1ac.ServiceAccount(i.rbacName, instance.GetNamespace()),
+		traits.ControllerReference[*corev1ac.ServiceAccountApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ServiceAccountApplyConfiguration](l),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build SA: %w", err), instance)
 	}
 
 	if i.imagePullSecrets != nil {
-		secrets := i.imagePullSecrets(instance)
-		ensureFns = append(ensureFns, func(sa *v1.ServiceAccount) error {
-			sa.ImagePullSecrets = secrets
-			return nil
-		})
+		for _, secret := range i.imagePullSecrets(instance) {
+			sa.WithImagePullSecrets(corev1ac.LocalObjectReference().WithName(secret.Name))
+		}
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &v1.ServiceAccount{
+	if _, err = kubernetes.Apply(ctx, i.Client, sa, &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      i.rbacName,
 			Namespace: instance.GetNamespace(),
 		},
-	}, ensureFns...); err != nil {
+	}); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 

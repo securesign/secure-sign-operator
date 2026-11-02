@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -21,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -361,13 +363,11 @@ func testServiceAccount(t *testing.T) {
 			desc: "empty imagePullSecrets clears SA",
 			pre: pre{
 				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
-					g.Expect(c.Create(ctx, &corev1.ServiceAccount{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      nnObject.Name,
-							Namespace: nnObject.Namespace,
-						},
-						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "old-secret"}},
-					})).To(Succeed())
+					g.Expect(c.Apply(ctx,
+						corev1ac.ServiceAccount(nnObject.Name, nnObject.Namespace).
+							WithImagePullSecrets(corev1ac.LocalObjectReference().WithName("old-secret")),
+						client.FieldOwner(kubernetes.FieldManager),
+					)).To(Succeed())
 				},
 				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
 					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
@@ -749,11 +749,11 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 		{
 			name: "ServiceAccount creation failure is retryable",
 			intercept: interceptor.Funcs{
-				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
-					if _, ok := obj.(*corev1.ServiceAccount); ok {
+				Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+					if _, ok := obj.(*corev1ac.ServiceAccountApplyConfiguration); ok {
 						return injectedErr
 					}
-					return c.Create(ctx, obj, opts...)
+					return c.Apply(ctx, obj, opts...)
 				},
 			},
 			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
