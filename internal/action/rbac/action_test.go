@@ -19,7 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -762,11 +764,11 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 		{
 			name: "Role creation failure is retryable",
 			intercept: interceptor.Funcs{
-				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
-					if _, ok := obj.(*rbacv1.Role); ok {
+				Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+					if _, ok := obj.(*rbacv1ac.RoleApplyConfiguration); ok {
 						return injectedErr
 					}
-					return c.Create(ctx, obj, opts...)
+					return c.Apply(ctx, obj, opts...)
 				},
 			},
 			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {

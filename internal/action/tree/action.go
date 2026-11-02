@@ -14,6 +14,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
@@ -31,6 +32,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -128,22 +130,27 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 
-	// Role
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      rbacName,
-			Namespace: instance.GetNamespace(),
-		},
-	},
-		ensure.ControllerReference[*rbacv1.Role](instance, i.Client),
-		ensure.Labels[*rbacv1.Role](slices.Collect(maps.Keys(labels)), labels),
-		kubernetes.EnsureRoleRules(
+	role, err := traits.Apply(
+		rbacv1ac.Role(rbacName, instance.GetNamespace()),
+		traits.ControllerReference[*rbacv1ac.RoleApplyConfiguration](instance, i.Client),
+		traits.Labels[*rbacv1ac.RoleApplyConfiguration](labels),
+		traits.RoleRules(
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
 				Resources: []string{"configmaps"},
 				Verbs:     []string{"patch"},
 			}),
-	); err != nil {
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build Role: %w", err), instance)
+	}
+
+	if _, err = kubernetes.Apply(ctx, i.Client, role, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rbacName,
+			Namespace: instance.GetNamespace(),
+		},
+	}); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
 

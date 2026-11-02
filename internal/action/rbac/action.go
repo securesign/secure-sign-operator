@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -16,6 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -137,17 +139,22 @@ func (i rbacAction[T]) handleRole(ctx context.Context, instance T) *action.Resul
 		return i.Continue()
 	}
 
-	// Role
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &rbacv1.Role{
+	role, err := traits.Apply(
+		rbacv1ac.Role(i.rbacName, instance.GetNamespace()),
+		traits.ControllerReference[*rbacv1ac.RoleApplyConfiguration](instance, i.Client),
+		traits.Labels[*rbacv1ac.RoleApplyConfiguration](l),
+		traits.RoleRules(i.rules...),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build Role: %w", err), instance)
+	}
+
+	if _, err = kubernetes.Apply(ctx, i.Client, role, &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      i.rbacName,
 			Namespace: instance.GetNamespace(),
 		},
-	},
-		ensure.ControllerReference[*rbacv1.Role](instance, i.Client),
-		ensure.Labels[*rbacv1.Role](slices.Collect(maps.Keys(l)), l),
-		kubernetes.EnsureRoleRules(i.rules...),
-	); err != nil {
+	}); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
 
