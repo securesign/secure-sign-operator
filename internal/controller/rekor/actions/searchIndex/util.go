@@ -12,39 +12,61 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-const redisPasswordEnv = "REDIS_PASSWORD"
+const RedisPasswordEnv = "REDIS_PASSWORD"
 
-func EnsureSearchIndex(instance *rhtasv1.Rekor, redisOpts func(options *redis.RedisOptions, container *v1.Container), mysqlOpts func(url string, container *v1.Container)) func(*v1.Container) error {
-	return func(container *v1.Container) error {
-		var (
-			options *redis.RedisOptions
-			err     error
-		)
+// Options describes a search index independently of its container representation.
+type Options struct {
+	Redis       *redis.RedisOptions
+	MySQLDSN    string
+	PasswordRef *rhtasv1.SecretKeySelector
+}
 
-		if utils.OptionalBool(instance.Spec.SearchIndex.Create) {
-			// go with default redis
-			options = defaultSearchIndexDB(instance, container)
-			redisOpts(options, container)
-			return nil
+func Resolve(instance *rhtasv1.Rekor) (*Options, error) {
+	if utils.OptionalBool(instance.Spec.SearchIndex.Create) {
+		return &Options{
+			Redis:       defaultSearchIndexDB(instance),
+			PasswordRef: instance.Status.SearchIndex.DbPasswordRef,
+		}, nil
+	}
+	switch instance.Spec.SearchIndex.Provider {
+	case "redis":
+		options, err := redis.Parse(instance.Spec.SearchIndex.URL)
+		if err != nil {
+			return nil, fmt.Errorf("can't parse redis searchIndex url: %w", err)
 		}
+		return &Options{Redis: options}, nil
+	case "mysql":
+		return &Options{MySQLDSN: instance.Spec.SearchIndex.URL}, nil
+	default:
+		return nil, fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
+	}
+}
 
-		switch instance.Spec.SearchIndex.Provider {
-		case "redis":
-			options, err = redis.Parse(instance.Spec.SearchIndex.URL)
-			if err != nil {
-				return fmt.Errorf("can't parse redis searchIndex url: %w", err)
+func EnsureSearchIndex(instance *rhtasv1.Rekor, redisOpts func(*redis.RedisOptions, *v1.Container), mysqlOpts func(string, *v1.Container)) func(*v1.Container) error {
+	return func(container *v1.Container) error {
+		options, err := Resolve(instance)
+		if err != nil {
+			return err
+		}
+		if ref := options.PasswordRef; ref != nil {
+			passwordEnv := kubernetes.FindEnvByNameOrCreate(container, RedisPasswordEnv)
+			passwordEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: ref.Name},
+					Key:                  ref.Key,
+				},
 			}
-			redisOpts(options, container)
-		case "mysql":
-			mysqlOpts(instance.Spec.SearchIndex.URL, container)
-		default:
-			return fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
+		}
+		if options.Redis != nil {
+			redisOpts(options.Redis, container)
+		} else {
+			mysqlOpts(options.MySQLDSN, container)
 		}
 		return nil
 	}
 }
 
-func defaultSearchIndexDB(instance *rhtasv1.Rekor, container *v1.Container) *redis.RedisOptions {
+func defaultSearchIndexDB(instance *rhtasv1.Rekor) *redis.RedisOptions {
 	options := &redis.RedisOptions{
 		Host:       fmt.Sprintf("%s.%s.svc", actions.RedisDeploymentName, instance.Namespace),
 		Port:       strconv.Itoa(actions.RedisDeploymentPort),
@@ -52,17 +74,7 @@ func defaultSearchIndexDB(instance *rhtasv1.Rekor, container *v1.Container) *red
 	}
 	if instance.Status.SearchIndex.DbPasswordRef != nil {
 		// use env alias to avoid plain-text printing
-		options.Password = fmt.Sprintf("$(%s)", redisPasswordEnv)
-
-		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, redisPasswordEnv)
-		if passwordEnv.ValueFrom == nil {
-			passwordEnv.ValueFrom = &v1.EnvVarSource{}
-		}
-		if passwordEnv.ValueFrom.SecretKeyRef == nil {
-			passwordEnv.ValueFrom.SecretKeyRef = &v1.SecretKeySelector{}
-		}
-		passwordEnv.ValueFrom.SecretKeyRef.Key = instance.Status.SearchIndex.DbPasswordRef.Key
-		passwordEnv.ValueFrom.SecretKeyRef.Name = instance.Status.SearchIndex.DbPasswordRef.Name
+		options.Password = fmt.Sprintf("$(%s)", RedisPasswordEnv)
 	}
 	return options
 }
