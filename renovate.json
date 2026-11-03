@@ -3,6 +3,9 @@
   "extends": [
     "github>securesign/renovate-config//org-inherited-config.json"
   ],
+  "ignorePaths": [
+    "Dockerfile.coverage"
+  ],
   "customManagers": [
     {
       "customType": "regex",
