@@ -3,27 +3,28 @@ package ui
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/console/actions"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
+
+const waitForAPICommand = `curl -fkL --no-progress-meter --output /dev/null --retry 50 --retry-delay 5 --retry-all-errors "${CONSOLE_API_URL}/healthz" && echo 'Successfully connected to Console API'`
 
 func NewDeployAction() action.Action[*rhtasv1.Console] {
 	return &deployAction{}
@@ -42,11 +43,6 @@ func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.Console) bo
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *action.Result {
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
-
 	rekorURL, err := serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance, metav1.Condition{
@@ -58,26 +54,40 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		})
 	}
 
-	l := labels.For(actions.UIComponentName, actions.UIDeploymentName, instance.Name)
+	dp, err := traits.Apply(
+		appsv1ac.Deployment(actions.UIDeploymentName, instance.Namespace),
+		traits.ControllerReference[*appsv1ac.DeploymentApplyConfiguration](instance, i.Client),
+		traits.Labels[*appsv1ac.DeploymentApplyConfiguration](labels.For(actions.UIComponentName, actions.UIDeploymentName, instance.Name)),
+		ensureDeployment(rekorURL),
+		traits.PodRequirements(instance.Spec.UI.PodRequirements, actions.UIDeploymentName),
+		traits.WithPodSpecTraits(
+			traits.Proxy([]string{actions.UIDeploymentName}),
+			traits.GODEBUG(instance.GetAnnotations(), actions.UIDeploymentName),
+			traits.TrustedCA(instance.GetTrustedCA(), actions.UIDeploymentName),
+			traits.SecurityContexts(actions.UIDeploymentName),
+			traits.ServiceAccount(actions.RBACUIName),
+			traits.Optional(
+				instance.Status.Api.TLS.CertRef != nil,
+				ensureTLS(instance.Namespace),
+			),
+		),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build console UI deployment: %w", err), instance, metav1.Condition{
+			Type: actions.UICondition, Status: metav1.ConditionFalse,
+			Reason: state.Failure.String(), Message: err.Error(),
+		})
+	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	changed, err := kubernetes.Apply(ctx, i.Client, dp,
 		&apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      actions.UIDeploymentName,
 				Namespace: instance.Namespace,
 			},
 		},
-		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
-		ensureUIDeployment(instance, rekorURL, l),
-		ensureUIInitContainer(instance),
-		ensureUIProbes(),
-		deployment.PodRequirements(instance.Spec.UI.PodRequirements, actions.UIDeploymentName),
-		deployment.Proxy(),
-		deployment.GODEBUG(instance.GetAnnotations()),
-		deployment.TrustedCA(instance.GetTrustedCA(), actions.UIDeploymentName),
-		deployment.PodSecurityContext(),
-	); err != nil {
+	)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create console UI: %w", err), instance, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,
@@ -86,7 +96,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		})
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,
@@ -98,104 +108,78 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 	return i.Continue()
 }
 
-func apiTLSEnabled(instance *rhtasv1.Console) bool {
-	return instance.Status.Api.TLS.CertRef != nil
-}
+func ensureDeployment(rekorURL string) traits.Trait[*appsv1ac.DeploymentApplyConfiguration] {
+	return func(dp *appsv1ac.DeploymentApplyConfiguration) error {
+		apiURL := fmt.Sprintf("http://%s:%d", actions.ApiDeploymentName, actions.ApiPort)
 
-func ensureUIDeployment(instance *rhtasv1.Console, rekorURL string, labels map[string]string) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		spec := &dp.Spec
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
-		}
+		container := corev1ac.Container().
+			WithName(actions.UIDeploymentName).
+			WithImage(images.Registry.Get(images.ConsoleUI)).
+			WithEnv(
+				corev1ac.EnvVar().WithName("CONSOLE_API_URL").WithValue(apiURL),
+				corev1ac.EnvVar().WithName("NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN").WithValue(rekorURL),
+			).
+			WithPorts(corev1ac.ContainerPort().
+				WithName(actions.UIPortName).
+				WithContainerPort(actions.UIPort).
+				WithProtocol(core.ProtocolTCP)).
+			WithLivenessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath("/").
+					WithPort(intstr.FromString(actions.UIPortName))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithReadinessProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath("/").
+					WithPort(intstr.FromString(actions.UIPortName))).
+				WithInitialDelaySeconds(0).
+				WithPeriodSeconds(10).
+				WithTimeoutSeconds(1).
+				WithFailureThreshold(3)).
+			WithStartupProbe(corev1ac.Probe().
+				WithHTTPGet(corev1ac.HTTPGetAction().
+					WithPath("/").
+					WithPort(intstr.FromString(actions.UIPortName))).
+				WithPeriodSeconds(5).
+				WithTimeoutSeconds(5).
+				WithFailureThreshold(12))
 
-		replicas := int32(1)
-		spec.Replicas = &replicas
+		initContainer := corev1ac.Container().
+			WithName("wait-for-api").
+			WithImage(images.Registry.Get(images.ConsoleUI)).
+			WithSecurityContext(traits.SSAContainerSecurityContext()).
+			WithEnv(corev1ac.EnvVar().WithName("CONSOLE_API_URL").WithValue(apiURL)).
+			WithCommand("sh", "-c").
+			WithArgs(waitForAPICommand)
 
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = actions.RBACUIName
-
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.UIDeploymentName)
-		container.Image = images.Registry.Get(images.ConsoleUI)
-
-		apiHost := actions.ApiDeploymentName
-		scheme := "http"
-		if apiTLSEnabled(instance) {
-			scheme = "https"
-			apiHost = fmt.Sprintf("%s.%s.svc", actions.ApiDeploymentName, instance.Namespace)
-		}
-
-		apiURL := kubernetes.FindEnvByNameOrCreate(container, "CONSOLE_API_URL")
-		apiURL.Value = fmt.Sprintf("%s://%s:%d", scheme, apiHost, actions.ApiPort)
-
-		rekorEnv := kubernetes.FindEnvByNameOrCreate(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
-		rekorEnv.Value = rekorURL
-
-		port := kubernetes.FindPortByNameOrCreate(container, actions.UIPortName)
-		port.ContainerPort = actions.UIPort
-		port.Protocol = core.ProtocolTCP
-
-		return nil
-	}
-}
-
-func ensureUIInitContainer(instance *rhtasv1.Console) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		apiHost := actions.ApiDeploymentName
-		scheme := "http"
-		curlFlags := "-sf"
-		if apiTLSEnabled(instance) {
-			scheme = "https"
-			curlFlags = "-sfk"
-			apiHost = fmt.Sprintf("%s.%s.svc", actions.ApiDeploymentName, instance.Namespace)
-		}
-
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-api")
-		initContainer.Image = images.Registry.Get(images.ConsoleUI)
-		initContainer.Command = []string{"/bin/sh", "-c",
-			fmt.Sprintf(`max_retries=30
-count=0
-until curl %s %s://%s:%d/healthz; do
-  if [ $count -ge $max_retries ]; then
-    echo "console-api not ready after $((max_retries * 5)) seconds, failing initContainer."
-    exit 1
-  fi
-  echo "Waiting for console-api... ($count/$max_retries)"
-  count=$((count + 1))
-  sleep 5
-done`, curlFlags, scheme, apiHost, actions.ApiPort)}
+		dp.WithSpec(appsv1ac.DeploymentSpec().
+			WithSelector(metav1ac.LabelSelector().WithMatchLabels(dp.Labels)).
+			WithTemplate(corev1ac.PodTemplateSpec().
+				WithLabels(dp.Labels).
+				WithSpec(corev1ac.PodSpec().
+					WithContainers(container).
+					WithInitContainers(initContainer))))
 
 		return nil
 	}
 }
 
-func ensureUIProbes() func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.UIDeploymentName)
-
-		if container.LivenessProbe == nil {
-			container.LivenessProbe = &core.Probe{}
+func ensureTLS(namespace string) traits.Trait[*corev1ac.PodSpecApplyConfiguration] {
+	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+		apiURL := fmt.Sprintf("https://%s.%s.svc:%d", actions.ApiDeploymentName, namespace, actions.ApiPort)
+		for _, containers := range [][]corev1ac.ContainerApplyConfiguration{podSpec.Containers, podSpec.InitContainers} {
+			for i := range containers {
+				for j := range containers[i].Env {
+					env := &containers[i].Env[j]
+					if env.Name != nil && *env.Name == "CONSOLE_API_URL" {
+						env.WithValue(apiURL)
+					}
+				}
+			}
 		}
-		if container.LivenessProbe.HTTPGet == nil {
-			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.LivenessProbe.HTTPGet.Path = "/"
-		container.LivenessProbe.HTTPGet.Port = intstr.FromString(actions.UIPortName)
-		container.LivenessProbe.InitialDelaySeconds = 15
-		container.LivenessProbe.PeriodSeconds = 10
-
-		if container.ReadinessProbe == nil {
-			container.ReadinessProbe = &core.Probe{}
-		}
-		if container.ReadinessProbe.HTTPGet == nil {
-			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.ReadinessProbe.HTTPGet.Path = "/"
-		container.ReadinessProbe.HTTPGet.Port = intstr.FromString(actions.UIPortName)
-		container.ReadinessProbe.InitialDelaySeconds = 5
-		container.ReadinessProbe.PeriodSeconds = 10
-
 		return nil
 	}
 }
