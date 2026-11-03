@@ -2,6 +2,13 @@ name: linter
 on:
   pull_request:
     branches: [ "main", "release*" ]
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+      - 'OWNERS'
+      - '.tekton/**'
+      - 'docs/**'
+      - 'renovate.json'
 
 jobs:
   golangci:
