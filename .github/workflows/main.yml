@@ -31,7 +31,7 @@ env:
   NEW_OLM_CHANNEL: rhtas-operator.v1.6.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
   TARGET_PLATFORM: kubernetes
-  CLI_CGW_VERSION: "1.4.2"
+  CLI_CGW_VERSION: "1.5.1"
 
 jobs:
   build-operator:
