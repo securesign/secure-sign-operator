@@ -184,6 +184,15 @@ const (
 	// for drift detection across reconcile cycles.
 	PKCS11SpecHash = "rhtas.redhat.com/pkcs11-spec-hash"
 
+	// CreateTreeAttempts counts consecutive failed createtree Jobs, to bound retries.
+	CreateTreeAttempts = "rhtas.redhat.com/createtree-attempts"
+
+	// CreateTreeAttemptsGeneration is the CR generation CreateTreeAttempts applies to.
+	CreateTreeAttemptsGeneration = "rhtas.redhat.com/createtree-attempts-generation"
+
+	// CreateTreeNextRetry is the earliest RFC3339 time the failed Job may be recreated.
+	CreateTreeNextRetry = "rhtas.redhat.com/createtree-next-retry"
+
 	// TLSAdherence defines the annotation key controlling whether the operator blocks
 	// ("strict") or only warns ("legacy", the default) when a component cannot yet
 	// honour the cluster TLS security profile.
