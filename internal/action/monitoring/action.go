@@ -3,19 +3,18 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/servicemonitor"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -55,9 +54,12 @@ func (a *monitoringAction[T]) CanHandle(_ context.Context, instance T) bool {
 }
 
 func (a *monitoringAction[T]) Handle(ctx context.Context, instance T) *action.Result {
-	sm := kubernetes.CreateServiceMonitor(instance.GetNamespace(), a.serviceMonitorName)
-
+	objectMeta := metav1ac.ObjectMeta().WithName(a.serviceMonitorName).WithNamespace(instance.GetNamespace())
 	if !a.cfg.IsEnabled(instance) {
+		sm, err := servicemonitor.CreateServiceMonitor(objectMeta)
+		if err != nil {
+			return a.handleError(ctx, fmt.Errorf("%w: %w", ErrServiceMonitorDelete, err), instance)
+		}
 		if err := a.Client.Delete(ctx, sm); err != nil {
 			if client.IgnoreNotFound(err) == nil || meta.IsNoMatchError(err) {
 				return a.Continue()
@@ -69,30 +71,28 @@ func (a *monitoringAction[T]) Handle(ctx context.Context, instance T) *action.Re
 
 	monitoringLabels := labels.For(a.componentName, a.monitoringRoleName, instance.GetName())
 	selectorLabels := labels.ForComponent(a.componentName, instance.GetName())
-
-	ensureFns := []func(*unstructured.Unstructured) error{
-		ensure.ControllerReference[*unstructured.Unstructured](instance, a.Client),
-		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
+	if _, err := traits.Apply(objectMeta,
+		traits.ControllerReference[*metav1ac.ObjectMetaApplyConfiguration](instance, a.Client),
+		traits.Labels[*metav1ac.ObjectMetaApplyConfiguration](monitoringLabels),
+	); err != nil {
+		return a.handleError(ctx, fmt.Errorf("%w: %w", ErrServiceMonitorCreate, err), instance)
 	}
 
+	sm, err := servicemonitor.CreateServiceMonitor(objectMeta)
+	if err != nil {
+		return a.handleError(ctx, fmt.Errorf("%w: %w", ErrServiceMonitorCreate, err), instance)
+	}
+
+	endpoint := servicemonitor.ServiceMonitorEndpoint("metrics")
 	if tls := a.cfg.TLS(instance); tls.CertRef != nil {
 		serverName := fmt.Sprintf("%s.%s.svc", a.serviceMonitorName, instance.GetNamespace())
-		ensureFns = append(ensureFns,
-			kubernetes.EnsureServiceMonitorSpec(
-				selectorLabels,
-				kubernetes.ServiceMonitorHttpsEndpoint("metrics", serverName, tls.CertRef),
-			),
-		)
-	} else {
-		ensureFns = append(ensureFns,
-			kubernetes.EnsureServiceMonitorSpec(
-				selectorLabels,
-				kubernetes.ServiceMonitorEndpoint("metrics"),
-			),
-		)
+		endpoint = servicemonitor.ServiceMonitorHttpsEndpoint("metrics", serverName, tls.CertRef)
+	}
+	if _, err := traits.Apply(sm, servicemonitor.EnsureServiceMonitorSpec(selectorLabels, endpoint)); err != nil {
+		return a.handleError(ctx, fmt.Errorf("%w: %w", ErrServiceMonitorCreate, err), instance)
 	}
 
-	if _, err := kubernetes.CreateOrUpdate(ctx, a.Client, sm, ensureFns...); err != nil {
+	if _, err := kubernetes.Apply(ctx, a.Client, client.ApplyConfigurationFromUnstructured(sm), sm.DeepCopy()); err != nil {
 		if meta.IsNoMatchError(err) {
 			return a.handleError(ctx, fmt.Errorf("%w: %w", ErrServiceMonitorCRDMissing, err), instance)
 		}

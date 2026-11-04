@@ -1,11 +1,13 @@
-package kubernetes
+package servicemonitor
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/securesign/operator/internal/controller/traits"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 func TestCreateServiceMonitor(t *testing.T) {
@@ -38,7 +40,11 @@ func TestCreateServiceMonitor(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateServiceMonitor(tt.args.namespace, tt.args.name); !reflect.DeepEqual(got, tt.want) {
+			got, err := CreateServiceMonitor(metav1ac.ObjectMeta().WithName(tt.args.name).WithNamespace(tt.args.namespace))
+			if err != nil {
+				t.Errorf("CreateServiceMonitor() = %v, want %v", err, nil)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CreateServiceMonitor() = %v, want %v", got, tt.want)
 			}
 		})
@@ -131,9 +137,9 @@ func TestEnsureServiceMonitorSpec(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
-			sm := CreateServiceMonitor("default", "monitor")
-			got := EnsureServiceMonitorSpec(tt.args.selectorLabels, tt.args.endpoints...)
-			err := got(sm)
+			sm, err := CreateServiceMonitor(metav1ac.ObjectMeta().WithName("monitor").WithNamespace("default"))
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			_, err = traits.Apply(sm, EnsureServiceMonitorSpec(tt.args.selectorLabels, tt.args.endpoints...))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			tt.want(g, sm)
 		})
