@@ -361,6 +361,20 @@ func TestSecurityContexts(t *testing.T) {
 		g.Expect(podSpec.Containers[1].SecurityContext).To(BeNil())
 	})
 
+	t.Run("matching init containers", func(t *testing.T) {
+		config.Openshift = false
+		g := NewWithT(t)
+		podSpec := podSpecWithContainers("server").
+			WithInitContainers(corev1ac.Container().WithName("init"), corev1ac.Container().WithName("user-init"))
+
+		g.Expect(SecurityContexts("server", "init")(podSpec)).To(Succeed())
+		g.Expect(podSpec.InitContainers[0].SecurityContext).ToNot(BeNil())
+		g.Expect(podSpec.InitContainers[0].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
+		g.Expect(podSpec.InitContainers[0].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
+		g.Expect(podSpec.InitContainers[0].SecurityContext.Capabilities.Drop).To(ConsistOf(core.Capability("ALL")))
+		g.Expect(podSpec.InitContainers[1].SecurityContext).To(BeNil())
+	})
+
 	t.Run("OpenShift omits fixed IDs", func(t *testing.T) {
 		config.Openshift = true
 		g := NewWithT(t)
