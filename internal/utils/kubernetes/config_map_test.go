@@ -12,6 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const name = "test"
+
 func TestEnsureImmutableConfigMap(t *testing.T) {
 	t.Parallel()
 	data := map[string]string{"test": "data"}

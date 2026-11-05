@@ -3,22 +3,20 @@ package pvc
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -64,11 +62,6 @@ func (i pvcAction[T]) CanHandle(_ context.Context, instance T) bool {
 }
 
 func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
-
 	wrapped := i.wrapper(instance)
 	pvcSpec := wrapped.GetPVCSpec()
 
@@ -120,12 +113,16 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 		})
 	}
 
-	l := labels.For(i.component, i.deployment, instance.GetName())
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client, pvc,
-		kubernetes.EnsurePVCSpec(pvcSpec),
-		ensure.Optional[*v1.PersistentVolumeClaim](!utils.OptionalBool(pvcSpec.Retain), ensure.ControllerReference[*v1.PersistentVolumeClaim](instance, i.Client)),
-		ensure.Labels[*v1.PersistentVolumeClaim](slices.Collect(maps.Keys(l)), l),
-	); err != nil {
+	desired, err := traits.Apply(corev1ac.PersistentVolumeClaim(name, instance.GetNamespace()),
+		traits.PVCSpec(pvcSpec),
+		traits.Optional(!utils.OptionalBool(pvcSpec.Retain), traits.ControllerReference[*corev1ac.PersistentVolumeClaimApplyConfiguration](instance, i.Client)),
+		traits.Labels[*corev1ac.PersistentVolumeClaimApplyConfiguration](labels.For(i.component, i.deployment, instance.GetName())),
+	)
+	var changed bool
+	if err == nil {
+		changed, err = kubernetes.Apply(ctx, i.Client, desired, pvc)
+	}
+	if err != nil {
 		// do not terminate the deployment - retry with exponential backoff
 		return i.Error(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance, metav1.Condition{
 			Type:               ConditionType,
@@ -136,8 +133,8 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 		})
 	}
 
-	switch result {
-	case controllerutil.OperationResultCreated:
+	switch {
+	case changed && pvc.ResourceVersion == "":
 		instance.SetCondition(metav1.Condition{
 			Type:               ConditionType,
 			Status:             metav1.ConditionTrue,
@@ -145,7 +142,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 			ObservedGeneration: instance.GetGeneration(),
 		})
 		i.Recorder.Eventf(instance, pvc, v1.EventTypeNormal, "PersistentVolumeClaimCreated", "Created", "New PersistentVolumeClaim created `%s`", pvc.Name)
-	case controllerutil.OperationResultUpdated:
+	case changed:
 		instance.SetCondition(metav1.Condition{
 			Type:               ConditionType,
 			Status:             metav1.ConditionTrue,
@@ -153,7 +150,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 			ObservedGeneration: instance.GetGeneration(),
 		})
 		i.Recorder.Eventf(instance, pvc, v1.EventTypeNormal, "PersistentVolumeClaimUpdated", "Updated", "PersistentVolumeClaim updated `%s`", pvc.Name)
-	case controllerutil.OperationResultNone:
+	default:
 		instance.SetCondition(metav1.Condition{
 			Type:               ConditionType,
 			Status:             metav1.ConditionTrue,
