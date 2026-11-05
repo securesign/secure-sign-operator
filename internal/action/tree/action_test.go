@@ -18,7 +18,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -768,11 +770,11 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 		WithObjects(instance).
 		WithStatusSubresource(instance).
 		WithInterceptorFuncs(interceptor.Funcs{
-			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
-				if _, ok := obj.(*corev1.ServiceAccount); ok {
+			Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+				if _, ok := obj.(*corev1ac.ServiceAccountApplyConfiguration); ok {
 					return injectedErr
 				}
-				return c.Create(ctx, obj, opts...)
+				return c.Apply(ctx, obj, opts...)
 			},
 		}).
 		Build()
