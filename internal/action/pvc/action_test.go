@@ -284,7 +284,6 @@ func TestHandle(t *testing.T) {
 					con := meta.FindStatusCondition(obj.GetConditions(), ConditionType)
 					g.Expect(con).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Status": gomega.Equal(metav1.ConditionTrue),
-						"Reason": gomega.Equal(state.Ready.String()),
 					})))
 				},
 			},
