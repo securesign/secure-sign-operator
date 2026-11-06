@@ -3,6 +3,9 @@
 package install
 
 import (
+	"strconv"
+
+	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -17,6 +20,7 @@ import (
 
 	"github.com/securesign/operator/test/e2e/support/tas"
 
+	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 
@@ -27,6 +31,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Securesign install with certificate generation", Ordered, func() {
@@ -80,6 +85,37 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		It("All other components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
+		})
+
+		It("tree-creation Jobs own their result data", func(ctx SpecContext) {
+			// Inspect the real Jobs' PATCH ownership: operator reconciliation must
+			// leave tree_id owned by the writer so metadata-only SSA cannot prune it.
+			Eventually(func(g Gomega) {
+				r := rekor.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(r).NotTo(BeNil())
+				g.Expect(r.Status.TreeID).NotTo(BeNil())
+				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(c).NotTo(BeNil())
+				activeLog := ctlogUtils.ActiveLogStatus(c.Status.Logs)
+				g.Expect(activeLog).NotTo(BeNil())
+				g.Expect(activeLog.LogId).NotTo(BeNil())
+
+				for component, treeID := range map[string]int64{"rekor": *r.Status.TreeID, "ctlog": *activeLog.LogId} {
+					configs := &v1.ConfigMapList{}
+					g.Expect(cli.List(ctx, configs, client.InNamespace(namespace.Name),
+						client.MatchingLabels(labels.For("createtree", component, s.Name)))).To(Succeed())
+					g.Expect(configs.Items).To(HaveLen(1), "expected one tree result for %s", component)
+					config := configs.Items[0]
+					g.Expect(config.Data).To(HaveKeyWithValue("tree_id", strconv.FormatInt(treeID, 10)))
+
+					g.Expect(config.OwnerReferences).To(ContainElement(HaveField("Kind", "Job")))
+
+					g.Expect(config.ManagedFields).To(ContainElement(And(
+						HaveField("Manager", "createtree"),
+						HaveField("FieldsV1", And(Not(BeNil()), MatchJSON(`{"f:data":{".":{},"f:tree_id":{}}}`))),
+					)))
+				}
+			}).Should(Succeed())
 		})
 
 		It("operator should generate Fulcio's secret", func(ctx SpecContext) {

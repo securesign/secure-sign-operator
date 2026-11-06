@@ -17,11 +17,12 @@ fi
 echo "Created tree with id: $TREE_ID"
 
 echo "Updating ${CONFIGMAP_NAME} ConfigMap..."
-# Update the ConfigMap with a strategic merge patch
+# Keep result ownership separate from the operator's field manager. Older Jobs
+# omitted fieldManager and were recorded as "curl", from curl's User-Agent.
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --cacert ${CACERT} \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/strategic-merge-patch+json" \
-  -X PATCH ${APISERVER}/api/v1/namespaces/${NAMESPACE}/configmaps/${CONFIGMAP_NAME} \
+  -X PATCH "${APISERVER}/api/v1/namespaces/${NAMESPACE}/configmaps/${CONFIGMAP_NAME}?fieldManager=createtree" \
   -d "{\"data\": {\"tree_id\": \"${TREE_ID}\"}}")
 
 if [ "$HTTP_CODE" -ne "200" ]; then
