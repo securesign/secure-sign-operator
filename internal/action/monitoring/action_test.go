@@ -16,6 +16,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -162,8 +163,6 @@ func TestCanHandle(t *testing.T) {
 // ── Handle ──────────────────────────────────────────────────────────────
 
 func TestHandle(t *testing.T) {
-	g := NewWithT(t)
-
 	tlsWithCert := rhtasv1.TLS{
 		CertRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-secret"},
@@ -332,11 +331,11 @@ func TestHandle(t *testing.T) {
 
 		// ── API errors (retriable) ────────────────────────────────────
 		{
-			name: "create failure — retriable error",
+			name: "apply failure — retriable error",
 			env: env{
 				enabled: true,
 				intercept: interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+					Apply: func(_ context.Context, _ client.WithWatch, _ runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
 						return fmt.Errorf("quota exceeded")
 					},
 				},
@@ -349,12 +348,12 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
-			name: "create failure with condition — sets status condition",
+			name: "apply failure with condition — sets status condition",
 			env: env{
 				enabled:       true,
 				conditionType: testCondition,
 				intercept: interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+					Apply: func(_ context.Context, _ client.WithWatch, _ runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
 						return fmt.Errorf("quota exceeded")
 					},
 				},
@@ -429,7 +428,7 @@ func TestHandle(t *testing.T) {
 			env: env{
 				enabled: true,
 				intercept: interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+					Apply: func(_ context.Context, _ client.WithWatch, _ runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
 						return fmt.Errorf("fail")
 					},
 				},
@@ -448,6 +447,7 @@ func TestHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			ctx := t.Context()
 			instance := newTestInstance(creatingConditions()...)
 
@@ -487,4 +487,36 @@ func TestName(t *testing.T) {
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewAction(testComponent, testMonitoringRole, testServiceMonitor, "", testConfig{enabled: true}))
 	g.Expect(a.Name()).To(Equal("create monitoring"))
+}
+
+func TestHandleOwnerReferenceError(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+			g := NewWithT(t)
+			applyCalled, deleteCalled := false, false
+			cli := testAction.FakeClientBuilder().
+				WithScheme(runtime.NewScheme()).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Apply: func(_ context.Context, _ client.WithWatch, _ runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
+						applyCalled = true
+						return nil
+					},
+					Delete: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.DeleteOption) error {
+						deleteCalled = true
+						return nil
+					},
+				}).Build()
+			a := testAction.PrepareAction(cli, NewAction(testComponent, testMonitoringRole, testServiceMonitor, "", testConfig{enabled: enabled}))
+
+			result := a.Handle(t.Context(), newTestInstance())
+			if enabled {
+				g.Expect(result).ToNot(BeNil())
+				g.Expect(result.Err).To(MatchError(ContainSubstring("no kind is registered")))
+			} else {
+				g.Expect(result).To(BeNil())
+			}
+			g.Expect(applyCalled).To(BeFalse())
+			g.Expect(deleteCalled).To(Equal(!enabled))
+		})
+	}
 }

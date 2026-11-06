@@ -1,17 +1,24 @@
-package kubernetes
+package servicemonitor
 
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-func CreateServiceMonitor(namespace, name string) *unstructured.Unstructured {
+func CreateServiceMonitor(metadata *metav1ac.ObjectMetaApplyConfiguration) (*unstructured.Unstructured, error) {
 	sm := &unstructured.Unstructured{}
 	sm.SetKind("ServiceMonitor")
 	sm.SetAPIVersion("monitoring.coreos.com/v1")
-	sm.SetName(name)
-	sm.SetNamespace(namespace)
-	return sm
+
+	metadataMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Object["metadata"] = metadataMap
+	return sm, nil
 }
 
 type serviceMonitorEndpoint map[string]interface{}
