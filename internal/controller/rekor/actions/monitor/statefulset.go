@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 const (
@@ -70,14 +71,6 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 		traits.ControllerReference[*appsv1ac.StatefulSetApplyConfiguration](instance, i.Client),
 		traits.Labels[*appsv1ac.StatefulSetApplyConfiguration](labels),
 		i.createMonitorStatefulSet(instance, rekorServerHost, tufServerHost),
-		traits.StatefulSetSelector(labels),
-		// Declared explicitly at the API server defaults the StatefulSet was
-		// created with; podManagementPolicy is immutable and must not change.
-		traits.UpdateStrategy(appsv1ac.StatefulSetUpdateStrategy().
-			WithType(apps.RollingUpdateStatefulSetStrategyType).
-			WithRollingUpdate(appsv1ac.RollingUpdateStatefulSetStrategy().WithPartition(0))),
-		traits.PodManagementPolicy(apps.OrderedReadyPodManagement),
-		traits.VolumeClaimTemplates(monitorStorageClaimTemplate()),
 		traits.WithStatefulSetPodSpecTraits(
 			traits.ServiceAccount(actions.RBACMonitorName),
 			traits.SecurityContexts(actions.MonitorStatefulSetName, initContainerName),
@@ -160,7 +153,18 @@ func (i statefulSetAction) createMonitorStatefulSet(instance *rhtasv1.Rekor, rek
 
 		ss.WithSpec(appsv1ac.StatefulSetSpec().
 			WithReplicas(1).
+			WithSelector(metav1ac.LabelSelector().WithMatchLabels(ss.Labels)).
+			// Declared at the API server defaults the StatefulSet was created with.
+			// The partition must be explicit: it is only defaulted when the type is
+			// unset, so declaring the type alone would prune it after migration.
+			WithUpdateStrategy(appsv1ac.StatefulSetUpdateStrategy().
+				WithType(apps.RollingUpdateStatefulSetStrategyType).
+				WithRollingUpdate(appsv1ac.RollingUpdateStatefulSetStrategy().WithPartition(0))).
+			// podManagementPolicy is immutable and must not change.
+			WithPodManagementPolicy(apps.OrderedReadyPodManagement).
+			WithVolumeClaimTemplates(monitorStorageClaimTemplate()).
 			WithTemplate(corev1ac.PodTemplateSpec().
+				WithLabels(ss.Labels).
 				WithSpec(corev1ac.PodSpec().
 					WithInitContainers(initContainer(rekorServerHost, tufServerHost)).
 					WithContainers(container))))
@@ -197,7 +201,8 @@ func initContainer(rekorServerHost string, tufHost string) *corev1ac.ContainerAp
 }
 
 // monitorStorageClaimTemplate must stay identical to the template existing
-// StatefulSets were created with: volumeClaimTemplates is immutable.
+// StatefulSets were created with: volumeClaimTemplates is immutable. It is built
+// without corev1ac.PersistentVolumeClaim so no kind/apiVersion/namespace is sent.
 func monitorStorageClaimTemplate() *corev1ac.PersistentVolumeClaimApplyConfiguration {
 	return (&corev1ac.PersistentVolumeClaimApplyConfiguration{}).
 		WithName(storageVolumeName).
