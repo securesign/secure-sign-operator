@@ -33,11 +33,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const jobKind = "Job"
 
 func NewResolveTreeAction[T tlsAwareObject](component string, wrapper func(T) *wrapper[T]) action.Action[T] {
 	return &resolveTree[T]{
@@ -189,40 +192,52 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 }
 
 func (i resolveTree[T]) handleConfigMap(ctx context.Context, instance T) *action.Result {
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
-
-	labels := labels.For("createtree", i.component, instance.GetName())
-
-	// Needed for configMap clean-up
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(configMapResultMask, i.resourceBase(instance), instance.GetName()),
-			Namespace: instance.GetNamespace(),
-		},
+		ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf(configMapResultMask, i.resourceBase(instance), instance.GetName()), Namespace: instance.GetNamespace()},
+	}
+	if err := i.Client.Get(ctx, client.ObjectKeyFromObject(configMap), configMap); client.IgnoreNotFound(err) != nil {
+		return i.Error(ctx, fmt.Errorf("could not get configmap: %w", err), instance)
 	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		configMap,
-		ensure.ControllerReference[*corev1.ConfigMap](instance, i.Client),
-		ensure.Labels[*corev1.ConfigMap](slices.Collect(maps.Keys(labels)), labels),
-	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create %s ConfigMap: %w", configMap.GetName(), err), instance)
+	changed, err := i.applyConfigMap(ctx, instance, configMap)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not apply ConfigMap: %w", err), instance)
 	}
-
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		instance.SetCondition(metav1.Condition{
 			Type:    JobCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  state.Creating.String(),
-			Message: fmt.Sprintf("ConfigMap `%s` %s", configMap.GetName(), result)},
-		)
+			Message: fmt.Sprintf("ConfigMap `%s` applied", configMap.Name),
+		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
-		return i.Continue()
 	}
+	return i.Continue()
+}
+
+func (i resolveTree[T]) applyConfigMap(ctx context.Context, instance T, configMap *corev1.ConfigMap) (bool, error) {
+	cm, err := traits.Apply(
+		corev1ac.ConfigMap(configMap.Name, configMap.Namespace),
+		traits.ControllerReference[*corev1ac.ConfigMapApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ConfigMapApplyConfiguration](labels.For("createtree", i.component, instance.GetName())),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	// Both steps use the same field manager, so retain the Job reference on
+	// every apply. The Job writes data, which the operator leaves unowned.
+	for _, ref := range configMap.GetOwnerReferences() {
+		if ref.Kind != jobKind {
+			continue
+		}
+		owner, err := traits.ConvertViaJSON[metav1.OwnerReference, metav1ac.OwnerReferenceApplyConfiguration](ref)
+		if err != nil {
+			return false, err
+		}
+		cm.WithOwnerReferences(owner)
+	}
+	return kubernetes.Apply(ctx, i.Client, cm, configMap)
 }
 
 func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Result {
@@ -242,7 +257,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	}
 
 	for _, ref := range configMap.GetOwnerReferences() {
-		if ref.Kind == "Job" { //nolint:goconst
+		if ref.Kind == jobKind {
 			return i.Continue()
 		}
 	}
@@ -300,12 +315,11 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 			})
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, configMap,
-		func(object *corev1.ConfigMap) error {
-			return controllerutil.SetOwnerReference(job, object, i.Client.Scheme())
-		},
-	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not update annotations on %s ConfigMap: %w", configMap.GetName(), err), instance,
+	if err = controllerutil.SetOwnerReference(job, configMap, i.Client.Scheme()); err == nil {
+		_, err = i.applyConfigMap(ctx, instance, configMap)
+	}
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not apply Job owner reference to %s ConfigMap: %w", configMapName, err), instance,
 			metav1.Condition{
 				Type:    JobCondition,
 				Status:  metav1.ConditionFalse,
@@ -340,7 +354,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 	}
 
 	for _, ref := range configMap.GetOwnerReferences() {
-		if ref.Kind == "Job" {
+		if ref.Kind == jobKind {
 			jobName = ref.Name
 			break
 		}

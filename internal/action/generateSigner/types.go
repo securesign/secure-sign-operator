@@ -5,7 +5,6 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -34,10 +33,9 @@ type Config[T apis.ConditionsAwareObject] struct {
 	// Nil defaults to true.
 	IsEnabled func(T) bool
 
-	// MutateSecret is called before the secret is created, allowing the component
-	// to add labels, annotations, or modify the secret in any way.
-	// Nil is a no-op.
-	MutateSecret func(T, *corev1.Secret)
+	// DiscoveryLabels are labels that are used to discover the secret.
+	// Labels are applyed only to the active secret so they are unique per component.
+	DiscoveryLabels map[string]string
 }
 
 func Wrapper[T apis.ConditionsAwareObject](cfg Config[T]) func(T) *wrapper[T] {
@@ -71,13 +69,4 @@ func (w *wrapper[T]) IsEnabled() bool {
 		return true
 	}
 	return w.cfg.IsEnabled(w.object)
-}
-
-func (w *wrapper[T]) EnsureMutate() func(*corev1.Secret) error {
-	return func(secret *corev1.Secret) error {
-		if w.cfg.MutateSecret != nil {
-			w.cfg.MutateSecret(w.object, secret)
-		}
-		return nil
-	}
 }

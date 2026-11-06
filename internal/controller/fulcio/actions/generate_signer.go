@@ -15,7 +15,6 @@ import (
 	fulcioutils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,11 +43,8 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 			IsEnabled: func(i *rhtasv1.Fulcio) bool {
 				return i.Spec.Signer.Type == rhtasv1.SignerTypeFile || i.Spec.Signer.Type == ""
 			},
-			MutateSecret: func(_ *rhtasv1.Fulcio, secret *corev1.Secret) {
-				if secret.Labels == nil {
-					secret.Labels = make(map[string]string)
-				}
-				secret.Labels[FulcioCALabel] = constants.KeyCert
+			DiscoveryLabels: map[string]string{
+				FulcioCALabel: constants.KeyCert,
 			},
 		}),
 	)

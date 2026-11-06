@@ -12,7 +12,6 @@ import (
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -133,5 +132,5 @@ func (a *resolveKMSTinkSignerAction) Handle(ctx context.Context, instance *rhtas
 
 func (a *resolveKMSTinkSignerAction) ensureCertChainLabel(ctx context.Context, instance *rhtasv1.TimestampAuthority, ref *rhtasv1.SecretKeySelector) error {
 	label := labels.LabelNamespace + "/tsa.certchain.pem"
-	return kubernetes.EnsureExclusiveSecretLabel(ctx, a.Client, instance.Namespace, ref.Name, label, tsaUtils.KeyCertificateChain)
+	return generateSigner.EnsureDiscoveryLabels(ctx, a.Client, instance.Namespace, ref.Name, map[string]string{label: tsaUtils.KeyCertificateChain})
 }

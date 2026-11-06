@@ -14,7 +14,6 @@ import (
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -40,11 +39,8 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled:    isEnabled,
-			MutateSecret: func(_ *rhtasv1.TimestampAuthority, secret *corev1.Secret) {
-				if secret.Labels == nil {
-					secret.Labels = make(map[string]string)
-				}
-				secret.Labels[labels.LabelNamespace+"/tsa.certchain.pem"] = tsaUtils.KeyCertificateChain
+			DiscoveryLabels: map[string]string{
+				labels.LabelNamespace + "/tsa.certchain.pem": tsaUtils.KeyCertificateChain,
 			},
 		}),
 	)
