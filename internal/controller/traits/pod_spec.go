@@ -281,13 +281,18 @@ func TLS(tlsCfg rhtasv1.TLS, containerNames ...string) Trait[*corev1ac.PodSpecAp
 }
 
 // SecurityContexts applies the standard pod security context and container
-// security context to matching containers.
+// security context to matching containers and init containers.
 func SecurityContexts(containerNames ...string) Trait[*corev1ac.PodSpecApplyConfiguration] {
 	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
 		podSpec.WithSecurityContext(SSAPodSecurityContext())
 		for i := range podSpec.Containers {
 			if podSpec.Containers[i].Name != nil && slices.Contains(containerNames, *podSpec.Containers[i].Name) {
 				podSpec.Containers[i].WithSecurityContext(SSAContainerSecurityContext())
+			}
+		}
+		for i := range podSpec.InitContainers {
+			if podSpec.InitContainers[i].Name != nil && slices.Contains(containerNames, *podSpec.InitContainers[i].Name) {
+				podSpec.InitContainers[i].WithSecurityContext(SSAContainerSecurityContext())
 			}
 		}
 		return nil
