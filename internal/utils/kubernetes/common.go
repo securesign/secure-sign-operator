@@ -40,6 +40,18 @@ const (
 	LegacyFieldManager = "manager"
 )
 
+type managedClient struct {
+	client.Client
+	manager string
+}
+
+func WithFieldManager(c client.Client, manager string) client.Client {
+	return &managedClient{
+		Client:  client.WithFieldOwner(c, manager),
+		manager: manager,
+	}
+}
+
 func FilterOutCommonLabels(labels map[string]string) map[string]string {
 	out := map[string]string{}
 	for key, value := range labels {
@@ -132,7 +144,11 @@ func Create[T client.Object](ctx context.Context, cli client.Client, obj T, fn .
 // It is idempotent: csaupgrade returns an empty patch once there is nothing left to
 // convert, making this a cheap no-op on every later reconcile.
 func migrateLegacyManagedFields(ctx context.Context, cli client.Client, live client.Object) error {
-	patch, err := csaupgrade.UpgradeManagedFieldsPatch(live, sets.New(LegacyFieldManager), FieldManager)
+	withManager, ok := cli.(*managedClient)
+	if !ok {
+		return fmt.Errorf("client manager cannot be found for %T", cli)
+	}
+	patch, err := csaupgrade.UpgradeManagedFieldsPatch(live, sets.New(LegacyFieldManager), withManager.manager)
 	if err != nil {
 		return fmt.Errorf("computing managed-fields upgrade patch: %w", err)
 	}
@@ -171,7 +187,7 @@ func Apply(ctx context.Context, cli client.Client, obj runtime.ApplyConfiguratio
 		resourceVersion = live.GetResourceVersion()
 	}
 
-	if err := cli.Apply(ctx, obj, client.FieldOwner(FieldManager), client.ForceOwnership); err != nil {
+	if err := cli.Apply(ctx, obj, client.ForceOwnership); err != nil {
 		return false, err
 	}
 

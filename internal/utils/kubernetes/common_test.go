@@ -221,6 +221,7 @@ func TestCreate(t *testing.T) {
 func TestApply(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
+	const manager = FieldManager + "/test-controller"
 	serviceApplyConfig := func(name, ns string, port int32, labels map[string]string) *corev1ac.ServiceApplyConfiguration {
 		return corev1ac.Service(name, ns).
 			WithLabels(labels).
@@ -256,8 +257,11 @@ func TestApply(t *testing.T) {
 				g.Expect(svc.Spec.Ports).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port": gomega.Equal(int32(80)),
 				})))
-				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeTrue(),
-					"expected %q to own fields on create", FieldManager)
+				g.Expect(svc.ManagedFields).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Manager":   gomega.Equal(manager),
+					"Operation": gomega.Equal(metav1.ManagedFieldsOperationApply),
+				})))
+				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeFalse())
 			},
 		},
 		{
@@ -280,6 +284,11 @@ func TestApply(t *testing.T) {
 				g.Expect(svc.Spec.Ports).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port": gomega.Equal(int32(443)),
 				})))
+				g.Expect(svc.ManagedFields).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Manager":   gomega.Equal(manager),
+					"Operation": gomega.Equal(metav1.ManagedFieldsOperationApply),
+				})))
+				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeFalse())
 			},
 		},
 		{
@@ -364,39 +373,81 @@ func TestApply(t *testing.T) {
 				g.Expect(svc.Spec.Ports).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port": gomega.Equal(int32(443)),
 				})))
-				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeTrue(),
-					"expected %q to own fields after ForceOwnership", FieldManager)
+				g.Expect(svc.ManagedFields).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Manager":   gomega.Equal(manager),
+					"Operation": gomega.Equal(metav1.ManagedFieldsOperationApply),
+				})))
+				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeFalse())
 			},
 		},
 		{
-			name: "legacy CSA manager: migration converts ownership",
+			name: "legacy CSA manager: updates owned port and prunes omitted fields",
 			existing: []client.Object{
-				withManagedFields(&v1.Service{
+				&v1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-svc",
 						Namespace: "default",
-						Labels:    map[string]string{"app": "legacy"},
+						Labels:    map[string]string{"app": "legacy", "obsolete": "remove", "external": "keep"},
+						ManagedFields: []metav1.ManagedFieldsEntry{
+							{
+								Manager:    LegacyFieldManager,
+								Operation:  metav1.ManagedFieldsOperationUpdate,
+								APIVersion: "v1",
+								FieldsType: "FieldsV1",
+								FieldsV1:   metav1.NewFieldsV1(`{"f:metadata":{"f:labels":{"f:app":{},"f:obsolete":{}}},"f:spec":{"f:ports":{"k:{\"port\":80,\"protocol\":\"TCP\"}":{".":{},"f:name":{},"f:port":{},"f:protocol":{},"f:targetPort":{}}}}}`),
+							},
+							{
+								Manager:    "external-controller",
+								Operation:  metav1.ManagedFieldsOperationApply,
+								APIVersion: "v1",
+								FieldsType: "FieldsV1",
+								FieldsV1:   metav1.NewFieldsV1(`{"f:metadata":{"f:labels":{"f:external":{}}},"f:spec":{"f:ports":{"k:{\"port\":9090,\"protocol\":\"TCP\"}":{".":{},"f:name":{},"f:port":{},"f:protocol":{},"f:targetPort":{}}}}}`),
+							},
+						},
 					},
 					Spec: v1.ServiceSpec{
-						Ports: []v1.ServicePort{{Name: "http", Port: 80, Protocol: v1.ProtocolTCP, TargetPort: intstr.FromInt32(80)}},
+						Ports: []v1.ServicePort{
+							{Name: "http", Port: 80, Protocol: v1.ProtocolTCP, TargetPort: intstr.FromInt32(80)},
+							{Name: "external", Port: 9090, Protocol: v1.ProtocolTCP, TargetPort: intstr.FromInt32(9090)},
+						},
 					},
-				}, LegacyFieldManager, metav1.ManagedFieldsOperationUpdate),
+				},
 			},
-			applyObj: serviceApplyConfig("test-svc", "default", 443, map[string]string{"app": "migrated"}),
+			applyObj: serviceApplyConfig("test-svc", "default", 443, map[string]string{"app": "legacy"}),
 			verify: func(g gomega.Gomega, cli client.WithWatch, changed bool, err error) {
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 				g.Expect(changed).To(gomega.BeTrue())
 
 				svc := &v1.Service{}
 				g.Expect(cli.Get(ctx, types.NamespacedName{Name: "test-svc", Namespace: "default"}, svc)).To(gomega.Succeed())
-				g.Expect(svc.Labels).To(gomega.HaveKeyWithValue("app", "migrated"))
-				g.Expect(svc.Spec.Ports).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Port": gomega.Equal(int32(443)),
+				g.Expect(svc.Labels).To(gomega.Equal(map[string]string{"app": "legacy", "external": "keep"}))
+				g.Expect(svc.Spec.Ports).To(gomega.ConsistOf(
+					v1.ServicePort{Name: "http", Port: 443, Protocol: v1.ProtocolTCP, TargetPort: intstr.FromInt32(443)},
+					v1.ServicePort{Name: "external", Port: 9090, Protocol: v1.ProtocolTCP, TargetPort: intstr.FromInt32(9090)},
+				))
+				g.Expect(svc.ManagedFields).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Manager":   gomega.Equal(manager),
+					"Operation": gomega.Equal(metav1.ManagedFieldsOperationApply),
+					"FieldsV1": gomega.WithTransform(func(fields *metav1.FieldsV1) (map[string]interface{}, error) {
+						var decoded map[string]interface{}
+						err := json.Unmarshal(fields.GetRawBytes(), &decoded)
+						return decoded, err
+					}, gomega.HaveKeyWithValue("f:spec", gomega.HaveKeyWithValue("f:ports", gomega.And(
+						gomega.HaveKey(`k:{"port":443,"protocol":"TCP"}`),
+						gomega.Not(gomega.HaveKey(`k:{"port":80,"protocol":"TCP"}`)),
+						gomega.Not(gomega.HaveKey(`k:{"port":9090,"protocol":"TCP"}`)),
+					)))),
 				})))
-				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeTrue(),
-					"expected %q to own fields after legacy migration", FieldManager)
+				g.Expect(hasFieldManager(svc.ManagedFields, FieldManager)).To(gomega.BeFalse())
 				g.Expect(hasFieldManager(svc.ManagedFields, LegacyFieldManager)).To(gomega.BeFalse(),
 					"expected legacy %q to be removed after migration", LegacyFieldManager)
+				g.Expect(svc.ManagedFields).To(gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Manager":   gomega.Equal("external-controller"),
+					"Operation": gomega.Equal(metav1.ManagedFieldsOperationApply),
+					"FieldsV1": gomega.WithTransform(func(fields *metav1.FieldsV1) string {
+						return fields.GetRawString()
+					}, gomega.MatchJSON(`{"f:metadata":{"f:labels":{"f:external":{}}},"f:spec":{"f:ports":{"k:{\"port\":9090,\"protocol\":\"TCP\"}":{".":{},"f:name":{},"f:port":{},"f:protocol":{},"f:targetPort":{}}}}}`)),
+				})))
 			},
 		},
 		{
@@ -472,7 +523,7 @@ func TestApply(t *testing.T) {
 			cli := builder.Build()
 
 			live := &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: "default"}}
-			changed, err := Apply(ctx, cli, tt.applyObj, live)
+			changed, err := Apply(ctx, WithFieldManager(cli, manager), tt.applyObj, live)
 
 			tt.verify(g, cli, changed, err)
 		})

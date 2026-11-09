@@ -28,6 +28,7 @@ import (
 	redis "github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis/actions"
 	"github.com/securesign/operator/internal/utils"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -66,7 +67,7 @@ type rekorReconciler struct {
 
 func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &rekorReconciler{
-		Client:   c,
+		Client:   kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"),
 		scheme:   scheme,
 		recorder: recorder,
 	}

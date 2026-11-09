@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -44,7 +45,7 @@ type consoleReconciler struct {
 
 func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &consoleReconciler{
-		Client:   c,
+		Client:   kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/console-controller"),
 		scheme:   scheme,
 		recorder: recorder,
 	}

@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +75,7 @@ func applyCTLogDeployment(t *testing.T, c client.Client, instance *rhtasv1.CTlog
 	t.Helper()
 	ctx := t.Context()
 
-	action := testAction.PrepareAction(c, NewDeployAction())
+	action := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/ctlog-controller"), NewDeployAction())
 	result := action.Handle(ctx, instance)
 	if result != nil && result.Err != nil {
 		return nil, result.Err
@@ -151,6 +153,10 @@ func TestCTLogUserDefinedVolumesInFileMode(t *testing.T) {
 	dp, err := createCTLogDeployment(t, instance)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
+	g.Expect(dp.ManagedFields).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Manager":   Equal(kubernetes.FieldManager + "/ctlog-controller"),
+		"Operation": Equal(metav1.ManagedFieldsOperationApply),
+	})))
 
 	// Verify user-defined volumes are present with correct sources
 	customDataVol := findCTLogVolume("custom-data", dp.Spec.Template.Spec.Volumes)

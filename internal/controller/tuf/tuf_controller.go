@@ -32,6 +32,7 @@ import (
 	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
 	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
@@ -56,7 +57,7 @@ type tufReconciler struct {
 
 func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &tufReconciler{
-		Client:   c,
+		Client:   kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/tuf-controller"),
 		scheme:   scheme,
 		recorder: recorder,
 	}

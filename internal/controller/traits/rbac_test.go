@@ -79,7 +79,7 @@ func TestRoleBinding(t *testing.T) {
 
 			binding := rbacv1ac.RoleBinding(bindingTestName, "default")
 			g.Expect(RoleBinding(role, subject)(binding)).To(gomega.Succeed())
-			result, err := kubernetes.Apply(ctx, c, binding,
+			result, err := kubernetes.Apply(ctx, kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/tuf-controller"), binding,
 				&rbacv1.RoleBinding{ObjectMeta: v2.ObjectMeta{Name: bindingTestName, Namespace: "default"}})
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 

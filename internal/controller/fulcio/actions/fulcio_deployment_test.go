@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -33,6 +34,10 @@ func TestSimpleDeployment(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 	g.Expect(dp.Labels).Should(Equal(expectedLabels))
+	g.Expect(dp.ManagedFields).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Manager":   Equal(kubernetes.FieldManager + "/fulcio-controller"),
+		"Operation": Equal(v1.ManagedFieldsOperationApply),
+	})))
 	g.Expect(dp.Name).Should(Equal(DeploymentName))
 	g.Expect(dp.Spec.Template.Spec.ServiceAccountName).Should(Equal(RBACName))
 
@@ -322,7 +327,7 @@ func handleDeployment(t *testing.T, instance *rhtasv1.Fulcio, objects ...client.
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewDeployAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/fulcio-controller"), NewDeployAction())
 	result := a.Handle(ctx, instance)
 	if result.Err != nil {
 		return nil, result.Err

@@ -638,7 +638,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 			WithStatusSubresource(instance).
 			Build()
 
-		a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", nnObject.Name, pre.opts...))
+		a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewAction[*rhtasv1.Rekor]("component", nnObject.Name, pre.opts...))
 		ra := a.(*rbacAction[*rhtasv1.Rekor])
 
 		if pre.warmUp {
@@ -716,7 +716,7 @@ func TestRbac_CanHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			c := testAction.FakeClientBuilder().Build()
-			a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", "test", tt.opts...))
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewAction[*rhtasv1.Rekor]("component", "test", tt.opts...))
 			instance := rhtasv1.Rekor{}
 			if tt.reason != state.None {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -812,7 +812,7 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 				WithInterceptorFuncs(tc.intercept).
 				Build()
 
-			a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", nnObject.Name,
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewAction[*rhtasv1.Rekor]("component", nnObject.Name,
 				WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 					APIGroups: []string{""},
 					Resources: []string{"configmaps"},
