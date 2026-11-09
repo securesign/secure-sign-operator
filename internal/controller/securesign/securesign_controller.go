@@ -22,6 +22,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
@@ -50,7 +51,7 @@ type securesignReconciler struct {
 
 func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &securesignReconciler{
-		Client:   c,
+		Client:   kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/securesign-controller"),
 		scheme:   scheme,
 		recorder: recorder,
 	}

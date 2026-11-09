@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -12,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v2 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,7 +83,7 @@ func TestFIPSClientSigningAlgorithms(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewDeployAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewDeployAction())
 	result := a.Handle(ctx, instance)
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
@@ -93,6 +95,10 @@ func TestFIPSClientSigningAlgorithms(t *testing.T) {
 	}, dep)).To(Succeed())
 
 	container := dep.Spec.Template.Spec.Containers[0]
+	g.Expect(dep.ManagedFields).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Manager":   Equal(kubernetes.FieldManager + "/rekor-controller"),
+		"Operation": Equal(metav1.ManagedFieldsOperationApply),
+	})))
 	g.Expect(container.Args).To(ContainElement("--client-signing-algorithms"))
 	g.Expect(container.Args).To(ContainElement(fips.ClientSigningAlgorithms))
 }
@@ -113,7 +119,7 @@ func TestNonFIPSNoClientSigningAlgorithms(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewDeployAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewDeployAction())
 	result := a.Handle(ctx, instance)
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
@@ -141,7 +147,7 @@ func TestDeployAction_Handle_PreservesCachedPublicKeyOnDeploymentChange(t *testi
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewDeployAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewDeployAction())
 	result := a.Handle(ctx, instance)
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
@@ -206,7 +212,7 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewDeployAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewDeployAction())
 	result := a.Handle(ctx, instance)
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
@@ -273,7 +279,7 @@ func TestDeployAction_Handle_AutodiscoveryTrillianAddress(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewDeployAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewDeployAction())
 	result := a.Handle(ctx, instance)
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())

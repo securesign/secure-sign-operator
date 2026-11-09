@@ -27,6 +27,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
@@ -63,7 +64,7 @@ type ctlogReconciler struct {
 
 func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &ctlogReconciler{
-		Client:   c,
+		Client:   kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/ctlog-controller"),
 		scheme:   scheme,
 		recorder: recorder,
 	}

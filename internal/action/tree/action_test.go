@@ -13,6 +13,7 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/internal/action"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -593,7 +594,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 			WithStatusSubresource(instance).
 			Build()
 
-		a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+		a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewResolveTreeAction("test", defaultWrapper))
 		ra := a.(*resolveTree[*rhtasv1.Rekor])
 
 		if pre.warmUp {
@@ -665,7 +666,7 @@ func TestResolveTree_CanHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			c := testAction.FakeClientBuilder().Build()
-			a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewResolveTreeAction("test", defaultWrapper))
 			instance := rhtasv1.Rekor{
 				Spec: rhtasv1.RekorSpec{
 					TreeID: tt.treeID,
@@ -725,7 +726,7 @@ func TestResolveTree_ConfigMapGetFailure_ReturnsRetryableError(t *testing.T) {
 		}).
 		Build()
 
-	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewResolveTreeAction("test", defaultWrapper))
 	ra := a.(*resolveTree[*rhtasv1.Rekor])
 
 	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
@@ -779,7 +780,7 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 		}).
 		Build()
 
-	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewResolveTreeAction("test", defaultWrapper))
 	ra := a.(*resolveTree[*rhtasv1.Rekor])
 
 	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
@@ -838,7 +839,7 @@ func TestResolveTree_ShardRotation_DoesNotLeakTreeID(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewResolveTreeAction("shardtest", shardWrapper))
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/rekor-controller"), NewResolveTreeAction("shardtest", shardWrapper))
 	ra := a.(*resolveTree[*rhtasv1.Rekor])
 
 	// Fully resolve shard-a's tree: RBAC + ConfigMap + Job created, job completes,
