@@ -40,13 +40,17 @@ const (
 	LegacyFieldManager = "manager"
 )
 
-type managedClient struct {
+type ManagedClient struct {
 	client.Client
 	manager string
 }
 
+func (c *ManagedClient) GetManager() string {
+	return c.manager
+}
+
 func WithFieldManager(c client.Client, manager string) client.Client {
-	return &managedClient{
+	return &ManagedClient{
 		Client:  client.WithFieldOwner(c, manager),
 		manager: manager,
 	}
@@ -144,7 +148,7 @@ func Create[T client.Object](ctx context.Context, cli client.Client, obj T, fn .
 // It is idempotent: csaupgrade returns an empty patch once there is nothing left to
 // convert, making this a cheap no-op on every later reconcile.
 func migrateLegacyManagedFields(ctx context.Context, cli client.Client, live client.Object) error {
-	withManager, ok := cli.(*managedClient)
+	withManager, ok := cli.(*ManagedClient)
 	if !ok {
 		return fmt.Errorf("client manager cannot be found for %T", cli)
 	}
