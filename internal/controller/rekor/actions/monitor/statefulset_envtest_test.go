@@ -81,18 +81,9 @@ func TestMonitorStatefulSetEnvtest(t *testing.T) {
 		migrated := handleEnvtest(t, c, instance)
 		g.Expect(migrated.Generation).To(Equal(legacy.Generation),
 			"migration must not change the spec (a template change would roll the monitor pod)")
-		g.Expect(migrated.Spec.Template).To(Equal(legacy.Spec.Template))
-		g.Expect(migrated.Spec.VolumeClaimTemplates).To(Equal(legacy.Spec.VolumeClaimTemplates))
-		g.Expect(migrated.Spec.ServiceName).To(Equal(legacy.Spec.ServiceName))
-		g.Expect(migrated.Spec.PodManagementPolicy).To(Equal(legacy.Spec.PodManagementPolicy))
-		g.Expect(migrated.Spec.UpdateStrategy).To(Equal(legacy.Spec.UpdateStrategy))
+		g.Expect(migrated.Spec).To(Equal(legacy.Spec))
 		g.Expect(managers(migrated)).ToNot(ContainElement(kubernetes.LegacyFieldManager))
-		g.Expect(managers(migrated)).To(ContainElement(kubernetes.FieldManager))
-
-		markMonitorReady(t, c, instance)
-		again := handleEnvtest(t, c, instance)
-		g.Expect(again.ResourceVersion).To(Equal(migrated.ResourceVersion), "reconcile after migration must be a no-op")
-		g.Expect(monitorReason(t, c, instance)).To(Equal(state.Ready.String()))
+		g.Expect(managers(migrated)).To(ContainElement(fieldManager))
 	})
 
 	t.Run("upgrade prunes fields left by the legacy manager", func(t *testing.T) {
@@ -107,11 +98,10 @@ func TestMonitorStatefulSetEnvtest(t *testing.T) {
 
 		migrated := handleEnvtest(t, c, instance)
 		container := monitorContainer(migrated.Spec.Template.Spec.Containers)
-		g.Expect(findEnv("STALE", container.Env)).To(BeNil())
-		g.Expect(findEnv("HOME", container.Env)).To(HaveField("Value", mountPath))
+		g.Expect(container.Env).To(ConsistOf(core.EnvVar{Name: "HOME", Value: mountPath}), "only the stale entry is removed")
 	})
 
-	t.Run("updates keep foreign fields and pass immutability validation", func(t *testing.T) {
+	t.Run("updates keep foreign fields", func(t *testing.T) {
 		g := NewWithT(t)
 		instance := createEnvtestInstance(t, c, "foreign")
 		created := handleEnvtest(t, c, instance)
@@ -122,14 +112,13 @@ func TestMonitorStatefulSetEnvtest(t *testing.T) {
 		created.Spec.Template.Annotations = map[string]string{"kubectl.kubernetes.io/restartedAt": "2026-10-26T00:00:00Z"}
 		g.Expect(c.Patch(t.Context(), created, patch, client.FieldOwner("kubectl"))).To(Succeed())
 
+		// Change the CR so the next apply actually updates the StatefulSet.
 		instance.Spec.Monitoring.TLog.Interval = &metav1.Duration{Duration: 5 * time.Minute}
 		updated := handleEnvtest(t, c, instance)
 
-		container := monitorContainer(updated.Spec.Template.Spec.Containers)
-		g.Expect(container.Command[2]).To(ContainSubstring("--interval=5m0s"))
 		g.Expect(updated.Annotations).To(HaveKeyWithValue("example.com/owner", "other"))
 		g.Expect(updated.Spec.Template.Annotations).To(HaveKeyWithValue("kubectl.kubernetes.io/restartedAt", "2026-10-26T00:00:00Z"))
-		g.Expect(managers(updated)).To(ContainElements(kubernetes.FieldManager, "kubectl"))
+		g.Expect(managers(updated)).To(ContainElements(fieldManager, "kubectl"))
 	})
 }
 

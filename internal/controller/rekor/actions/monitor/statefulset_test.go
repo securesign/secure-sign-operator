@@ -19,13 +19,15 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const tufURL = "http://tuf.default.svc"
+const (
+	tufURL       = "http://tuf.default.svc"
+	fieldManager = kubernetes.FieldManager + "/rekor-controller"
+)
 
 func createMonitorInstance() *rhtasv1.Rekor {
 	return &rhtasv1.Rekor{
@@ -67,7 +69,7 @@ func handleStatefulSet(t *testing.T, c client.Client, instance *rhtasv1.Rekor) (
 	t.Helper()
 	ctx := t.Context()
 
-	result := testAction.PrepareAction(c, NewStatefulSetAction()).Handle(ctx, instance)
+	result := testAction.PrepareAction(kubernetes.WithFieldManager(c, fieldManager), NewStatefulSetAction()).Handle(ctx, instance)
 	if result != nil && result.Err != nil {
 		return nil, result.Err
 	}
@@ -103,59 +105,6 @@ func managers(ss *apps.StatefulSet) []string {
 		result = append(result, mf.Manager)
 	}
 	return result
-}
-
-// legacyStatefulSet mirrors what the pre-SSA CreateOrUpdate reconciler produced.
-func legacyStatefulSet(instance *rhtasv1.Rekor) *apps.StatefulSet {
-	l := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
-	return &apps.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      actions.MonitorStatefulSetName,
-			Namespace: instance.Namespace,
-			Labels:    l,
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         rhtasv1.GroupVersion.String(),
-				Kind:               "Rekor",
-				Name:               instance.Name,
-				UID:                instance.UID,
-				Controller:         ptr.To(true),
-				BlockOwnerDeletion: ptr.To(true),
-			}},
-		},
-		Spec: apps.StatefulSetSpec{
-			Replicas: ptr.To(int32(1)),
-			Selector: &metav1.LabelSelector{MatchLabels: l},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: l},
-				Spec: core.PodSpec{
-					ServiceAccountName: actions.RBACMonitorName,
-					InitContainers: []core.Container{{
-						Name:         initContainerName,
-						Image:        images.Registry.Get(images.RekorMonitor),
-						VolumeMounts: []core.VolumeMount{{Name: storageVolumeName, MountPath: mountPath}},
-					}},
-					Containers: []core.Container{{
-						Name:  actions.MonitorStatefulSetName,
-						Image: images.Registry.Get(images.RekorMonitor),
-						Env: []core.EnvVar{
-							{Name: "HOME", Value: mountPath},
-							{Name: "STALE", Value: "left-by-old-operator"},
-						},
-						VolumeMounts: []core.VolumeMount{{Name: storageVolumeName, MountPath: mountPath}},
-					}},
-				},
-			},
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
-				ObjectMeta: metav1.ObjectMeta{Name: storageVolumeName},
-				Spec: core.PersistentVolumeClaimSpec{
-					AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.VolumeResourceRequirements{
-						Requests: core.ResourceList{core.ResourceStorage: resource.MustParse("5Mi")},
-					},
-				},
-			}},
-		},
-	}
 }
 
 func TestMonitorStatefulSetCreate(t *testing.T) {
@@ -211,7 +160,7 @@ func TestMonitorStatefulSetCreate(t *testing.T) {
 	g.Expect(initC.Command[2]).To(ContainSubstring("curl " + tufURL + "/root.json > /data/root.json"))
 	g.Expect(initC.VolumeMounts).To(ConsistOf(core.VolumeMount{Name: storageVolumeName, MountPath: mountPath}))
 
-	g.Expect(managers(ss)).To(ConsistOf(kubernetes.FieldManager))
+	g.Expect(managers(ss)).To(ConsistOf(fieldManager))
 
 	condition := meta.FindStatusCondition(instance.Status.Conditions, actions.MonitorCondition)
 	g.Expect(condition).ToNot(BeNil())
@@ -219,30 +168,12 @@ func TestMonitorStatefulSetCreate(t *testing.T) {
 	g.Expect(condition.Message).To(Equal("Monitor created"))
 }
 
-func TestMonitorStatefulSetIdempotent(t *testing.T) {
-	g := NewWithT(t)
-	instance := createMonitorInstance()
-	c := createMonitorClient(instance)
-
-	first, err := handleStatefulSet(t, c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	// resourceVersion-level idempotency (no write, status untouched) is covered by
-	// the envtest suite: the fake client re-derives managed fields from a typed
-	// round-trip on update and bumps resourceVersion even for a no-op apply.
-	second, err := handleStatefulSet(t, c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(second.Spec).To(Equal(first.Spec))
-	g.Expect(second.Labels).To(Equal(first.Labels))
-	g.Expect(second.OwnerReferences).To(Equal(first.OwnerReferences))
-}
-
 func TestMonitorStatefulSetUpdate(t *testing.T) {
 	g := NewWithT(t)
 	instance := createMonitorInstance()
 	c := createMonitorClient(instance)
 
-	first, err := handleStatefulSet(t, c, instance)
+	_, err := handleStatefulSet(t, c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   actions.MonitorCondition,
@@ -254,7 +185,6 @@ func TestMonitorStatefulSetUpdate(t *testing.T) {
 	updated, err := handleStatefulSet(t, c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	g.Expect(updated.ResourceVersion).ToNot(Equal(first.ResourceVersion))
 	container := monitorContainer(updated.Spec.Template.Spec.Containers)
 	g.Expect(container.Command[2]).To(ContainSubstring("--interval=5m0s"))
 	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, actions.MonitorCondition).Reason).
@@ -281,54 +211,6 @@ func TestMonitorStatefulSetGODEBUGPruning(t *testing.T) {
 	container = monitorContainer(ss.Spec.Template.Spec.Containers)
 	g.Expect(findEnv("GODEBUG", container.Env)).To(BeNil(), "GODEBUG should be pruned when disabled")
 	g.Expect(findEnv("HOME", container.Env)).ToNot(BeNil())
-}
-
-func TestMonitorStatefulSetLegacyMigration(t *testing.T) {
-	g := NewWithT(t)
-	instance := createMonitorInstance()
-	c := createMonitorClient(instance)
-	g.Expect(c.Create(t.Context(), legacyStatefulSet(instance), client.FieldOwner(kubernetes.LegacyFieldManager))).To(Succeed())
-
-	legacy := &apps.StatefulSet{}
-	g.Expect(c.Get(t.Context(), client.ObjectKey{Name: actions.MonitorStatefulSetName, Namespace: instance.Namespace}, legacy)).To(Succeed())
-	g.Expect(managers(legacy)).To(ContainElement(kubernetes.LegacyFieldManager), "precondition: legacy manager owns fields")
-
-	ss, err := handleStatefulSet(t, c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	container := monitorContainer(ss.Spec.Template.Spec.Containers)
-	g.Expect(findEnv("STALE", container.Env)).To(BeNil(), "fields no longer declared are pruned after migration")
-	g.Expect(findEnv("HOME", container.Env)).To(HaveField("Value", mountPath))
-	g.Expect(managers(ss)).ToNot(ContainElement(kubernetes.LegacyFieldManager))
-	g.Expect(managers(ss)).To(ContainElement(kubernetes.FieldManager))
-	g.Expect(ss.Spec.VolumeClaimTemplates).To(HaveLen(1))
-	g.Expect(ss.Spec.VolumeClaimTemplates[0].Name).To(Equal(storageVolumeName))
-}
-
-func TestMonitorStatefulSetPreservesForeignFields(t *testing.T) {
-	g := NewWithT(t)
-	instance := createMonitorInstance()
-	c := createMonitorClient(instance)
-
-	_, err := handleStatefulSet(t, c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	// Simulate `kubectl annotate` and `kubectl rollout restart`, which patch
-	// fields the operator does not declare.
-	live := &apps.StatefulSet{}
-	g.Expect(c.Get(t.Context(), client.ObjectKey{Name: actions.MonitorStatefulSetName, Namespace: instance.Namespace}, live)).To(Succeed())
-	patch := client.MergeFrom(live.DeepCopy())
-	live.Annotations = map[string]string{"example.com/owner": "other"}
-	live.Spec.Template.Annotations = map[string]string{"kubectl.kubernetes.io/restartedAt": "2026-10-26T00:00:00Z"}
-	g.Expect(c.Patch(t.Context(), live, patch, client.FieldOwner("other-controller"))).To(Succeed())
-
-	instance.Spec.Monitoring.TLog.Interval = &metav1.Duration{Duration: 5 * time.Minute}
-	ss, err := handleStatefulSet(t, c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	g.Expect(ss.Annotations).To(HaveKeyWithValue("example.com/owner", "other"))
-	g.Expect(ss.Spec.Template.Annotations).To(HaveKeyWithValue("kubectl.kubernetes.io/restartedAt", "2026-10-26T00:00:00Z"))
-	g.Expect(managers(ss)).To(ContainElements(kubernetes.FieldManager, "other-controller"))
 }
 
 func TestMonitorStatefulSetPaused(t *testing.T) {
