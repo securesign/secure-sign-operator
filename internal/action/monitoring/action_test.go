@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -219,7 +220,7 @@ func TestHandle(t *testing.T) {
 			want: want{
 				result: testAction.Continue(),
 				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.Fulcio, cli client.WithWatch) {
-					a := testAction.PrepareAction(cli, NewAction(testComponent, testMonitoringRole, testServiceMonitor, "", testConfig{enabled: true}))
+					a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, kubernetes.FieldManager+"/fulcio-controller"), NewAction(testComponent, testMonitoringRole, testServiceMonitor, "", testConfig{enabled: true}))
 					g.Expect(a.Handle(ctx, instance)).To(BeNil())
 					ep := smEndpoints(g, getServiceMonitor(ctx, g, cli))[0].(map[string]any)
 					g.Expect(ep["port"]).To(Equal("metrics"))
@@ -460,7 +461,7 @@ func TestHandle(t *testing.T) {
 			}
 			cli := builder.Build()
 
-			a := testAction.PrepareAction(cli, NewAction(
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, kubernetes.FieldManager+"/fulcio-controller"), NewAction(
 				testComponent, testMonitoringRole, testServiceMonitor, tt.env.conditionType,
 				testConfig{enabled: tt.env.enabled, tls: tt.env.tls},
 			))
