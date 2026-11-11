@@ -23,7 +23,7 @@ metadata:
 spec:
   params:
   - name: release-version
-    value: "1.5.1"
+    value: "1.5.2"
   - name: git-url
     value: '{{source_url}}'
   - name: revision
