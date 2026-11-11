@@ -1,6 +1,6 @@
 //go:build integration
 
-package install
+package lifecycle
 
 import (
 	"context"
@@ -41,27 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
-
-// tufToolParams builds the tufcli rhtas flags to set (and optionally expire) a
-// single service's TUF target, mirroring lifecycle/key_rotation_test.go so
-// both suites drive tufcli identically.
-func tufToolParams(component, targetName, url string, workdir string, expire bool) []string {
-	args := []string{
-		"rhtas",
-		"--root", workdir + "/tuf-repo/root.json",
-		"--key", workdir + "/keys/snapshot.pem",
-		"--key", workdir + "/keys/targets.pem",
-		"--key", workdir + "/keys/timestamp.pem",
-		fmt.Sprintf("--set-%s-target", component), targetName,
-		fmt.Sprintf("--%s-uri", component), url,
-		"--outdir", workdir + "/tuf-repo",
-		"--metadata-url", "file://" + workdir + "/tuf-repo",
-	}
-	if expire {
-		args = append(args, fmt.Sprintf("--%s-status", component), "Expired")
-	}
-	return args
-}
 
 // failedMountEvent returns the message of the first FailedMount event found for
 // any Pod whose name contains podSubstring, or "" if none exists yet. Used to
