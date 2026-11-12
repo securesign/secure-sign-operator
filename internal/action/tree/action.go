@@ -6,10 +6,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"fmt"
-	"maps"
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -19,12 +16,9 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/utils/tls"
-	ensureTls "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -32,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
@@ -271,42 +266,34 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	trillUrl = fmt.Sprintf("%s:%s", trillHost, trillPort)
 	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
 
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf(JobNameMask, i.resourceBase(instance)),
-			Namespace:    instance.GetNamespace(),
-		},
+	jobConfig, err := traits.Apply(
+		batchv1ac.Job("", instance.GetNamespace()).WithGenerateName(fmt.Sprintf(JobNameMask, i.resourceBase(instance))),
+		traits.ControllerReference[*batchv1ac.JobApplyConfiguration](instance, i.Client),
+		traits.Labels[*batchv1ac.JobApplyConfiguration](labels),
+		i.ensureJob(configMapName, trillUrl, i.treeDisplayName),
+		traits.WithJobPodSpecTraits(
+			traits.SecurityContexts(createTreeContainerName),
+			traits.GODEBUG(instance.GetAnnotations(), createTreeContainerName),
+			traits.TrustedCA(instance.GetTrustedCA(), createTreeContainerName),
+			traits.Optional(instance.GetTrustedCA() != nil || kubernetes.IsOpenShift(), func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+				caPath, err := tls.CAPath(ctx, i.Client, instance)
+				if err != nil {
+					return fmt.Errorf("could not get CA path: %w", err)
+				}
+				kubernetes.FindContainerByName(podSpec, createTreeContainerName).WithEnv(corev1ac.EnvVar().WithName("EXTRA_ARGS").WithValue(fmt.Sprintf("--tls_cert_file=%s", caPath)))
+				return nil
+			}),
+			traits.ServiceAccount(fmt.Sprintf(RBACNameMask, i.resourceBase(instance))),
+		))
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build tree job: %w", err), instance)
 	}
-
-	extraArgs := []string{}
-	if instance.GetTrustedCA() != nil || kubernetes.IsOpenShift() {
-		caPath, err := tls.CAPath(ctx, i.Client, instance)
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("could not get CA path: %w", err), instance)
-		}
-		extraArgs = append(extraArgs, "--tls_cert_file", caPath)
+	job, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, batchv1.Job](jobConfig)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not convert tree job: %w", err), instance)
 	}
-
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		job,
-		i.ensureJob(configMapName, trillUrl, i.treeDisplayName, fmt.Sprintf(RBACNameMask, i.resourceBase(instance)), extraArgs...),
-		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
-		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
-		func(object *batchv1.Job) error {
-			object.Spec.Template.Labels = labels
-			return nil
-		},
-		func(object *batchv1.Job) error {
-			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
-		},
-		func(object *batchv1.Job) error {
-			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
-		},
-		func(object *batchv1.Job) error {
-			return ensureTls.TrustedCA(instance.GetTrustedCA(), createTreeContainerName)(&object.Spec.Template)
-		},
-	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create segment backup job: %w", err), instance,
+	if err = kubernetes.Create(ctx, i.Client, job); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create createtree job: %w", err), instance,
 			metav1.Condition{
 				Type:    JobCondition,
 				Status:  metav1.ConditionFalse,
@@ -422,35 +409,29 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 	}
 }
 
-func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName, saName string, extraArgs ...string) func(*batchv1.Job) error {
-	return func(job *batchv1.Job) error {
+func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName string) traits.Trait[*batchv1ac.JobApplyConfiguration] {
+	return func(job *batchv1ac.JobApplyConfiguration) error {
+		container := corev1ac.Container().
+			WithName(createTreeContainerName).
+			WithImage(images.Registry.Get(images.TrillianCreateTree)).
+			WithCommand("/bin/sh", "-c").
+			WithArgs(string(jobScript)).
+			WithEnv(
+				corev1ac.EnvVar().WithName("CONFIGMAP_NAME").WithValue(cfgName),
+				corev1ac.EnvVar().WithName("ADMIN_SERVER").WithValue(adminServer),
+				corev1ac.EnvVar().WithName("DISPLAY_NAME").WithValue(displayName),
+			)
 
-		spec := &job.Spec
-		spec.Parallelism = utils.Pointer[int32](1)
-		spec.Completions = utils.Pointer[int32](1)
-		spec.ActiveDeadlineSeconds = utils.Pointer[int64](600)
-		spec.BackoffLimit = utils.Pointer[int32](5)
+		podSpec := corev1ac.PodSpec().
+			WithRestartPolicy(corev1.RestartPolicyOnFailure).
+			WithContainers(container)
 
-		templateSpec := &spec.Template.Spec
-		templateSpec.ServiceAccountName = saName
-		templateSpec.RestartPolicy = "OnFailure"
-
-		container := kubernetes.FindContainerByNameOrCreate(templateSpec, createTreeContainerName)
-		container.Image = images.Registry.Get(images.TrillianCreateTree)
-		container.Command = []string{"/bin/sh", "-c"}
-		container.Args = []string{string(jobScript)}
-
-		cfgNameEnv := kubernetes.FindEnvByNameOrCreate(container, "CONFIGMAP_NAME")
-		cfgNameEnv.Value = cfgName
-
-		adminServerEnv := kubernetes.FindEnvByNameOrCreate(container, "ADMIN_SERVER")
-		adminServerEnv.Value = adminServer
-
-		displayNameEnv := kubernetes.FindEnvByNameOrCreate(container, "DISPLAY_NAME")
-		displayNameEnv.Value = displayName
-
-		extraArgsEnv := kubernetes.FindEnvByNameOrCreate(container, "EXTRA_ARGS")
-		extraArgsEnv.Value = strings.Join(extraArgs, " ")
+		job.WithSpec(batchv1ac.JobSpec().
+			WithParallelism(1).
+			WithCompletions(1).
+			WithActiveDeadlineSeconds(600).
+			WithBackoffLimit(5).
+			WithTemplate(corev1ac.PodTemplateSpec().WithLabels(job.Labels).WithSpec(podSpec)))
 
 		return nil
 	}
