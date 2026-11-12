@@ -90,14 +90,15 @@ func newRemoteTarPipe(ctx context.Context, pod corev1.Pod, srcPath string) *remo
 	t.pod = pod
 	t.config = controllerruntime.GetConfigOrDie()
 	t.client = v1.NewForConfigOrDie(t.config)
+	t.ctx = ctx
 
 	t.initReadFrom(0)
-	t.ctx = ctx
 	return t
 }
 
 func (t *remoteTarPipe) initReadFrom(n uint64) {
 	t.reader, t.outStream = io.Pipe()
+	writer := t.outStream
 	options := &corev1.PodExecOptions{
 		Container: t.pod.Spec.Containers[0].Name,
 		Command:   []string{"tar", "cf", "-", "-C", t.srcPath, "."},
@@ -121,38 +122,42 @@ func (t *remoteTarPipe) initReadFrom(n uint64) {
 
 	exec, err := remotecommand.NewSPDYExecutor(t.config, "POST", req.URL())
 	if err != nil {
-		log.Fatalf("error %s\n", err)
+		_ = writer.CloseWithError(err)
+		return
 	}
 
 	go func() {
-		defer func() { _ = t.outStream.Close() }()
-		_ = exec.StreamWithContext(t.ctx, remotecommand.StreamOptions{
-			Stdout: t.outStream,
+		err := exec.StreamWithContext(t.ctx, remotecommand.StreamOptions{
+			Stdout: writer,
 			Stderr: os.Stderr,
 			Tty:    false,
 		})
+		_ = writer.CloseWithError(err)
 	}()
 }
 
 func (t *remoteTarPipe) Read(p []byte) (n int, err error) {
 	n, err = t.reader.Read(p)
+	t.bytesRead += uint64(n)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			if n > 0 {
-				t.bytesRead += uint64(n)
-			}
 			return n, err
+		}
+		if ctxErr := t.ctx.Err(); ctxErr != nil {
+			return n, ctxErr
 		}
 		if t.retries < t.maxRetries {
 			t.retries++
 			fmt.Printf("Resuming copy at %d bytes, retry %d/%d\n", t.bytesRead, t.retries, t.maxRetries)
-			t.initReadFrom(t.bytesRead + 1)
+			var offset uint64
+			if t.bytesRead > 0 {
+				offset = t.bytesRead + 1
+			}
+			t.initReadFrom(offset)
 			err = nil
 		} else {
 			fmt.Printf("Dropping out copy after %d retries\n", t.retries)
 		}
-	} else {
-		t.bytesRead += uint64(n)
 	}
 	return
 }
