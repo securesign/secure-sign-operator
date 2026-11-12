@@ -133,4 +133,4 @@ require (
 // directive is used instead of a plain require bump because `go mod tidy` recomputes indirect
 // requires via MVS (which would downgrade back to v3.0.0) but does not touch replace directives.
 // Remove this once library-go is upgraded to a version requiring distribution >= v3.1.1.
-replace github.com/distribution/distribution/v3 => github.com/distribution/distribution/v3 v3.1.1
+replace github.com/distribution/distribution/v3 => github.com/distribution/distribution/v3 v3.1.2
