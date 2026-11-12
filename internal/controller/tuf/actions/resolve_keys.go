@@ -3,9 +3,7 @@ package actions
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
-	"slices"
 
 	"context"
 	"time"
@@ -13,15 +11,16 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -98,18 +97,23 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *a
 
 	if len(autodiscoveredData) > 0 {
 		secretName := fmt.Sprintf(tufKeysSecretFormat, instance.Name)
-		secret := &corev1.Secret{
+		componentLabels := labels.ForComponent(tufConstants.ComponentName, instance.Name)
+		secret, err := traits.Apply(
+			corev1ac.Secret(secretName, instance.Namespace).
+				WithImmutable(false).
+				WithData(autodiscoveredData),
+			traits.ControllerReference[*corev1ac.SecretApplyConfiguration](instance, i.Client),
+			traits.Labels[*corev1ac.SecretApplyConfiguration](componentLabels),
+		)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if _, err := k8sutils.Apply(ctx, i.Client, secret, &corev1.Secret{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      secretName,
 				Namespace: instance.Namespace,
 			},
-		}
-		componentLabels := labels.ForComponent(tufConstants.ComponentName, instance.Name)
-		if _, err := k8sutils.CreateOrUpdate(ctx, i.Client, secret,
-			ensure.ControllerReference[*corev1.Secret](instance, i.Client),
-			ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
-			k8sutils.EnsureSecretData(false, autodiscoveredData),
-		); err != nil {
+		}); err != nil {
 			return i.Error(ctx, err, instance)
 		}
 

@@ -9,6 +9,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +38,7 @@ func TestTSASigner_FileKMSFileWithoutRefsFails(t *testing.T) {
 				Data:       map[string][]byte{tsaUtils.KeyCertificateChain: []byte("kms certificate")},
 			}
 			c := testAction.FakeClientBuilder().WithObjects(instance, kmsSecret).WithStatusSubresource(instance).Build()
-			fileAction := testAction.PrepareAction(c, NewGenerateSignerAction())
+			fileAction := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/tsa-controller"), NewGenerateSignerAction())
 			kmsAction := testAction.PrepareAction(c, NewResolveKMSTinkSignerAction())
 
 			// First install: the operator generates once.

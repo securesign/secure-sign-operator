@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -331,13 +332,14 @@ func TestResolveKeys_Handle(t *testing.T) {
 
 			instance := tt.instance()
 			builder := testAction.FakeClientBuilder().
+				WithReturnManagedFields().
 				WithObjects(instance).
 				WithStatusSubresource(instance)
 			for _, obj := range tt.objects {
 				builder = builder.WithObjects(obj)
 			}
 			c := builder.Build()
-			a := testAction.PrepareAction(c, NewResolveKeysAction())
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/tuf-controller"), NewResolveKeysAction())
 
 			result := a.Handle(t.Context(), instance)
 

@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -224,7 +225,7 @@ func TestFulcioCert_GeneratesCorrectData(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/fulcio-controller"), NewGenerateSignerAction())
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result).To(Equal(testAction.Return()))

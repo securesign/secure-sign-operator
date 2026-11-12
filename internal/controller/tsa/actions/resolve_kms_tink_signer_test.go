@@ -7,10 +7,13 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	generateSigner "github.com/securesign/operator/internal/action/generateSigner"
+	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
+	"github.com/securesign/operator/internal/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -50,6 +53,11 @@ func TestKMSTinkSigner_KMSWithCertChainRef(t *testing.T) {
 	g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("kms-cert-secret"))
 	g.Expect(instance.Status.Signer.FileSigner).To(BeNil())
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+	updatedSecret := &corev1.Secret{}
+	g.Expect(c.Get(ctx, client.ObjectKeyFromObject(certSecret), updatedSecret)).To(Succeed())
+	g.Expect(updatedSecret.Labels).To(HaveKeyWithValue(labels.LabelNamespace+"/tsa.certchain.pem", tsaUtils.KeyCertificateChain))
+	g.Expect(updatedSecret.Data).To(Equal(certSecret.Data))
 }
 
 func TestKMSTinkSigner_TinkWithCertChainRef(t *testing.T) {
@@ -95,6 +103,11 @@ func TestKMSTinkSigner_TinkWithCertChainRef(t *testing.T) {
 	g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("tink-cert-secret"))
 	g.Expect(instance.Status.Signer.FileSigner).To(BeNil())
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+	updatedSecret := &corev1.Secret{}
+	g.Expect(c.Get(ctx, client.ObjectKeyFromObject(certSecret), updatedSecret)).To(Succeed())
+	g.Expect(updatedSecret.Labels).To(HaveKeyWithValue(labels.LabelNamespace+"/tsa.certchain.pem", tsaUtils.KeyCertificateChain))
+	g.Expect(updatedSecret.Data).To(Equal(certSecret.Data))
 }
 
 func TestKMSTinkSigner_TinkWithoutKeysetRef(t *testing.T) {

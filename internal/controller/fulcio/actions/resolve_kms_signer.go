@@ -9,7 +9,6 @@ import (
 	"github.com/securesign/operator/internal/action/generateSigner"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -81,5 +80,5 @@ func (a *resolveKMSSignerAction) Handle(ctx context.Context, instance *rhtasv1.F
 }
 
 func (a *resolveKMSSignerAction) ensureCertChainLabel(ctx context.Context, instance *rhtasv1.Fulcio, ref *rhtasv1.SecretKeySelector) error {
-	return kubernetes.EnsureExclusiveSecretLabel(ctx, a.Client, instance.Namespace, ref.Name, FulcioCALabel, constants.KeyCert)
+	return generateSigner.EnsureDiscoveryLabels(ctx, a.Client, instance.Namespace, ref.Name, map[string]string{FulcioCALabel: constants.KeyCert})
 }

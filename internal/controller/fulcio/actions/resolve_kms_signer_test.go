@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,15 +200,39 @@ func TestResolveKMSSigner_SetsCALabel(t *testing.T) {
 	}
 
 	certSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "kms-cert-chain", Namespace: "default"},
-		Data:       map[string][]byte{"cert": []byte("cert-chain-data")},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kms-cert-chain",
+			Namespace: "default",
+			Labels:    map[string]string{"custom": "keep"},
+			// Discovery SSA must not migrate legacy data ownership into a labels-only apply.
+			ManagedFields: []metav1.ManagedFieldsEntry{{
+				Manager:    kubernetes.LegacyFieldManager,
+				Operation:  metav1.ManagedFieldsOperationUpdate,
+				APIVersion: "v1",
+				FieldsType: "FieldsV1",
+				FieldsV1: metav1.NewFieldsV1(`{
+					"f:data":{"f:cert":{}},
+					"f:metadata":{"f:labels":{"f:custom":{}}}
+				}`),
+			}},
+		},
+		Data: map[string][]byte{"cert": []byte("cert-chain-data")},
+	}
+	previousSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "previous-cert-chain",
+			Namespace: "default",
+			Labels:    map[string]string{FulcioCALabel: "cert", "custom": "keep"},
+		},
+		Data: map[string][]byte{"cert": []byte("previous-cert-chain-data")},
 	}
 	c := testAction.FakeClientBuilder().
-		WithObjects(instance, certSecret).
+		WithObjects(instance, certSecret, previousSecret).
 		WithStatusSubresource(instance).
+		WithReturnManagedFields().
 		Build()
 
-	a := testAction.PrepareAction(c, NewResolveKMSSignerAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/fulcio-controller"), NewResolveKMSSignerAction())
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result).To(Equal(testAction.Return()))
@@ -215,4 +240,16 @@ func TestResolveKMSSigner_SetsCALabel(t *testing.T) {
 	updatedSecret := &corev1.Secret{}
 	g.Expect(c.Get(ctx, client.ObjectKeyFromObject(certSecret), updatedSecret)).To(Succeed())
 	g.Expect(updatedSecret.Labels).To(HaveKeyWithValue(FulcioCALabel, "cert"))
+	g.Expect(updatedSecret.Labels).To(HaveKeyWithValue("custom", "keep"))
+	g.Expect(updatedSecret.Data).To(Equal(certSecret.Data))
+	g.Expect(updatedSecret.ManagedFields).To(ContainElement(And(
+		HaveField("Manager", Equal(kubernetes.FieldManager)),
+		HaveField("Operation", Equal(metav1.ManagedFieldsOperationApply)),
+	)))
+
+	previous := &corev1.Secret{}
+	g.Expect(c.Get(ctx, client.ObjectKeyFromObject(previousSecret), previous)).To(Succeed())
+	g.Expect(previous.Labels).NotTo(HaveKey(FulcioCALabel))
+	g.Expect(previous.Labels).To(HaveKeyWithValue("custom", "keep"))
+	g.Expect(previous.Data).To(Equal(previousSecret.Data))
 }

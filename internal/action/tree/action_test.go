@@ -583,6 +583,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nnObject.Name,
 				Namespace: nnObject.Namespace,
+				UID:       "rekor",
 			},
 			Spec: rhtasv1.RekorSpec{
 				Trillian: rhtasv1.ServiceReference{},
@@ -735,6 +736,7 @@ func TestResolveTree_ConfigMapGetFailure_ReturnsRetryableError(t *testing.T) {
 		name     string
 		handleFn func(context.Context, *rhtasv1.Rekor) *action.Result
 	}{
+		{name: "handleConfigMap", handleFn: ra.handleConfigMap},
 		{name: "handleJob", handleFn: ra.handleJob},
 		{name: "handleJobFinished", handleFn: ra.handleJobFinished},
 		{name: "handleExtractJobResult", handleFn: ra.handleExtractJobResult},
@@ -827,6 +829,7 @@ func TestResolveTree_ShardRotation_DoesNotLeakTreeID(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nnObject.Name,
 			Namespace:   nnObject.Namespace,
+			UID:         "rekor",
 			Annotations: map[string]string{"shard": "shard-a"},
 		},
 		Spec: rhtasv1.RekorSpec{

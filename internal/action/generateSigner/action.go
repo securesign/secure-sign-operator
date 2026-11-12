@@ -4,21 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -94,7 +93,7 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 	if resolvedRef != nil {
 		// TODO: replace with a dedicated resolve_pub_key action per component
 		// that fetches public keys from the running service API.
-		if err := i.ensureLabelsOnSecret(ctx, instance, w, resolvedRef); err != nil {
+		if err := EnsureDiscoveryLabels(ctx, i.Client, instance.GetNamespace(), resolvedRef.Name, w.cfg.DiscoveryLabels); err != nil {
 			i.Logger.V(1).Info("failed to apply labels to user-provided secret", "error", err)
 		}
 		w.AlignStatus(*resolvedRef)
@@ -116,6 +115,9 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 	case err != nil:
 		return i.Error(ctx, fmt.Errorf("%w %q: %w", ErrSecretGet, deterministicName, err), instance)
 	case found:
+		if err := EnsureDiscoveryLabels(ctx, i.Client, instance.GetNamespace(), deterministicName, w.cfg.DiscoveryLabels); err != nil {
+			return i.Error(ctx, fmt.Errorf("failed to apply discovery labels to existing secret: %w", err), instance)
+		}
 		w.AlignStatus(rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: deterministicName}})
 		instance.SetCondition(metav1.Condition{
 			Type:               i.conditionType,
@@ -127,43 +129,6 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 	default:
 		return i.handleCreate(ctx, instance, w, deterministicName)
 	}
-}
-
-// TODO: temporary workaround — applies TUF autodiscovery labels to user-provided secrets.
-// Will be replaced by dedicated resolve_pub_key actions that fetch public keys from running services.
-func (i signerAction[T]) ensureLabelsOnSecret(ctx context.Context, instance T, w *wrapper[T], ref *rhtasv1.SecretKeySelector) error {
-	if w.cfg.MutateSecret == nil {
-		return nil
-	}
-	// Discover which labels MutateSecret would set
-	probe := &corev1.Secret{}
-	w.cfg.MutateSecret(instance, probe)
-	if len(probe.Labels) == 0 {
-		return nil
-	}
-
-	// Remove those labels from any other secret that has them
-	for label := range probe.Labels {
-		existing, err := kubernetes.ListSecrets(ctx, i.Client, instance.GetNamespace(), label)
-		if err != nil {
-			return err
-		}
-		for _, s := range existing.Items {
-			if s.Name == ref.Name {
-				continue
-			}
-			if err := labels.Remove(ctx, &s, i.Client, label); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Apply labels to the target secret
-	secret := &corev1.Secret{}
-	secret.Name = ref.Name
-	secret.Namespace = instance.GetNamespace()
-	_, err := kubernetes.CreateOrUpdate(ctx, i.Client, secret, w.EnsureMutate())
-	return err
 }
 
 func (i signerAction[T]) handleCreate(ctx context.Context, instance T, w *wrapper[T], secretName string) *action.Result {
@@ -192,21 +157,20 @@ func (i signerAction[T]) handleCreate(ctx context.Context, instance T, w *wrappe
 		return i.RequeueAfter(5 * time.Second)
 	}
 
-	componentLabels := labels.For(i.component, i.deployment, instance.GetName())
+	secret, err := traits.Apply(corev1ac.Secret(secretName, instance.GetNamespace()).WithImmutable(true).WithData(data),
+		traits.Labels[*corev1ac.SecretApplyConfiguration](labels.For(i.component, i.deployment, instance.GetName())))
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("failed to build signer secret: %w", err), instance)
+	}
 
-	secret := &corev1.Secret{
+	live := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: instance.GetNamespace(),
 		},
 	}
-
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		secret,
-		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
-		kubernetes.EnsureSecretData(true, data),
-		w.EnsureMutate(),
-	); err != nil {
+	_, err = kubernetes.Apply(ctx, i.Client, secret, live)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("%w: %w", ErrSecretCreate, err), instance,
 			metav1.Condition{
 				Type:               i.conditionType,
@@ -217,8 +181,12 @@ func (i signerAction[T]) handleCreate(ctx context.Context, instance T, w *wrappe
 			})
 	}
 
-	i.Recorder.Eventf(instance, secret, corev1.EventTypeNormal, "SignerSecretCreated", "Created",
-		"Created immutable signer secret %s", secret.Name)
+	i.Recorder.Eventf(instance, live, corev1.EventTypeNormal, "SignerSecretCreated", "Created",
+		"Created immutable signer secret %s", live.Name)
+
+	if err := EnsureDiscoveryLabels(ctx, i.Client, instance.GetNamespace(), secretName, w.cfg.DiscoveryLabels); err != nil {
+		return i.Error(ctx, fmt.Errorf("failed to apply discovery labels to signer secret: %w", err), instance)
+	}
 
 	w.AlignStatus(rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName}})
 	instance.SetCondition(metav1.Condition{

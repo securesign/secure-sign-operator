@@ -10,7 +10,6 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,11 +36,8 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 				}
 				return activeLog.Signer.Type == rhtasv1.SignerTypeFile || activeLog.Signer.Type == ""
 			},
-			MutateSecret: func(_ *rhtasv1.CTlog, secret *corev1.Secret) {
-				if secret.Labels == nil {
-					secret.Labels = make(map[string]string)
-				}
-				secret.Labels[labels.LabelNamespace+"/ctfe.pub"] = constants.KeyPublic
+			DiscoveryLabels: map[string]string{
+				labels.LabelNamespace + "/ctfe.pub": constants.KeyPublic,
 			},
 		}),
 	)

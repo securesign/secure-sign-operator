@@ -31,6 +31,7 @@ const (
 	testCondition      = "TestCondition"
 	testNamespace      = "test-ns"
 	testInstanceName   = "test-instance"
+	testFieldManager   = kubernetes.FieldManager + "/test-controller"
 )
 
 var smGVK = schema.GroupVersionKind{Group: "monitoring.coreos.com", Version: "v1", Kind: "ServiceMonitor"}
@@ -220,7 +221,7 @@ func TestHandle(t *testing.T) {
 			want: want{
 				result: testAction.Continue(),
 				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.Fulcio, cli client.WithWatch) {
-					a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, kubernetes.FieldManager+"/fulcio-controller"), NewAction(testComponent, testMonitoringRole, testServiceMonitor, "", testConfig{enabled: true}))
+					a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, testFieldManager), NewAction(testComponent, testMonitoringRole, testServiceMonitor, "", testConfig{enabled: true}))
 					g.Expect(a.Handle(ctx, instance)).To(BeNil())
 					ep := smEndpoints(g, getServiceMonitor(ctx, g, cli))[0].(map[string]any)
 					g.Expect(ep["port"]).To(Equal("metrics"))
@@ -453,6 +454,7 @@ func TestHandle(t *testing.T) {
 			instance := newTestInstance(creatingConditions()...)
 
 			builder := testAction.FakeClientBuilder().
+				WithReturnManagedFields().
 				WithObjects(instance).
 				WithStatusSubresource(instance).
 				WithInterceptorFuncs(tt.env.intercept)
@@ -461,7 +463,7 @@ func TestHandle(t *testing.T) {
 			}
 			cli := builder.Build()
 
-			a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, kubernetes.FieldManager+"/fulcio-controller"), NewAction(
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, testFieldManager), NewAction(
 				testComponent, testMonitoringRole, testServiceMonitor, tt.env.conditionType,
 				testConfig{enabled: tt.env.enabled, tls: tt.env.tls},
 			))

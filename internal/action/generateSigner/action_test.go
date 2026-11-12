@@ -12,11 +12,15 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -101,13 +105,15 @@ func existingSecret() *corev1.Secret {
 	}
 }
 
-// cacheLagInterceptor simulates cache lag: the first Get for the deterministic
-// secret returns NotFound, Create returns AlreadyExists, and subsequent Gets succeed.
+// cacheLagInterceptor hides the existing secret from the first existence check.
+// Apply still sees the stored secret and reconciles the requested data.
 func cacheLagInterceptor() interceptor.Funcs {
 	var once sync.Once
 	return interceptor.Funcs{
 		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-			if _, ok := obj.(*corev1.Secret); ok && key.Name == secretName() {
+			_, secret := obj.(*corev1.Secret)
+			_, partial := obj.(*metav1.PartialObjectMetadata)
+			if (secret || partial) && key.Name == secretName() {
 				notFound := false
 				once.Do(func() { notFound = true })
 				if notFound {
@@ -115,12 +121,6 @@ func cacheLagInterceptor() interceptor.Funcs {
 				}
 			}
 			return c.Get(ctx, key, obj, opts...)
-		},
-		Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
-			if _, ok := obj.(*corev1.Secret); ok {
-				return apierrors.NewAlreadyExists(schema.GroupResource{Resource: "secrets"}, obj.GetName())
-			}
-			return c.Create(ctx, obj, opts...)
 		},
 	}
 }
@@ -195,6 +195,15 @@ func TestCanHandle(t *testing.T) {
 }
 
 func TestHandle(t *testing.T) {
+	cachedSecret := existingSecret()
+	cachedSecret.UID = "existing-signer"
+	differentSecret := cachedSecret.DeepCopy()
+	differentSecret.Data = map[string][]byte{
+		"private": []byte("existing-private-key"),
+		"public":  []byte("existing-public-key"),
+	}
+	var rejectedApply *corev1ac.SecretApplyConfiguration
+
 	type env struct {
 		instance  func() *rhtasv1.Rekor
 		objects   []client.Object
@@ -320,7 +329,7 @@ func TestHandle(t *testing.T) {
 				action:   testActionSetup{},
 				intercept: interceptor.Funcs{
 					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-						if _, ok := obj.(*corev1.Secret); ok && key.Name == secretName() {
+						if _, ok := obj.(*metav1.PartialObjectMetadata); ok && key.Name == secretName() {
 							return apierrors.NewInternalError(fmt.Errorf("api server unavailable"))
 						}
 						return c.Get(ctx, key, obj, opts...)
@@ -330,39 +339,73 @@ func TestHandle(t *testing.T) {
 			want: want{isError: true, errSubstr: "api server unavailable"},
 		},
 		{
-			name: "Create failure propagates with condition",
+			name: "Apply failure propagates with condition",
 			env: env{
 				instance: func() *rhtasv1.Rekor { return testInstance(pendingConditions()...) },
 				action:   testActionSetup{},
 				intercept: interceptor.Funcs{
-					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-						if _, ok := obj.(*corev1.Secret); ok && key.Name == secretName() {
-							return apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, key.Name)
-						}
-						return c.Get(ctx, key, obj, opts...)
-					},
-					Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
-						if _, ok := obj.(*corev1.Secret); ok {
-							return apierrors.NewForbidden(schema.GroupResource{Resource: "secrets"}, obj.GetName(), fmt.Errorf("quota exceeded"))
-						}
-						return c.Create(ctx, obj, opts...)
+					Apply: func(_ context.Context, _ client.WithWatch, _ runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
+						return apierrors.NewForbidden(schema.GroupResource{Resource: "secrets"}, secretName(), fmt.Errorf("quota exceeded"))
 					},
 				},
 			},
 			want: want{isError: true, errSubstr: "failed to create signer secret"},
 		},
 		{
-			name: "Create AlreadyExists reuses secret",
+			name: "Apply preserves matching immutable data after cache lag",
 			env: env{
 				instance:  func() *rhtasv1.Rekor { return testInstance(pendingConditions()...) },
-				objects:   []client.Object{existingSecret()},
+				objects:   []client.Object{cachedSecret},
 				action:    testActionSetup{},
 				intercept: cacheLagInterceptor(),
 			},
 			want: want{
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.Rekor, cli client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal(secretName()))
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, testCondition)).To(BeTrue())
+
+					secret := &corev1.Secret{}
+					g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(cachedSecret), secret)).To(Succeed())
+					g.Expect(secret.UID).To(Equal(cachedSecret.UID))
+					g.Expect(secret.Data).To(Equal(cachedSecret.Data))
+				},
+			},
+		},
+		{
+			name: "Apply rejects differing immutable data after cache lag",
+			env: env{
+				instance: func() *rhtasv1.Rekor { return testInstance(pendingConditions()...) },
+				objects:  []client.Object{differentSecret},
+				action:   testActionSetup{},
+				intercept: func() interceptor.Funcs {
+					intercept := cacheLagInterceptor()
+					// The fake client does not validate immutability; simulate the API server's rejection.
+					intercept.Apply = func(_ context.Context, _ client.WithWatch, obj runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
+						rejectedApply, _ = obj.(*corev1ac.SecretApplyConfiguration)
+						return apierrors.NewInvalid(schema.GroupKind{Kind: "Secret"}, secretName(), field.ErrorList{
+							field.Forbidden(field.NewPath("data"), "field is immutable"),
+						})
+					}
+					return intercept
+				}(),
+			},
+			want: want{
+				isError:   true,
+				errSubstr: "field is immutable",
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.Rekor, cli client.Client) {
+					g.Expect(rejectedApply).ToNot(BeNil())
+					g.Expect(rejectedApply.Data).To(Equal(testData))
+					g.Expect(rejectedApply.Immutable).To(Equal(ptr.To(true)))
+					g.Expect(instance.Status.Signer.KeyRef).To(BeNil())
+					condition := meta.FindStatusCondition(instance.Status.Conditions, testCondition)
+					g.Expect(condition).ToNot(BeNil())
+					g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(condition.Reason).To(Equal(state.Failure.String()))
+
+					secret := &corev1.Secret{}
+					g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(differentSecret), secret)).To(Succeed())
+					g.Expect(secret.UID).To(Equal(differentSecret.UID))
+					g.Expect(secret.Data).To(Equal(differentSecret.Data))
 				},
 			},
 		},
@@ -394,6 +437,7 @@ func TestHandle(t *testing.T) {
 			instance := tt.env.instance()
 
 			builder := testAction.FakeClientBuilder().
+				WithReturnManagedFields().
 				WithObjects(instance).
 				WithStatusSubresource(instance).
 				WithInterceptorFuncs(tt.env.intercept)
@@ -402,7 +446,7 @@ func TestHandle(t *testing.T) {
 			}
 			cli := builder.Build()
 
-			a := testAction.PrepareAction(cli, NewAction(
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(cli, kubernetes.FieldManager), NewAction(
 				testCondition, testNameFormat, testComponent, testDeployment,
 				testWrapperWithResolveErr(tt.env.action.resolvedName, true, tt.env.action.genErr, tt.env.action.resolveErr),
 			))

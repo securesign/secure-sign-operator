@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,7 +103,7 @@ func TestRekorSigner_GeneratesCorrectKeyData(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager), NewGenerateSignerAction())
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result).To(Equal(testAction.Return()))

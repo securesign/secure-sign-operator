@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -13,15 +11,16 @@ import (
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 const (
@@ -109,21 +108,25 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 
 		secretName := fmt.Sprintf(fulcioRootSecretFormat, instance.Name)
 
-		secret := &corev1.Secret{
+		componentLabels := labels.ForComponent(ComponentName, instance.Name)
+		secret, err := traits.Apply(
+			corev1ac.Secret(secretName, instance.Namespace).
+				WithImmutable(false).
+				WithData(map[string][]byte{fulcioRootCertKey: signingCert}),
+			traits.ControllerReference[*corev1ac.SecretApplyConfiguration](instance, g.Client),
+			traits.Labels[*corev1ac.SecretApplyConfiguration](componentLabels),
+		)
+		if err != nil {
+			return g.Error(ctx, err, instance)
+		}
+		if _, err := k8sutils.Apply(ctx, g.Client, secret, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: instance.Namespace,
 			},
-		}
-		componentLabels := labels.ForComponent(ComponentName, instance.Name)
-		if _, err := k8sutils.CreateOrUpdate(ctx, g.Client, secret,
-			ensure.ControllerReference[*corev1.Secret](instance, g.Client),
-			ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
-			k8sutils.EnsureSecretData(false, map[string][]byte{fulcioRootCertKey: signingCert}),
-		); err != nil {
+		}); err != nil {
 			return g.Error(ctx, err, instance)
 		}
-
 		sks := rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName},
 			Key:                  fulcioRootCertKey,

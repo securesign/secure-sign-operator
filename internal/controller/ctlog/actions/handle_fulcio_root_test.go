@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -545,6 +546,11 @@ func TestCert_Handle(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf(fulcioRootSecretFormat, "instance"),
 							Namespace: "default",
+							ManagedFields: []metav1.ManagedFieldsEntry{{
+								Manager: kubernetes.LegacyFieldManager, Operation: metav1.ManagedFieldsOperationUpdate,
+								APIVersion: "v1", FieldsType: "FieldsV1",
+								FieldsV1: metav1.NewFieldsV1(`{"f:data":{"f:cert":{}}}`),
+							}},
 						},
 						Data: map[string][]byte{fulcioRootCertKey: []byte(testCert)},
 					},
@@ -602,6 +608,7 @@ func TestCert_Handle(t *testing.T) {
 			})
 
 			c := testAction.FakeClientBuilder().
+				WithReturnManagedFields().
 				WithObjects(instance).
 				WithStatusSubresource(instance).
 				WithObjects(tt.env.objects...).
@@ -610,7 +617,7 @@ func TestCert_Handle(t *testing.T) {
 			configSecretWatch, err := c.Watch(ctx, &v1.SecretList{}, client.InNamespace("default"), client.MatchingLabels{labels.LabelResource: serverConfigResourceName})
 			g.Expect(err).To(Not(HaveOccurred()))
 
-			a := testAction.PrepareAction(c, NewHandleFulcioCertAction())
+			a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/ctlog-controller"), NewHandleFulcioCertAction())
 
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
 				t.Errorf("Handle() = %v, want %v", got, tt.want.result)
