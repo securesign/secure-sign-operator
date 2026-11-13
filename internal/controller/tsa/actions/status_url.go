@@ -1,60 +1,35 @@
 package actions
 
 import (
-	"context"
-	"fmt"
-
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/serviceresolver"
-	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/action/statusurl"
 	"github.com/securesign/operator/internal/utils"
-	v12 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewStatusUrlAction() action.Action[*rhtasv1.TimestampAuthority] {
-	return &statusUrlAction{}
+type tsaStatusResolverImpl struct {
 }
 
-type statusUrlAction struct {
-	action.BaseAction
+func (c *tsaStatusResolverImpl) IsEnabled(instance *rhtasv1.TimestampAuthority) bool {
+	return utils.IsEnabled(instance.Spec.Ingress.Enabled)
 }
 
-func (i statusUrlAction) Name() string {
-	return "status-url"
+func (c *tsaStatusResolverImpl) GetStatusURL(instance *rhtasv1.TimestampAuthority) string {
+	return instance.Status.URL
 }
 
-func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
-	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
-}
-
-func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
-	var url string
-	if utils.IsEnabled(instance.Spec.Ingress.Enabled) {
-		protocol := "http://"
-		ingress := &v12.Ingress{}
-		err := i.Client.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}, ingress)
-		if err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		if len(ingress.Spec.TLS) > 0 {
-			protocol = "https://"
-		}
-		url = protocol + ingress.Spec.Rules[0].Host + rhtasv1.TimestampPath
-	} else {
-		var err error
-		url, err = serviceresolver.Resolve(instance)
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("error resolving internal URL: %w", err), instance)
-		}
-	}
-
-	if url == instance.Status.URL {
-		return i.Continue()
-	}
-
+func (c *tsaStatusResolverImpl) SetStatusURL(instance *rhtasv1.TimestampAuthority, url string) {
 	instance.Status.URL = url
-	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+}
+
+func (c *tsaStatusResolverImpl) GetIngressName() string {
+	return DeploymentName
+}
+
+func (c *tsaStatusResolverImpl) GetIngressPath(_ *rhtasv1.TimestampAuthority) string {
+	return rhtasv1.TimestampPath
+}
+
+func NewStatusUrlAction() action.Action[*rhtasv1.TimestampAuthority] {
+	return statusurl.NewAction(&tsaStatusResolverImpl{})
 }
