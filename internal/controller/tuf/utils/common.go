@@ -4,35 +4,21 @@ import (
 	"fmt"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	core "k8s.io/api/core/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 var ErrorResolveServiceUrl = fmt.Errorf("failed to resolve service url")
 
-func secretsVolumeProjection(keys []rhtasv1.TufKeyStatus) *core.ProjectedVolumeSource {
+func secretsVolumeProjection(keys []rhtasv1.TufKeyStatus) *corev1ac.ProjectedVolumeSourceApplyConfiguration {
 
-	projections := make([]core.VolumeProjection, 0, len(keys))
+	projections := make([]*corev1ac.VolumeProjectionApplyConfiguration, 0, len(keys))
 
 	for _, key := range keys {
-		p := core.VolumeProjection{Secret: selectorToProjection(key.SecretRef, key.Name)}
+		p := corev1ac.VolumeProjection().WithSecret(
+			corev1ac.SecretProjection().WithName(key.SecretRef.Name).WithItems(corev1ac.KeyToPath().WithKey(key.SecretRef.Key).WithPath(key.Name)),
+		)
 		projections = append(projections, p)
 	}
 
-	return &core.ProjectedVolumeSource{
-		Sources: projections,
-	}
-}
-
-func selectorToProjection(secret *rhtasv1.SecretKeySelector, path string) *core.SecretProjection {
-	return &core.SecretProjection{
-		LocalObjectReference: core.LocalObjectReference{
-			Name: secret.Name,
-		},
-		Items: []core.KeyToPath{
-			{
-				Key:  secret.Key,
-				Path: path,
-			},
-		},
-	}
+	return corev1ac.ProjectedVolumeSource().WithSources(projections...)
 }

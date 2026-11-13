@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/batch/v1"
@@ -49,7 +50,7 @@ var defaultWrapper = Wrapper[*rhtasv1.Rekor](
 	},
 	func(rekor *rhtasv1.Rekor) *rhtasv1.ServiceReference {
 		return &rhtasv1.ServiceReference{
-			URL: "https://trillian-logserver.default.svc",
+			URL: "trillian-logserver.default.svc:8091",
 		}
 	},
 	func(rekor *rhtasv1.Rekor) string {
@@ -304,13 +305,24 @@ func testCreateJob(t *testing.T) {
 					jobs := &v1.JobList{}
 					g.Expect(c.List(ctx, jobs, client.InNamespace("default"))).To(Succeed())
 					g.Expect(jobs.Items).To(HaveLen(1))
-					jobName := jobs.Items[0].Name
+					job := jobs.Items[0]
+					g.Expect(job.Name).To(HavePrefix("test-createtree-job-"))
+					g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal("test-createtree-job"))
+					expectedLabels := labels.For("createtree", "test", nnObject.Name)
+					g.Expect(job.Labels).To(Equal(expectedLabels))
+					g.Expect(job.Spec.Template.Labels).To(Equal(expectedLabels))
+					g.Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
+					g.Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
+						Name: "ADMIN_SERVER", Value: "trillian-logserver.default.svc:8091",
+					}))
+					g.Expect(metav1.GetControllerOf(&job)).ToNot(BeNil())
+					g.Expect(metav1.GetControllerOf(&job).Name).To(Equal(nnObject.Name))
 
 					cm := &corev1.ConfigMap{}
 					g.Expect(c.Get(ctx, nnResult, cm)).To(Succeed())
 					g.Expect(cm.GetOwnerReferences()).To(ContainElements(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Kind": Equal("Job"),
-						"Name": Equal(jobName),
+						"Name": Equal(job.Name),
 					})))
 				},
 			},
@@ -815,7 +827,7 @@ func TestResolveTree_ShardRotation_DoesNotLeakTreeID(t *testing.T) {
 		},
 		func(rekor *rhtasv1.Rekor) *rhtasv1.ServiceReference {
 			return &rhtasv1.ServiceReference{
-				URL: "https://trillian-logserver.default.svc",
+				URL: "trillian-logserver.default.svc:8091",
 			}
 		},
 		func(rekor *rhtasv1.Rekor) string {

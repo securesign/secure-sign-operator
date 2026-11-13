@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
@@ -18,13 +17,13 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
-	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	v2 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
+	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -114,32 +113,21 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 			Message: err.Error(),
 		})
 	}
-
-	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v2.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: tufConstants.InitJobName + "-",
-				Namespace:    instance.Namespace,
-			},
-		},
-		utils.EnsureTufInitJob(ctx, i.Client, instance, tufConstants.RBACInitJobName, labels),
-		ensure.Annotations[*v2.Job]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
-		ensure.ControllerReference[*v2.Job](instance, i.Client),
-		ensure.Labels[*v2.Job](slices.Collect(maps.Keys(labels)), labels),
-		func(object *v2.Job) error {
-			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
-			return nil
-		},
-		func(object *v2.Job) error {
-			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
-		},
-		func(object *v2.Job) error {
-			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
-		},
-		func(object *v2.Job) error {
-			return tlsensure.TrustedCA(instance.GetTrustedCA(), "tuf-init")(&object.Spec.Template)
-		},
-	); err != nil {
+	jobConfig, err := traits.Apply(
+		batchv1ac.Job("", instance.Namespace).WithGenerateName(tufConstants.InitJobName+"-"),
+		traits.Annotations[*batchv1ac.JobApplyConfiguration](map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
+		traits.ControllerReference[*batchv1ac.JobApplyConfiguration](instance, i.Client),
+		traits.Labels[*batchv1ac.JobApplyConfiguration](labels),
+		utils.EnsureTufInitJob(ctx, i.Client, instance),
+		traits.WithJobPodSpecTraits(
+			traits.Proxy([]string{utils.TufInitContainerName}),
+			traits.GODEBUG(instance.GetAnnotations(), utils.TufInitContainerName),
+			traits.SecurityContexts(utils.TufInitContainerName),
+			traits.TrustedCA(instance.GetTrustedCA(), utils.TufInitContainerName),
+			traits.ServiceAccount(tufConstants.RBACInitJobName),
+		),
+	)
+	if err != nil {
 		if errors.Is(err, utils.ErrorResolveServiceUrl) {
 			return i.Error(ctx, err, instance,
 				metav1.Condition{
@@ -151,6 +139,13 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 				},
 			)
 		}
+		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
+	}
+	job, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, v2.Job](jobConfig)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not convert TUF init job: %w", err), instance)
+	}
+	if err = kubernetes.Create(ctx, i.Client, job); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}
 

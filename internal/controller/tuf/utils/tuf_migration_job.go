@@ -7,80 +7,46 @@ import (
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils/kubernetes"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
+	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	tufRepositoryPath = "/tuf-repository"
-	rootKeySecretPath = "/root-key-secret"
-	workdirVolumePath = "/workdir"
+	tufRepositoryPath         = "/tuf-repository"
+	rootKeySecretPath         = "/root-key-secret"
+	workdirVolumePath         = "/workdir"
+	TufMigrationContainerName = "tuf-migration"
 )
 
 //go:embed tuf_migration_v1.sh
 var script string
 
-func EnsureTufMigrationJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf, sa string, jobLabels map[string]string) func(*batchv1.Job) error {
-	return func(job *batchv1.Job) error {
-
-		jobSpec := &job.Spec
-		jobSpec.Parallelism = ptr.To[int32](1)
-		jobSpec.Completions = ptr.To[int32](1)
-		jobSpec.BackoffLimit = ptr.To(int32(0))
-		jobSpec.Template.Labels = jobLabels
-
-		templateSpec := &jobSpec.Template.Spec
-		templateSpec.ServiceAccountName = sa
-		templateSpec.RestartPolicy = v1.RestartPolicyNever
-		templateSpec.Affinity = &v1.Affinity{
-			PodAffinity: &v1.PodAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
-					{
-						LabelSelector: &metav1.LabelSelector{
-							MatchLabels: labels.For(constants.ComponentName, constants.DeploymentName, instance.Name),
-						},
-						TopologyKey: "kubernetes.io/hostname",
-					},
-				},
-			},
-		}
-
-		rootKeyVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, "root-key")
-		rootKeyVolume.VolumeSource = v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName: instance.Spec.RootKeySecretRef.Name,
-			},
-		}
-		repositoryVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, constants.VolumeName)
-		repositoryVolume.VolumeSource = v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				ClaimName: instance.Status.PvcName,
-			},
-		}
-		workdirVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, "workdir")
-		workdirVolume.VolumeSource = v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{},
-		}
-
-		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-migration")
-		// tuf image is ubi-based so it has tooling installed
-		container.Image = images.Registry.Get(images.Tuf)
-		operatorName := kubernetes.FindEnvByNameOrCreate(container, "OPERATOR_NAME")
-		operatorName.Value = constants.OperatorName
-		tufRepo := kubernetes.FindEnvByNameOrCreate(container, "TUF_REPO")
-		tufRepo.Value = tufRepositoryPath
-		keydir := kubernetes.FindEnvByNameOrCreate(container, "KEYDIR")
-		keydir.Value = rootKeySecretPath
-		workdir := kubernetes.FindEnvByNameOrCreate(container, "WORKDIR")
-		workdir.Value = workdirVolumePath
+func EnsureTufMigrationJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf) traits.Trait[*batchv1ac.JobApplyConfiguration] {
+	return func(job *batchv1ac.JobApplyConfiguration) error {
+		container := corev1ac.Container().
+			WithName(TufMigrationContainerName).
+			WithImage(images.Registry.Get(images.Tuf)).
+			WithEnv(
+				corev1ac.EnvVar().WithName("OPERATOR_NAME").WithValue(constants.OperatorName),
+				corev1ac.EnvVar().WithName("TUF_REPO").WithValue(tufRepositoryPath),
+				corev1ac.EnvVar().WithName("KEYDIR").WithValue(rootKeySecretPath),
+				corev1ac.EnvVar().WithName("WORKDIR").WithValue(workdirVolumePath),
+			).
+			WithCommand("/bin/bash", "-c").
+			WithArgs(script).
+			WithVolumeMounts(
+				corev1ac.VolumeMount().WithName("root-key").WithMountPath(rootKeySecretPath),
+				corev1ac.VolumeMount().WithName(constants.VolumeName).WithMountPath(tufRepositoryPath).WithReadOnly(false),
+				corev1ac.VolumeMount().WithName("workdir").WithMountPath(workdirVolumePath),
+			)
 
 		for _, key := range trustroot.ActiveKeys(instance) {
 			var resolved trustroot.Resolved
@@ -96,35 +62,38 @@ func EnsureTufMigrationJob(ctx context.Context, c client.Client, instance *rhtas
 
 			switch key {
 			case trustroot.Rekor:
-				kubernetes.FindEnvByNameOrCreate(container, "REKOR_URL").Value = resolved.Address
+				container.WithEnv(corev1ac.EnvVar().WithName("REKOR_URL").WithValue(resolved.Address))
 			case trustroot.CTFE:
-				kubernetes.FindEnvByNameOrCreate(container, "CTLOG_URL").Value = resolved.Address
+				container.WithEnv(corev1ac.EnvVar().WithName("CTLOG_URL").WithValue(resolved.Address))
 			case trustroot.Fulcio:
-				kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL").Value = resolved.Address
-				kubernetes.FindEnvByNameOrCreate(container, "OIDC_ISSUERS").Value = strings.Join(resolved.OIDCIssuers, ",")
+				container.WithEnv(
+					corev1ac.EnvVar().WithName("FULCIO_URL").WithValue(resolved.Address),
+					corev1ac.EnvVar().WithName("OIDC_ISSUERS").WithValue(strings.Join(resolved.OIDCIssuers, ",")),
+				)
 			case trustroot.TSA:
-				kubernetes.FindEnvByNameOrCreate(container, "TSA_URL").Value = resolved.Address
+				container.WithEnv(corev1ac.EnvVar().WithName("TSA_URL").WithValue(resolved.Address))
 			}
 		}
 
-		container.Command = []string{"/bin/bash", "-c"}
-		container.Args = []string{script}
+		podSpec := corev1ac.PodSpec().
+			WithRestartPolicy(v1.RestartPolicyNever).
+			WithContainers(container).
+			WithAffinity(corev1ac.Affinity().WithPodAffinity(corev1ac.PodAffinity().
+				WithRequiredDuringSchedulingIgnoredDuringExecution(corev1ac.PodAffinityTerm().
+					WithLabelSelector(metav1ac.LabelSelector().WithMatchLabels(labels.For(constants.ComponentName, constants.DeploymentName, instance.Name))).
+					WithTopologyKey("kubernetes.io/hostname")))).
+			WithVolumes(
+				corev1ac.Volume().WithName("root-key").WithSecret(corev1ac.SecretVolumeSource().WithSecretName(instance.Spec.RootKeySecretRef.Name)),
+				corev1ac.Volume().WithName(constants.VolumeName).
+					WithPersistentVolumeClaim(corev1ac.PersistentVolumeClaimVolumeSource().WithClaimName(instance.Status.PvcName)),
+				corev1ac.Volume().WithName("workdir").WithEmptyDir(corev1ac.EmptyDirVolumeSource()),
+			)
 
-		container.VolumeMounts = []v1.VolumeMount{
-			{
-				Name:      "root-key",
-				MountPath: rootKeySecretPath,
-			},
-			{
-				Name:      constants.VolumeName,
-				MountPath: tufRepositoryPath,
-				ReadOnly:  false,
-			},
-			{
-				Name:      "workdir",
-				MountPath: workdirVolumePath,
-			},
-		}
+		job.WithSpec(batchv1ac.JobSpec().
+			WithParallelism(1).
+			WithCompletions(1).
+			WithBackoffLimit(0).
+			WithTemplate(corev1ac.PodTemplateSpec().WithLabels(job.Labels).WithSpec(podSpec)))
 
 		return nil
 	}

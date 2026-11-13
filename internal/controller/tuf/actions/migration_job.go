@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
@@ -18,12 +17,12 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
-	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
+	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -126,31 +125,21 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
 	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Started", "Starting TUF migration")
 
-	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
-		&batchv1.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: tufConstants.MigrationJobName + "-",
-				Namespace:    instance.Namespace,
-			},
-		},
-		// use init job RBAC and do not introduce new RBAC for the migration job
-		utils.EnsureTufMigrationJob(ctx, i.Client, instance, tufConstants.RBACInitJobName, labels),
-		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
-		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
-		func(object *batchv1.Job) error {
-			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
-			return nil
-		},
-		func(object *batchv1.Job) error {
-			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
-		},
-		func(object *batchv1.Job) error {
-			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
-		},
-		func(object *batchv1.Job) error {
-			return tlsensure.TrustedCA(instance.GetTrustedCA(), "tuf-migration")(&object.Spec.Template)
-		},
-	); err != nil {
+	jobConfig, err := traits.Apply(
+		batchv1ac.Job("", instance.Namespace).WithGenerateName(tufConstants.MigrationJobName+"-"),
+		traits.ControllerReference[*batchv1ac.JobApplyConfiguration](instance, i.Client),
+		traits.Labels[*batchv1ac.JobApplyConfiguration](labels),
+		utils.EnsureTufMigrationJob(ctx, i.Client, instance),
+		traits.WithJobPodSpecTraits(
+			traits.Proxy([]string{utils.TufMigrationContainerName}),
+			traits.GODEBUG(instance.GetAnnotations(), utils.TufMigrationContainerName),
+			traits.SecurityContexts(utils.TufMigrationContainerName),
+			traits.TrustedCA(instance.GetTrustedCA(), utils.TufMigrationContainerName),
+			// use init job RBAC and do not introduce new RBAC for the migration job
+			traits.ServiceAccount(tufConstants.RBACInitJobName),
+		),
+	)
+	if err != nil {
 		if errors.Is(err, utils.ErrorResolveServiceUrl) {
 			return i.Error(ctx, err, instance,
 				metav1.Condition{
@@ -164,6 +153,14 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 		}
 		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err),
 			instance, metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
+	}
+	job, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, batchv1.Job](jobConfig)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not convert TUF migration job: %w", err), instance)
+	}
+	if err = kubernetes.Create(ctx, i.Client, job); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err), instance,
+			metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
 	}
 
 	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Created", "Tuf migration job created.")

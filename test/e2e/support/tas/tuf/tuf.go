@@ -2,6 +2,7 @@ package tuf
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strings"
 	"time"
@@ -9,11 +10,11 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -25,8 +26,9 @@ import (
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,7 +110,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	}
 	(*t.Spec.Tsa)[0].URL = tsa.Get(ctx, cli, ns, name).Status.URL
 	refreshJob := refreshTufJob(ctx, cli, t)
-	Expect(cli.Create(ctx, refreshJob)).To(Succeed())
+	Expect(kubernetes.Create(ctx, cli, refreshJob)).To(Succeed())
 
 	Eventually(func(g Gomega, ctx context.Context) bool {
 		found := &v12.Job{}
@@ -129,20 +131,29 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 }
 
 func refreshTufJob(ctx context.Context, cli client.Client, instance *rhtasv1.Tuf) *v12.Job {
-	j := &v12.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    instance.Namespace,
-			GenerateName: "tuf-refresh-",
-		},
-	}
 	l := maps.Clone(instance.Labels)
 	l[labels.LabelAppComponent] = "test"
-	Expect(utils2.EnsureTufInitJob(ctx, cli, instance, constants.RBACInitJobName, instance.Labels)(j)).To(Succeed())
-	Expect(ensure.PodSecurityContext(&j.Spec.Template.Spec)).To(Succeed())
-	c := kubernetes.FindContainerByNameOrCreate(&j.Spec.Template.Spec, "tuf-init")
-	args := c.Args
-	c.Args = []string{"rm -rf /var/run/target/* && " + strings.Join(args, " ")}
-	return j
+	jobConfig, err := traits.Apply(
+		batchv1ac.Job("", instance.Namespace).WithGenerateName("tuf-refresh-"),
+		traits.Labels[*batchv1ac.JobApplyConfiguration](l),
+		utils2.EnsureTufInitJob(ctx, cli, instance),
+		traits.WithJobPodSpecTraits(
+			traits.SecurityContexts(utils2.TufInitContainerName),
+			traits.ServiceAccount(constants.RBACInitJobName),
+			func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
+				container := kubernetes.FindContainerByName(podSpec, utils2.TufInitContainerName)
+				if container == nil {
+					return fmt.Errorf("TUF init container is not configured")
+				}
+				container.Args = []string{"rm -rf /var/run/target/* && " + strings.Join(container.Args, " ")}
+				return nil
+			},
+		),
+	)
+	Expect(err).To(Succeed())
+	refreshJob, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, v12.Job](jobConfig)
+	Expect(err).To(Succeed())
+	return refreshJob
 }
 
 func SetTufReplicaCount(ctx context.Context, cli client.Client, namespace, securesignDeploymentName string, replicaCount int32) {

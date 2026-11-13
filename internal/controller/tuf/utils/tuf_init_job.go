@@ -7,23 +7,24 @@ import (
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/images"
-	"github.com/securesign/operator/internal/utils/kubernetes"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
+	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	secretsMonthPath = "/var/run/tuf-secrets"
-	targetMonthPath  = "/var/run/target"
+	secretsMonthPath     = "/var/run/tuf-secrets"
+	targetMonthPath      = "/var/run/target"
+	TufInitContainerName = "tuf-init"
 )
 
-func EnsureTufInitJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
-	return func(job *batchv1.Job) error {
+func EnsureTufInitJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf) traits.Trait[*batchv1ac.JobApplyConfiguration] {
+	return func(job *batchv1ac.JobApplyConfiguration) error {
 		// prepare args
 		args := []string{"--operator", constants.OperatorName, "--export-keys", instance.Spec.RootKeySecretRef.Name}
 		for _, key := range trustroot.ActiveKeys(instance) {
@@ -58,50 +59,33 @@ func EnsureTufInitJob(ctx context.Context, c client.Client, instance *rhtasv1.Tu
 		}
 		args = append(args, targetMonthPath)
 
-		jobSpec := &job.Spec
-		jobSpec.Parallelism = ptr.To[int32](1)
-		jobSpec.Completions = ptr.To[int32](1)
-		jobSpec.BackoffLimit = ptr.To(int32(0))
-		jobSpec.Template.Labels = labels
+		container := corev1ac.Container().
+			WithName(TufInitContainerName).
+			WithImage(images.Registry.Get(images.Tuf)).
+			WithEnv(corev1ac.EnvVar().WithName("NAMESPACE").WithValue(instance.Namespace)).
+			WithCommand("/bin/bash", "-c").
+			WithArgs(fmt.Sprintf("tuf-repo-init.sh %s; ", strings.Join(args, " "))+
+				"exit_code=$?; "+
+				"if [ $exit_code -eq 2 ]; then exit 0; else exit $exit_code; fi").
+			WithVolumeMounts(
+				corev1ac.VolumeMount().WithName("tuf-secrets").WithMountPath(secretsMonthPath),
+				corev1ac.VolumeMount().WithName(constants.VolumeName).WithMountPath(targetMonthPath).WithReadOnly(false),
+			)
 
-		templateSpec := &jobSpec.Template.Spec
-		templateSpec.ServiceAccountName = sa
-		templateSpec.RestartPolicy = v1.RestartPolicyNever
+		podSpec := corev1ac.PodSpec().
+			WithRestartPolicy(v1.RestartPolicyNever).
+			WithContainers(container).
+			WithVolumes(
+				corev1ac.Volume().WithName("tuf-secrets").WithProjected(secretsVolumeProjection(instance.Status.Keys)),
+				corev1ac.Volume().WithName(constants.VolumeName).
+					WithPersistentVolumeClaim(corev1ac.PersistentVolumeClaimVolumeSource().WithClaimName(instance.Status.PvcName)),
+			)
 
-		// initialize volumes
-		secretsVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, "tuf-secrets")
-		secretsVolume.VolumeSource = v1.VolumeSource{
-			Projected: secretsVolumeProjection(instance.Status.Keys),
-		}
-
-		repositoryVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, constants.VolumeName)
-		repositoryVolume.VolumeSource = v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				ClaimName: instance.Status.PvcName,
-			},
-		}
-		// init containers
-		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-init")
-		container.Image = images.Registry.Get(images.Tuf)
-		env := kubernetes.FindEnvByNameOrCreate(container, "NAMESPACE")
-		env.Value = instance.Namespace
-		container.Command = []string{"/bin/bash", "-c"}
-		container.Args = []string{
-			fmt.Sprintf("tuf-repo-init.sh %s; ", strings.Join(args, " ")) +
-				"exit_code=$?; " +
-				"if [ $exit_code -eq 2 ]; then exit 0; else exit $exit_code; fi",
-		}
-		container.VolumeMounts = []v1.VolumeMount{
-			{
-				Name:      "tuf-secrets",
-				MountPath: secretsMonthPath,
-			},
-			{
-				Name:      "repository",
-				MountPath: targetMonthPath,
-				ReadOnly:  false,
-			},
-		}
+		job.WithSpec(batchv1ac.JobSpec().
+			WithParallelism(1).
+			WithCompletions(1).
+			WithBackoffLimit(0).
+			WithTemplate(corev1ac.PodTemplateSpec().WithLabels(job.Labels).WithSpec(podSpec)))
 
 		return nil
 	}
