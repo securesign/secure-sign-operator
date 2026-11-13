@@ -68,15 +68,9 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 		})
 	}
 
-	// Deliberately not serviceresolver.Resolve/ResolveExternalServiceUrl like Rekor's monitor:
-	// unlike Rekor (which validates a signed checkpoint), this monitor compares the log URL
-	// byte-for-byte against the URL stored in TUF metadata, so it must dial the exact external
-	// URL once ingress is enabled. ResolveExternalServiceUrl requires CTlog.Ready, but this
-	// action runs before Ready (server and monitor share one CR), which would deadlock.
-	ctlogServerHost, err := actions.ResolveUrl(ctx, i.Client, instance)
-	if err != nil {
-		return i.Error(ctx, err, instance)
-	}
+	// The preceding status action resolves the full URL, including the ingress
+	// host and active log path. The monitor must use the same URL as TUF metadata.
+	ctlogServerHost := instance.Status.URL
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
