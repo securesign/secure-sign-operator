@@ -3,10 +3,9 @@ package monitor
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"time"
 
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
@@ -16,21 +15,22 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
-	cutils "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	v1 "k8s.io/api/apps/v1"
+	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 const (
 	storageVolumeName = "monitor-storage"
 	tufRepoVolumeName = "tuf-repository"
 	mountPath         = "/data"
+	initContainerName = "tuf-init"
 )
 
 func NewStatefulSetAction() action.Action[*rhtasv1.Rekor] {
@@ -50,11 +50,6 @@ func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor)
 }
 
 func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
-
 	tufServerHost, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Monitoring.Tuf, instance.Namespace, &rhtasv1.Tuf{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not resolve TUF url: %w", err), instance, metav1.Condition{
@@ -71,24 +66,37 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 	}
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v1.StatefulSet{
+	ss, err := traits.Apply(
+		appsv1ac.StatefulSet(actions.MonitorStatefulSetName, instance.Namespace),
+		traits.ControllerReference[*appsv1ac.StatefulSetApplyConfiguration](instance, i.Client),
+		traits.Labels[*appsv1ac.StatefulSetApplyConfiguration](labels),
+		i.createMonitorStatefulSet(instance, rekorServerHost, tufServerHost),
+		traits.WithStatefulSetPodSpecTraits(
+			traits.ServiceAccount(actions.RBACMonitorName),
+			traits.SecurityContexts(actions.MonitorStatefulSetName, initContainerName),
+			traits.GODEBUG(instance.GetAnnotations(), actions.MonitorStatefulSetName),
+		),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
+			metav1.Condition{
+				Type:    actions.MonitorCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Failure.String(),
+				Message: err.Error(),
+			},
+		)
+	}
+
+	changed, err := kubernetes.Apply(ctx, i.Client, ss,
+		&apps.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      actions.MonitorStatefulSetName,
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureMonitorStatefulSet(instance, actions.RBACMonitorName, labels, rekorServerHost, tufServerHost),
-		i.ensureInitContainer(rekorServerHost, tufServerHost),
-		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
-		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
-		func(object *v1.StatefulSet) error {
-			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
-		},
-		func(object *v1.StatefulSet) error {
-			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
-		},
-	); err != nil {
+	)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
 			metav1.Condition{
 				Type:    actions.MonitorCondition,
@@ -99,7 +107,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 		)
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.MonitorCondition,
 			Status:  metav1.ConditionFalse,
@@ -113,76 +121,65 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 	return i.Continue()
 }
 
-func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
-	return func(ss *v1.StatefulSet) error {
-
-		spec := &ss.Spec
-		spec.Replicas = cutils.Pointer[int32](1)
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
-		}
-
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = sa
-
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorStatefulSetName)
-		container.Image = images.Registry.Get(images.RekorMonitor)
-
+// createMonitorStatefulSet builds the complete desired monitor pod template from
+// scratch so that fields the operator stops declaring are pruned by SSA.
+func (i statefulSetAction) createMonitorStatefulSet(instance *rhtasv1.Rekor, rekorServerHost string, tufServerHost string) traits.Trait[*appsv1ac.StatefulSetApplyConfiguration] {
+	return func(ss *appsv1ac.StatefulSetApplyConfiguration) error {
 		interval := 10 * time.Minute
 		if instance.Spec.Monitoring.TLog.Interval != nil && instance.Spec.Monitoring.TLog.Interval.Duration > 0 {
 			interval = instance.Spec.Monitoring.TLog.Interval.Duration
 		}
-		container.Command = []string{
-			"/bin/sh",
-			"-c",
-			fmt.Sprintf(
-				`/rekor_monitor --file=%s/checkpoint_log.txt --once=false --interval=%s --url=%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
-				mountPath, interval.String(), rekorServerHost, tufServerHost, mountPath),
-		}
 
-		container.Ports = []core.ContainerPort{
-			{
-				ContainerPort: actions.MonitorMetricsPort,
-				Name:          actions.MetricsPortName,
-				Protocol:      core.ProtocolTCP,
-			},
-		}
-		homeEnv := kubernetes.FindEnvByNameOrCreate(container, "HOME")
-		homeEnv.Value = mountPath
+		container := corev1ac.Container().
+			WithName(actions.MonitorStatefulSetName).
+			WithImage(images.Registry.Get(images.RekorMonitor)).
+			WithCommand(
+				"/bin/sh",
+				"-c",
+				fmt.Sprintf(
+					`/rekor_monitor --file=%s/checkpoint_log.txt --once=false --interval=%s --url=%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
+					mountPath, interval.String(), rekorServerHost, tufServerHost, mountPath),
+			).
+			WithPorts(corev1ac.ContainerPort().
+				WithContainerPort(actions.MonitorMetricsPort).
+				WithName(actions.MetricsPortName).
+				WithProtocol(core.ProtocolTCP)).
+			WithEnv(corev1ac.EnvVar().
+				WithName("HOME").
+				WithValue(mountPath)).
+			WithVolumeMounts(corev1ac.VolumeMount().
+				WithName(storageVolumeName).
+				WithMountPath(mountPath))
 
-		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
-		volumeMount.MountPath = mountPath
-
-		spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: storageVolumeName,
-				},
-				Spec: core.PersistentVolumeClaimSpec{
-					AccessModes: []core.PersistentVolumeAccessMode{
-						core.ReadWriteOnce,
-					},
-					Resources: core.VolumeResourceRequirements{
-						Requests: core.ResourceList{
-							core.ResourceStorage: resource.MustParse("5Mi"),
-						},
-					},
-				},
-			},
-		}
-
+		ss.WithSpec(appsv1ac.StatefulSetSpec().
+			WithReplicas(1).
+			WithSelector(metav1ac.LabelSelector().WithMatchLabels(ss.Labels)).
+			// Declared at the API server defaults the StatefulSet was created with.
+			// The partition must be explicit: it is only defaulted when the type is
+			// unset, so declaring the type alone would prune it after migration.
+			WithUpdateStrategy(appsv1ac.StatefulSetUpdateStrategy().
+				WithType(apps.RollingUpdateStatefulSetStrategyType).
+				WithRollingUpdate(appsv1ac.RollingUpdateStatefulSetStrategy().WithPartition(0))).
+			// podManagementPolicy is immutable and must not change.
+			WithPodManagementPolicy(apps.OrderedReadyPodManagement).
+			WithVolumeClaimTemplates(monitorStorageClaimTemplate()).
+			WithTemplate(corev1ac.PodTemplateSpec().
+				WithLabels(ss.Labels).
+				WithSpec(corev1ac.PodSpec().
+					WithInitContainers(initContainer(rekorServerHost, tufServerHost)).
+					WithContainers(container))))
 		return nil
 	}
 }
 
-func (i statefulSetAction) ensureInitContainer(rekorServerHost string, tufHost string) func(*v1.StatefulSet) error {
-	return func(ss *v1.StatefulSet) error {
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "tuf-init")
-		initContainer.Image = images.Registry.Get(images.RekorMonitor)
-		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(initContainer, storageVolumeName)
-		volumeMount.MountPath = mountPath
-		initContainer.Command = []string{
+func initContainer(rekorServerHost string, tufHost string) *corev1ac.ContainerApplyConfiguration {
+	return corev1ac.Container().
+		WithName(initContainerName).
+		WithImage(images.Registry.Get(images.RekorMonitor)).
+		WithVolumeMounts(corev1ac.VolumeMount().
+			WithName(storageVolumeName).
+			WithMountPath(mountPath)).
+		WithCommand(
 			"/bin/sh",
 			"-c",
 			fmt.Sprintf(`
@@ -200,8 +197,19 @@ func (i statefulSetAction) ensureInitContainer(rekorServerHost string, tufHost s
                 curl %s/root.json > %s/root.json
                 echo "tuf-init completed."
             `, rekorServerHost, tufHost, tufHost, mountPath),
-		}
+		)
+}
 
-		return nil
-	}
+// monitorStorageClaimTemplate must stay identical to the template existing
+// StatefulSets were created with: volumeClaimTemplates is immutable. It is built
+// without corev1ac.PersistentVolumeClaim so no kind/apiVersion/namespace is sent.
+func monitorStorageClaimTemplate() *corev1ac.PersistentVolumeClaimApplyConfiguration {
+	return (&corev1ac.PersistentVolumeClaimApplyConfiguration{}).
+		WithName(storageVolumeName).
+		WithSpec(corev1ac.PersistentVolumeClaimSpec().
+			WithAccessModes(core.ReadWriteOnce).
+			WithResources(corev1ac.VolumeResourceRequirements().
+				WithRequests(core.ResourceList{
+					core.ResourceStorage: resource.MustParse("5Mi"),
+				})))
 }
