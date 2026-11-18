@@ -182,6 +182,7 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(pause).
 		For(&rhtasv1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.CTlog]())).
 		Owns(&v1.Deployment{}).
+		Owns(&v1.StatefulSet{}).
 		Owns(&v12.Service{}).
 		Owns(&networkingv1.Ingress{}).
 		// receive update on Fulcio root cert change (pulled from status.certificateChain)
