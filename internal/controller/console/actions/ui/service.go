@@ -3,22 +3,20 @@ package ui
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/console/actions"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 func NewCreateServiceAction() action.Action[*rhtasv1.Console] {
@@ -38,34 +36,32 @@ func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1.Cons
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Console) *action.Result {
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
-
 	l := labels.For(actions.UIComponentName, actions.UIDeploymentName, instance.Name)
 
-	ports := []v1.ServicePort{
-		{
-			Name:       actions.UIPortName,
-			Protocol:   v1.ProtocolTCP,
-			Port:       actions.UIPort,
-			TargetPort: intstr.FromString(actions.UIPortName),
-		},
+	service, err := traits.Apply(
+		corev1ac.Service(actions.UIDeploymentName, instance.Namespace).
+			WithSpec(corev1ac.ServiceSpec().WithSelector(l).WithPorts(
+				corev1ac.ServicePort().
+					WithName(actions.UIPortName).
+					WithProtocol(v1.ProtocolTCP).
+					WithPort(actions.UIPort).
+					WithTargetPort(intstr.FromString(actions.UIPortName)),
+			)),
+		traits.ControllerReference[*corev1ac.ServiceApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ServiceApplyConfiguration](l),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build service: %w", err), instance)
 	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v1.Service{
-			ObjectMeta: metav1.ObjectMeta{Name: actions.UIDeploymentName, Namespace: instance.Namespace},
-		},
-		kubernetes.EnsureServiceSpec(l, ports...),
-		ensure.ControllerReference[*v1.Service](instance, i.Client),
-		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(l)), l),
-	); err != nil {
+	changed, err := kubernetes.Apply(ctx, i.Client, service, &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: actions.UIDeploymentName, Namespace: instance.Namespace},
+	})
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,

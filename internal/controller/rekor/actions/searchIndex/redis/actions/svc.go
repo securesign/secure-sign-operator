@@ -3,22 +3,20 @@ package actions
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 )
@@ -40,38 +38,37 @@ func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1.Reko
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
-
-	var (
-		err    error
-		result controllerutil.OperationResult
-	)
-
 	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
 
-	tlsAnnotations := map[string]string{}
-	if specTLS(instance).CertRef == nil {
-		tlsAnnotations[annotations.TLS] = fmt.Sprintf(actions.RedisTlsSecret, instance.Name)
+	service, err := traits.Apply(
+		corev1ac.Service(actions.RedisDeploymentName, instance.Namespace).
+			WithSpec(corev1ac.ServiceSpec().WithSelector(labels).WithPorts(
+				corev1ac.ServicePort().
+					WithName(actions.RedisDeploymentPortName).
+					WithProtocol(v1.ProtocolTCP).
+					WithPort(actions.RedisDeploymentPort).
+					WithTargetPort(intstr.FromInt32(actions.RedisDeploymentPort)),
+			)),
+		traits.ControllerReference[*corev1ac.ServiceApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ServiceApplyConfiguration](labels),
+		//TLS: Annotate service
+		traits.Optional(kubernetes.IsOpenShift() && specTLS(instance).CertRef == nil,
+			traits.Annotations[*corev1ac.ServiceApplyConfiguration](map[string]string{
+				annotations.TLS: fmt.Sprintf(actions.RedisTlsSecret, instance.Name),
+			})),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build service: %w", err), instance)
 	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v1.Service{
-			ObjectMeta: metav1.ObjectMeta{Name: actions.RedisDeploymentName, Namespace: instance.Namespace},
-		},
-		kubernetes.EnsureServiceSpec(labels, v1.ServicePort{
-			Name:       actions.RedisDeploymentPortName,
-			Protocol:   v1.ProtocolTCP,
-			Port:       actions.RedisDeploymentPort,
-			TargetPort: intstr.FromInt32(actions.RedisDeploymentPort),
-		}),
-		ensure.ControllerReference[*v1.Service](instance, i.Client),
-		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(labels)), labels),
-		//TLS: Annotate service
-		ensure.Optional(kubernetes.IsOpenShift(), ensure.Annotations[*v1.Service]([]string{annotations.TLS}, tlsAnnotations)),
-	); err != nil {
+	changed, err := kubernetes.Apply(ctx, i.Client, service, &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: actions.RedisDeploymentName, Namespace: instance.Namespace},
+	})
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
-	if result != controllerutil.OperationResultNone {
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.RedisCondition,
 			Status:  metav1.ConditionFalse,
@@ -79,7 +76,6 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Rekor
 			Message: "Service created",
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
-		return i.Continue()
 	}
+	return i.Continue()
 }
