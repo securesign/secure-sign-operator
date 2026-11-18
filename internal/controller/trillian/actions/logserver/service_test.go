@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -149,7 +150,7 @@ func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewCreateServiceAction())
+	a := testAction.PrepareAction(kubernetes.WithFieldManager(c, kubernetes.FieldManager+"/trillian-controller"), NewCreateServiceAction())
 	result := a.Handle(ctx, instance)
 	g.Expect(result).ToNot(BeNil())
 	g.Expect(result.Err).ToNot(HaveOccurred())
