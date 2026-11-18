@@ -8,8 +8,6 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/utils"
-	"github.com/securesign/operator/internal/utils/kubernetes"
-	v1 "k8s.io/api/core/v1"
 )
 
 const RedisPasswordEnv = "REDIS_PASSWORD"
@@ -39,30 +37,6 @@ func Resolve(instance *rhtasv1.Rekor) (*Options, error) {
 		return &Options{MySQLDSN: instance.Spec.SearchIndex.URL}, nil
 	default:
 		return nil, fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
-	}
-}
-
-func EnsureSearchIndex(instance *rhtasv1.Rekor, redisOpts func(*redis.RedisOptions, *v1.Container), mysqlOpts func(string, *v1.Container)) func(*v1.Container) error {
-	return func(container *v1.Container) error {
-		options, err := Resolve(instance)
-		if err != nil {
-			return err
-		}
-		if ref := options.PasswordRef; ref != nil {
-			passwordEnv := kubernetes.FindEnvByNameOrCreate(container, RedisPasswordEnv)
-			passwordEnv.ValueFrom = &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{Name: ref.Name},
-					Key:                  ref.Key,
-				},
-			}
-		}
-		if options.Redis != nil {
-			redisOpts(options.Redis, container)
-		} else {
-			mysqlOpts(options.MySQLDSN, container)
-		}
-		return nil
 	}
 }
 
