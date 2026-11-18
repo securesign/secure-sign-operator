@@ -1,62 +1,36 @@
 package server
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/serviceresolver"
-	"github.com/securesign/operator/internal/state"
-	v12 "k8s.io/api/networking/v1"
-
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/statusurl"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/utils"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewStatusUrlAction() action.Action[*rhtasv1.Rekor] {
-	return &statusUrlAction{}
+type rekorStatusResolverImpl struct {
 }
 
-type statusUrlAction struct {
-	action.BaseAction
+func (c *rekorStatusResolverImpl) IsEnabled(instance *rhtasv1.Rekor) bool {
+	return utils.IsEnabled(instance.Spec.Ingress.Enabled)
 }
 
-func (i statusUrlAction) Name() string {
-	return "status url"
+func (c *rekorStatusResolverImpl) GetStatusURL(instance *rhtasv1.Rekor) string {
+	return instance.Status.URL
 }
 
-func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
-	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
-}
-
-func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
-	var url string
-	if utils.IsEnabled(instance.Spec.Ingress.Enabled) {
-		protocol := "http://"
-		ingress := &v12.Ingress{}
-		err := i.Client.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}, ingress)
-		if err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		if len(ingress.Spec.TLS) > 0 {
-			protocol = "https://"
-		}
-		url = protocol + ingress.Spec.Rules[0].Host
-	} else {
-		var err error
-		url, err = serviceresolver.Resolve(instance)
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("error resolving internal URL: %w", err), instance)
-		}
-	}
-
-	if url == instance.Status.URL {
-		return i.Continue()
-	}
-
+func (c *rekorStatusResolverImpl) SetStatusURL(instance *rhtasv1.Rekor, url string) {
 	instance.Status.URL = url
-	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+}
+
+func (c *rekorStatusResolverImpl) GetIngressName() string {
+	return actions.ServerDeploymentName
+}
+
+func (c *rekorStatusResolverImpl) GetIngressPath(_ *rhtasv1.Rekor) string {
+	return ""
+}
+
+func NewStatusUrlAction() action.Action[*rhtasv1.Rekor] {
+	return statusurl.NewAction(&rekorStatusResolverImpl{})
 }

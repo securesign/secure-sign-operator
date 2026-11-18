@@ -190,6 +190,8 @@ const (
 	TLSAdherence = "rhtas.redhat.com/tlsAdherence"
 
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
+
+	IngressTermination = "route.openshift.io/termination"
 )
 
 var InheritableAnnotations = []string{

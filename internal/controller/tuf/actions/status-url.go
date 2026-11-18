@@ -1,62 +1,36 @@
 package actions
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
-	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
-	"github.com/securesign/operator/internal/serviceresolver"
-	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils"
-	v12 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/statusurl"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/utils"
 )
 
-func NewStatusUrlAction() action.Action[*rhtasv1.Tuf] {
-	return &statusUrlAction{}
+type tufStatusResolverImpl struct {
 }
 
-type statusUrlAction struct {
-	action.BaseAction
+func (c *tufStatusResolverImpl) IsEnabled(instance *rhtasv1.Tuf) bool {
+	return utils.IsEnabled(instance.Spec.Ingress.Enabled)
 }
 
-func (i statusUrlAction) Name() string {
-	return "status-url"
+func (c *tufStatusResolverImpl) GetStatusURL(instance *rhtasv1.Tuf) string {
+	return instance.Status.URL
 }
 
-func (i statusUrlAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
-	return state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
-}
-
-func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
-	var url string
-	if utils.IsEnabled(instance.Spec.Ingress.Enabled) {
-		protocol := "http://"
-		ingress := &v12.Ingress{}
-		err := i.Client.Get(ctx, types.NamespacedName{Name: tufConstants.ComponentName, Namespace: instance.Namespace}, ingress)
-		if err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		if len(ingress.Spec.TLS) > 0 {
-			protocol = "https://"
-		}
-		url = protocol + ingress.Spec.Rules[0].Host
-	} else {
-		var err error
-		url, err = serviceresolver.Resolve(instance)
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("error resolving internal URL: %w", err), instance)
-		}
-	}
-
-	if url == instance.Status.URL {
-		return i.Continue()
-	}
-
+func (c *tufStatusResolverImpl) SetStatusURL(instance *rhtasv1.Tuf, url string) {
 	instance.Status.URL = url
-	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+}
+
+func (c *tufStatusResolverImpl) GetIngressName() string {
+	return tufConstants.ComponentName
+}
+
+func (c *tufStatusResolverImpl) GetIngressPath(_ *rhtasv1.Tuf) string {
+	return ""
+}
+
+func NewStatusUrlAction() action.Action[*rhtasv1.Tuf] {
+	return statusurl.NewAction(&tufStatusResolverImpl{})
 }

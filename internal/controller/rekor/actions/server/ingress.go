@@ -3,15 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v2 "k8s.io/api/networking/v1"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -21,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	networkingv1ac "k8s.io/client-go/applyconfigurations/networking/v1"
 )
 
 func NewIngressAction() action.Action[*rhtasv1.Rekor] {
@@ -41,10 +39,6 @@ func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) boo
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
 	ok := types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}
 	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
@@ -53,22 +47,29 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		return i.Error(ctx, fmt.Errorf("could not find service for ingress: %w", err), instance)
 	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v2.Ingress{
-			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
-		},
-		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, actions.ServerDeploymentPortName),
-		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		// add ingress labels
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
-		// add common labels
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
-		ensure.ControllerReference[*v2.Ingress](instance, i.Client),
-	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create ingress object: %w", err), instance)
+	ingress, err := traits.Apply(
+		networkingv1ac.Ingress(svc.Name, svc.Namespace),
+		traits.Labels[*networkingv1ac.IngressApplyConfiguration](instance.Spec.Ingress.Labels),
+		traits.Labels[*networkingv1ac.IngressApplyConfiguration](labels),
+		traits.ControllerReference[*networkingv1ac.IngressApplyConfiguration](instance, i.Client),
+		traits.Optional(kubernetes.IsOpenShift(), traits.IngressTLSWithTermination(traits.IngressTerminationEdge)),
+		traits.WithRule(
+			traits.IngressHost(ctx, i.Client, instance.Spec.Ingress, *svc),
+			traits.IngressPath(*svc, actions.ServerDeploymentPortName, "/"),
+		),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build ingress object: %w", err), instance)
 	}
 
-	if result != controllerutil.OperationResultNone {
+	changed, err := kubernetes.Apply(ctx, i.Client, ingress,
+		&v2.Ingress{ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace}},
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not apply ingress object: %w", err), instance)
+	}
+
+	if changed {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -76,7 +77,6 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 			Message: "Ingress created",
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
-		return i.Continue()
 	}
+	return i.Continue()
 }
