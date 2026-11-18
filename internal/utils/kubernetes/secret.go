@@ -2,7 +2,6 @@ package kubernetes
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,25 +74,6 @@ func GetSecretMetadata(ctx context.Context, c client.Client, namespace, name str
 		return nil, err
 	}
 	return obj, nil
-}
-
-func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
-	list, err := ListSecrets(ctx, c, namespace, label)
-	if err != nil {
-		return nil, err
-	}
-
-	switch len(list.Items) {
-	case 1:
-		return &list.Items[0], nil
-	case 0:
-		return nil, apierrors.NewNotFound(schema.GroupResource{
-			Group:    secretGVK.Group,
-			Resource: secretGVK.Kind,
-		}, "")
-	default:
-		return nil, errors.New("duplicate resource")
-	}
 }
 
 func ListSecrets(ctx context.Context, c client.Client, namespace string, labelSelector string) (*metav1.PartialObjectMetadataList, error) {

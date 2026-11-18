@@ -25,9 +25,7 @@ var (
 	ErrDeploymentProgressDeadlineExceeded = errors.New("progress deadline exceeded")
 )
 
-var (
-	log = ctrl.Log.WithName("deployment")
-)
+var log = ctrl.Log.WithName("deployment")
 
 const (
 	revisionAnnotation       = "deployment.kubernetes.io/revision"
@@ -48,10 +46,8 @@ func DeploymentIsRunningByName(ctx context.Context, cli client.Client, namespace
 }
 
 func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace string, labels map[string]string) (bool, error) {
-	var err error
 	list := &v1.DeploymentList{}
-
-	if err = cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
+	if err := cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
 		return false, err
 	}
 
@@ -143,84 +139,6 @@ func getDeploymentCondition(status v1.DeploymentStatus, condType v1.DeploymentCo
 		}
 	}
 	return nil
-}
-
-func FindContainerByNameOrCreate(podSpec *corev1.PodSpec, containerName string) *corev1.Container {
-	for i, c := range podSpec.Containers {
-		if c.Name == containerName {
-			return &podSpec.Containers[i]
-		}
-	}
-	podSpec.Containers = append(podSpec.Containers, corev1.Container{Name: containerName})
-	return &podSpec.Containers[len(podSpec.Containers)-1]
-}
-
-func FindInitContainerByNameOrCreate(podSpec *corev1.PodSpec, containerName string) *corev1.Container {
-	for i, c := range podSpec.InitContainers {
-		if c.Name == containerName {
-			return &podSpec.InitContainers[i]
-		}
-	}
-	podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{Name: containerName})
-	return &podSpec.InitContainers[len(podSpec.InitContainers)-1]
-}
-
-func FindVolumeByNameOrCreate(podSpec *corev1.PodSpec, volumeName string) *corev1.Volume {
-	for i, v := range podSpec.Volumes {
-		if v.Name == volumeName {
-			return &podSpec.Volumes[i]
-		}
-	}
-	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{Name: volumeName})
-	return &podSpec.Volumes[len(podSpec.Volumes)-1]
-}
-
-func FindVolumeMountByNameOrCreate(container *corev1.Container, volumeName string) *corev1.VolumeMount {
-	for i, v := range container.VolumeMounts {
-		if v.Name == volumeName {
-			return &container.VolumeMounts[i]
-		}
-	}
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: volumeName})
-	return &container.VolumeMounts[len(container.VolumeMounts)-1]
-}
-
-func FindPortByNameOrCreate(container *corev1.Container, portName string) *corev1.ContainerPort {
-	for i, v := range container.Ports {
-		if v.Name == portName {
-			return &container.Ports[i]
-		}
-	}
-	container.Ports = append(container.Ports, corev1.ContainerPort{Name: portName})
-	return &container.Ports[len(container.Ports)-1]
-}
-
-func FindEnvByNameOrCreate(container *corev1.Container, envName string) *corev1.EnvVar {
-	for i, v := range container.Env {
-		if v.Name == envName {
-			return &container.Env[i]
-		}
-	}
-	container.Env = append(container.Env, corev1.EnvVar{Name: envName})
-	return &container.Env[len(container.Env)-1]
-}
-
-func RemoveVolumeByName(podSpec *corev1.PodSpec, name string) {
-	for i, v := range podSpec.Volumes {
-		if v.Name == name {
-			podSpec.Volumes = append(podSpec.Volumes[:i], podSpec.Volumes[i+1:]...)
-			return
-		}
-	}
-}
-
-func RemoveVolumeMountByName(container *corev1.Container, name string) {
-	for i, m := range container.VolumeMounts {
-		if m.Name == name {
-			container.VolumeMounts = append(container.VolumeMounts[:i], container.VolumeMounts[i+1:]...)
-			return
-		}
-	}
 }
 
 func FindContainerByName(podSpec *corev1ac.PodSpecApplyConfiguration, containerName string) *corev1ac.ContainerApplyConfiguration {

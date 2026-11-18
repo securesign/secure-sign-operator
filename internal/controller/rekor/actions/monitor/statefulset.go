@@ -28,7 +28,6 @@ import (
 
 const (
 	storageVolumeName = "monitor-storage"
-	tufRepoVolumeName = "tuf-repository"
 	mountPath         = "/data"
 	initContainerName = "tuf-init"
 )

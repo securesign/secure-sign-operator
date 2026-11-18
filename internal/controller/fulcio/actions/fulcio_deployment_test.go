@@ -17,7 +17,6 @@ import (
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -577,7 +576,7 @@ func TestAuthInjectionInFileMode(t *testing.T) {
 
 	authMount := findVolumeMount("auth", container.VolumeMounts)
 	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
-	g.Expect(authMount.MountPath).Should(Equal(ensure.AuthMountPath))
+	g.Expect(authMount.MountPath).Should(Equal(traits.AuthMountPath))
 	g.Expect(authMount.ReadOnly).Should(BeTrue())
 }
 

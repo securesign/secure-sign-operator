@@ -172,32 +172,3 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 	}
 	return ret
 }
-
-func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
-	if secretData == nil {
-		return false
-	}
-
-	configData, ok := secretData[ConfigKey]
-	if !ok || len(configData) == 0 {
-		return false
-	}
-
-	// Parse the protobuf text format configuration
-	var multiConfig configpb.LogMultiConfig
-	if err := prototext.Unmarshal(configData, &multiConfig); err != nil {
-		return false
-	}
-
-	if multiConfig.Backends == nil || multiConfig.Backends.Backend == nil || len(multiConfig.Backends.Backend) == 0 {
-		return false
-	}
-
-	for _, backend := range multiConfig.Backends.Backend {
-		if backend.BackendSpec == expectedTrillianAddr {
-			return true
-		}
-	}
-
-	return false
-}
