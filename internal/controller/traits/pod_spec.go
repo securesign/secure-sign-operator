@@ -162,21 +162,26 @@ func PodExtensions(ext rhtasv1.PodExtensions, containerNames ...string) Trait[*c
 }
 
 // Proxy appends HTTP_PROXY, HTTPS_PROXY, and NO_PROXY environment variables to
-// matching containers. It is a no-op when no proxy is configured.
+// matching containers and init containers. It is a no-op when no proxy is configured.
 func Proxy(containerNames []string, noProxy ...string) Trait[*corev1ac.PodSpecApplyConfiguration] {
 	return func(podSpec *corev1ac.PodSpecApplyConfiguration) error {
 		envs := proxy.ReadProxyVarsFromEnv()
-		for i := range podSpec.Containers {
-			if podSpec.Containers[i].Name != nil && slices.Contains(containerNames, *podSpec.Containers[i].Name) {
+		setProxy := func(containers []corev1ac.ContainerApplyConfiguration) {
+			for i := range containers {
+				if containers[i].Name == nil || !slices.Contains(containerNames, *containers[i].Name) {
+					continue
+				}
 				for _, e := range envs {
 					value := e.Value
 					if strings.EqualFold(e.Name, "no_proxy") && len(noProxy) > 0 {
 						value = strings.Join(noProxy, ",") + "," + value
 					}
-					podSpec.Containers[i].WithEnv(corev1ac.EnvVar().WithName(e.Name).WithValue(value))
+					containers[i].WithEnv(corev1ac.EnvVar().WithName(e.Name).WithValue(value))
 				}
 			}
 		}
+		setProxy(podSpec.Containers)
+		setProxy(podSpec.InitContainers)
 		return nil
 	}
 }

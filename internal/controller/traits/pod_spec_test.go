@@ -231,6 +231,22 @@ func TestProxy(t *testing.T) {
 	g.Expect(podSpec.Containers[1].Env).To(BeEmpty())
 }
 
+func TestProxyInitContainers(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "http://proxy.example")
+	t.Setenv("HTTPS_PROXY", "https://proxy.example")
+	t.Setenv("NO_PROXY", "cluster.local")
+
+	g := NewWithT(t)
+	podSpec := podSpecWithContainers("server").
+		WithInitContainers(corev1ac.Container().WithName("init"), corev1ac.Container().WithName("user-init"))
+	g.Expect(Proxy([]string{"server", "init"})(podSpec)).To(Succeed())
+
+	value, found := envValue(podSpec.InitContainers[0], "HTTPS_PROXY")
+	g.Expect(found).To(BeTrue())
+	g.Expect(value).To(Equal("https://proxy.example"))
+	g.Expect(podSpec.InitContainers[1].Env).To(BeEmpty())
+}
+
 func TestGODEBUG(t *testing.T) {
 	t.Run("operator environment", func(t *testing.T) {
 		t.Setenv("GODEBUG", "fips140=only")
