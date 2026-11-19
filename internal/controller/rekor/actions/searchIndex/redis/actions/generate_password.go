@@ -4,22 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 func NewGeneratePasswordAction() action.Action[*rhtasv1.Rekor] {
@@ -41,23 +40,30 @@ func (i generatePasswordAction) CanHandle(_ context.Context, instance *rhtasv1.R
 }
 
 func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
-	var (
-		err error
+	secretLabels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
+	secretName := fmt.Sprintf("redis-password-%s", instance.Name)
+	secretConfig, err := traits.Apply(
+		corev1ac.Secret("", instance.Namespace).
+			WithGenerateName(secretName).
+			WithImmutable(true).
+			WithData(map[string][]byte{"password": utils.GeneratePassword(8)}),
+		traits.ControllerReference[*corev1ac.SecretApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.SecretApplyConfiguration](secretLabels),
 	)
-	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
-
-	obj := &core.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    instance.Namespace,
-			GenerateName: fmt.Sprintf("redis-password-%s", instance.Name),
-		},
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build %s db password Secret: %w", secretName, err), instance,
+			metav1.Condition{
+				Type:    actions.RedisCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Failure.String(),
+				Message: err.Error(),
+			},
+		)
 	}
-	if err = kubernetes.Create(ctx, i.Client, obj,
-		ensure.ControllerReference[*core.Secret](instance, i.Client),
-		ensure.Labels[*core.Secret](slices.Collect(maps.Keys(labels)), labels),
-		kubernetes.EnsureSecretData(true, map[string][]byte{"password": utils.GeneratePassword(8)}),
-	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create %s db password Secret: %w", obj.Name, err), instance,
+
+	secret, err := kubernetes.Create(ctx, i.Client, secretConfig)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create %s db password Secret: %w", secretName, err), instance,
 			metav1.Condition{
 				Type:    actions.RedisCondition,
 				Status:  metav1.ConditionFalse,
@@ -68,10 +74,10 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1.Re
 	}
 
 	instance.Status.SearchIndex.DbPasswordRef = &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: obj.Name},
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: secret.GetName()},
 		Key:                  "password",
 	}
-	i.Recorder.Eventf(instance, obj, core.EventTypeNormal, "RedisSecretCreated", "Created", "Secret with redis password created: %s", obj.Name)
+	i.Recorder.Eventf(instance, secret, core.EventTypeNormal, "RedisSecretCreated", "Created", "Secret with redis password created: %s", secret.GetName())
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               actions.RedisCondition,
 		Status:             metav1.ConditionFalse,
@@ -83,7 +89,7 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1.Re
 	if err != nil {
 		return i.Error(ctx, err, instance)
 	}
-	i.cleanup(ctx, instance, labels)
+	i.cleanup(ctx, instance, secretLabels)
 	if changed {
 		return i.Return()
 	}

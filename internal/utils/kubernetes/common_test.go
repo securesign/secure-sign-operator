@@ -149,14 +149,14 @@ func TestCalculateHostname_OpenShift_MissingIngress(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	t.Parallel()
+	createErr := fmt.Errorf("api server unavailable")
 	tests := []struct {
 		name      string
-		mutateErr error
 		intercept interceptor.Funcs
-		wantErr   bool
+		wantErr   error
 	}{
 		{
-			name: "applies mutate fns and creates, without probing for an existing object",
+			name: "creates from the apply configuration without probing for an existing object",
 			intercept: interceptor.Funcs{
 				Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
 					return fmt.Errorf("Get should never be called by Create")
@@ -164,57 +164,42 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name:      "mutate fn error is returned and Create is not called",
-			mutateErr: fmt.Errorf("mutate failed"),
-			intercept: interceptor.Funcs{
-				Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
-					return fmt.Errorf("Create should not be called when a mutate fn fails")
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "client Create error is propagated",
 			intercept: interceptor.Funcs{
 				Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
-					return fmt.Errorf("api server unavailable")
+					return createErr
 				},
 			},
-			wantErr: true,
+			wantErr: createErr,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
-			c := testAction.FakeClientBuilder().
-				WithInterceptorFuncs(tt.intercept).
-				Build()
+			c := testAction.FakeClientBuilder().Build()
+			labels := map[string]string{"foo": "bar"}
+			data := map[string][]byte{"payload": {0, 255}}
+			config := corev1ac.Secret("", "default").
+				WithGenerateName("test-secret-").
+				WithLabels(labels).
+				WithImmutable(true).
+				WithData(data)
 
-			obj := &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-secret-",
-					Namespace:    "default",
-				},
-			}
-
-			err := Create(t.Context(), c, obj,
-				func(s *v1.Secret) error {
-					if tt.mutateErr != nil {
-						return tt.mutateErr
-					}
-					s.Labels = map[string]string{"foo": "bar"}
-					return nil
-				},
-			)
-
-			if tt.wantErr {
-				g.Expect(err).To(gomega.HaveOccurred())
+			obj, err := Create(t.Context(), interceptor.NewClient(c, tt.intercept), config)
+			if tt.wantErr != nil {
+				g.Expect(err).To(gomega.MatchError(tt.wantErr))
+				g.Expect(obj).To(gomega.BeNil())
 				return
 			}
 			g.Expect(err).ToNot(gomega.HaveOccurred())
-			g.Expect(obj.Name).ToNot(gomega.BeEmpty())
-			g.Expect(obj.Labels).To(gomega.Equal(map[string]string{"foo": "bar"}))
+			g.Expect(obj.GetName()).To(gomega.HavePrefix("test-secret-"))
+
+			secret := &v1.Secret{}
+			g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(obj), secret)).To(gomega.Succeed())
+			g.Expect(secret.Labels).To(gomega.Equal(labels))
+			g.Expect(secret.Data).To(gomega.Equal(data))
+			g.Expect(secret.Immutable).To(gomega.HaveValue(gomega.BeTrue()))
 		})
 	}
 }

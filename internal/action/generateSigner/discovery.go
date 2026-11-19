@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/traits"
-	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,12 +26,18 @@ func EnsureDiscoveryLabels(ctx context.Context, cli client.Client, namespace, se
 		if err != nil {
 			return err
 		}
-		for _, s := range existing.Items {
-			if s.Name == secretName {
+		for _, secret := range existing.Items {
+			if secret.Name == secretName {
 				continue
 			}
-			if err := labels.Remove(ctx, &s, cli, label); err != nil {
-				return err
+			// The metadata-only list returns PartialObjectMetadata, so route the patch to Secret.
+			secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+			before := secret.DeepCopy()
+			delete(secret.Labels, label)
+			// Removing the last label can clear the labels map, so guard against concurrent changes.
+			patch := client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})
+			if err := cli.Patch(ctx, &secret, patch); err != nil {
+				return fmt.Errorf("unable to remove %q label from secret %s: %w", label, secret.Name, err)
 			}
 		}
 	}

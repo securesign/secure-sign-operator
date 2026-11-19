@@ -558,7 +558,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 				conditions:  []metav1.Condition{readyCond(metav1.ConditionFalse, ""), trustMaterialCond(metav1.ConditionFalse, ReasonDrifted, "")},
 				resolve:     resolvesTo(validPEM),
 				intercept: interceptor.Funcs{
-					Update: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.UpdateOption) error {
+					Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
 						return apierrors.NewInternalError(fmt.Errorf("etcd timeout"))
 					},
 				},
