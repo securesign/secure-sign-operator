@@ -3,25 +3,24 @@ package db
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"strconv"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/controller/traits"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierros "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 const (
@@ -37,8 +36,6 @@ const (
 	annotationPort     = labels.LabelNamespace + "/" + dbsecret.SecretPort
 	annotationHost     = labels.LabelNamespace + "/" + dbsecret.SecretHost
 )
-
-var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
 
 func NewHandleSecretAction() action.Action[*rhtasv1.Trillian] {
 	return &handleSecretAction{}
@@ -115,18 +112,26 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1.Trilli
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
-	dbSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: dbConnectionSecretName,
-			Namespace:    instance.Namespace,
-		},
+	secret, err := traits.Apply(
+		corev1ac.Secret("", instance.Namespace).
+			WithGenerateName(dbConnectionSecretName).
+			WithImmutable(true).
+			WithData(i.defaultDBData()),
+		traits.Labels[*corev1ac.SecretApplyConfiguration](dbLabels),
+		traits.Annotations[*corev1ac.SecretApplyConfiguration](i.secretAnnotations()),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
+			metav1.Condition{
+				Type:    trillian.DbCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Failure.String(),
+				Message: err.Error(),
+			})
 	}
-	if err = kubernetes.Create(ctx, i.Client,
-		dbSecret,
-		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(dbLabels)), dbLabels),
-		ensure.Annotations[*corev1.Secret](managedAnnotations, i.secretAnnotations()),
-		kubernetes.EnsureSecretData(true, i.defaultDBData()),
-	); err != nil {
+
+	dbSecret, err := kubernetes.Create(ctx, i.Client, secret)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
 			metav1.Condition{
 				Type:    trillian.DbCondition,
@@ -137,7 +142,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1.Trilli
 	}
 
 	instance.Status.Db.DatabaseSecretRef = &rhtasv1.LocalObjectReference{
-		Name: dbSecret.Name,
+		Name: dbSecret.GetName(),
 	}
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

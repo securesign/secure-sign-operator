@@ -109,8 +109,8 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 		t.Spec.Tsa = &[]rhtasv1.TrustRootBinding{{}}
 	}
 	(*t.Spec.Tsa)[0].URL = tsa.Get(ctx, cli, ns, name).Status.URL
-	refreshJob := refreshTufJob(ctx, cli, t)
-	Expect(kubernetes.Create(ctx, cli, refreshJob)).To(Succeed())
+	refreshJob, err := kubernetes.Create(ctx, cli, refreshTufJob(ctx, cli, t))
+	Expect(err).To(Succeed())
 
 	Eventually(func(g Gomega, ctx context.Context) bool {
 		found := &v12.Job{}
@@ -130,7 +130,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	time.Sleep(5 * time.Second)
 }
 
-func refreshTufJob(ctx context.Context, cli client.Client, instance *rhtasv1.Tuf) *v12.Job {
+func refreshTufJob(ctx context.Context, cli client.Client, instance *rhtasv1.Tuf) *batchv1ac.JobApplyConfiguration {
 	l := maps.Clone(instance.Labels)
 	l[labels.LabelAppComponent] = "test"
 	jobConfig, err := traits.Apply(
@@ -151,9 +151,7 @@ func refreshTufJob(ctx context.Context, cli client.Client, instance *rhtasv1.Tuf
 		),
 	)
 	Expect(err).To(Succeed())
-	refreshJob, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, v12.Job](jobConfig)
-	Expect(err).To(Succeed())
-	return refreshJob
+	return jobConfig
 }
 
 func SetTufReplicaCount(ctx context.Context, cli client.Client, namespace, securesignDeploymentName string, replicaCount int32) {

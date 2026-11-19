@@ -15,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -85,13 +84,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 		if !jobUtils.IsFailed(*job) {
 			i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Completed", "TUF migration job passed")
 
-			//annotate self to signal that the migration is complete
-			var (
-				err error
-			)
-			if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, instance,
-				ensure.Annotations[*rhtasv1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
-			); err != nil {
+			if err := markRepositoryV1(ctx, i.Client, instance); err != nil {
 				return i.Error(ctx, err, instance)
 			}
 
@@ -154,11 +147,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err),
 			instance, metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
 	}
-	job, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, batchv1.Job](jobConfig)
-	if err != nil {
-		return i.Error(ctx, fmt.Errorf("could not convert TUF migration job: %w", err), instance)
-	}
-	if err = kubernetes.Create(ctx, i.Client, job); err != nil {
+	if _, err := kubernetes.Create(ctx, i.Client, jobConfig); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err), instance,
 			metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
 	}

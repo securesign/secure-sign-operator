@@ -195,6 +195,7 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 	}
 	g.Expect(migrateJobTestAction.Client.Status().Update(t.Context(), job)).To(Succeed())
 
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
 	result = migrateJobTestAction.Handle(t.Context(), instance)
 	g.Expect(instance.Status.Conditions).To(ContainElement(metav1.Condition{

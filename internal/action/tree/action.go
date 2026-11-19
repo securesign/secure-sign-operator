@@ -19,7 +19,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/utils/tls"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -288,11 +287,8 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not build tree job: %w", err), instance)
 	}
-	job, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, batchv1.Job](jobConfig)
+	job, err := kubernetes.Create(ctx, i.Client, jobConfig)
 	if err != nil {
-		return i.Error(ctx, fmt.Errorf("could not convert tree job: %w", err), instance)
-	}
-	if err = kubernetes.Create(ctx, i.Client, job); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create createtree job: %w", err), instance,
 			metav1.Condition{
 				Type:    JobCondition,

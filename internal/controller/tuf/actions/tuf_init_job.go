@@ -15,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
 	v2 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -24,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
 	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -74,7 +74,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 			})
 			if job.Annotations[tufConstants.RepositoryVersionAnnotation] == tufConstants.TufVersionV1 {
 				// annotate self to signal that the tuf repository is already v1
-				if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, instance.DeepCopy(), ensure.Annotations[*rhtasv1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1})); err != nil {
+				if err := markRepositoryV1(ctx, i.Client, instance); err != nil {
 					return i.Error(ctx, err, instance)
 				}
 			}
@@ -101,6 +101,24 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 		}
 		return i.RequeueAfter(5 * time.Second)
 	}
+}
+
+func markRepositoryV1(ctx context.Context, cli client.Client, instance *rhtasv1.Tuf) error {
+	if instance.Annotations[tufConstants.RepositoryVersionAnnotation] == tufConstants.TufVersionV1 {
+		return nil
+	}
+
+	updated := instance.DeepCopy()
+	if updated.Annotations == nil {
+		updated.Annotations = make(map[string]string)
+	}
+	updated.Annotations[tufConstants.RepositoryVersionAnnotation] = tufConstants.TufVersionV1
+	patch := client.MergeFromWithOptions(instance, client.MergeFromWithOptimisticLock{})
+	if err := cli.Patch(ctx, updated, patch); err != nil {
+		return fmt.Errorf("could not mark TUF repository as v1: %w", err)
+	}
+	instance.ObjectMeta = updated.ObjectMeta
+	return nil
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
@@ -141,11 +159,7 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 		}
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}
-	job, err := traits.ConvertViaJSON[*batchv1ac.JobApplyConfiguration, v2.Job](jobConfig)
-	if err != nil {
-		return i.Error(ctx, fmt.Errorf("could not convert TUF init job: %w", err), instance)
-	}
-	if err = kubernetes.Create(ctx, i.Client, job); err != nil {
+	if _, err := kubernetes.Create(ctx, i.Client, jobConfig); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}
 

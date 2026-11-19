@@ -10,10 +10,10 @@ import (
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
-	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -151,9 +151,22 @@ func (a *resolveAction[T]) acceptTrustMaterial(ctx context.Context, instance T, 
 	}
 
 	if acknowledged {
-		if _, err := k8sutils.CreateOrUpdate(ctx, a.Client, instance,
-			ensure.Annotations[T]([]string{annotations.RefreshTrustMaterial}, map[string]string{}),
-		); err != nil {
+		key := client.ObjectKeyFromObject(instance)
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			current := instance.DeepCopyObject().(T)
+			if err := a.Client.Get(ctx, key, current); err != nil {
+				return err
+			}
+			if !hasRefreshAcknowledgement(current) {
+				return nil
+			}
+
+			before := current.DeepCopyObject().(T)
+			delete(current.GetAnnotations(), annotations.RefreshTrustMaterial)
+			patch := client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})
+			return a.Client.Patch(ctx, current, patch)
+		})
+		if err != nil {
 			a.Logger.Error(err, "failed to clear trust material acknowledgement annotation", "component", a.resolver.ComponentName())
 			a.Recorder.Eventf(instance, nil, "Warning", "AnnotationClearFailed", "Failed",
 				"Accepted %s trust material but failed to clear the %s annotation: %s",

@@ -4,22 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
@@ -77,25 +76,25 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 	// invalidate
 	instance.Status.ServerConfigRef = nil
 
-	// create new config
-	newConfig := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: cmName,
-			Namespace:    instance.Namespace,
-		},
+	config, err := traits.Apply(
+		corev1ac.ConfigMap("", instance.Namespace).
+			WithGenerateName(cmName).
+			WithImmutable(true).
+			WithData(content),
+		traits.ControllerReference[*corev1ac.ConfigMapApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ConfigMapApplyConfiguration](labels),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build sharding config: %w", err), instance)
 	}
 
-	if err = kubernetes.Create(ctx, i.Client,
-		newConfig,
-		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
-		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(labels)), labels),
-		kubernetes.EnsureConfigMapData(true, content),
-	); err != nil {
+	newConfig, err := kubernetes.Create(ctx, i.Client, config)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create sharding config: %w", err), instance)
 	}
 
-	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "ShardingConfigCreated", "Created", "ConfigMap with sharding configuration created: %s", newConfig.Name)
-	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.Name}
+	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "ShardingConfigCreated", "Created", "ConfigMap with sharding configuration created: %s", newConfig.GetName())
+	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.GetName()}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    actions.ServerCondition,
