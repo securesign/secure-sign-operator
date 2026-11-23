@@ -10,7 +10,6 @@ import (
 
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/config"
-	cLabels "github.com/securesign/operator/internal/labels"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
@@ -54,18 +53,6 @@ func WithFieldManager(c client.Client, manager string) client.Client {
 		Client:  client.WithFieldOwner(c, manager),
 		manager: manager,
 	}
-}
-
-func FilterOutCommonLabels(labels map[string]string) map[string]string {
-	out := map[string]string{}
-	for key, value := range labels {
-		switch key {
-		case cLabels.LabelAppPartOf, cLabels.LabelAppInstance, cLabels.LabelAppComponent, cLabels.LabelAppManagedBy, cLabels.LabelAppName:
-		default:
-			out[key] = value
-		}
-	}
-	return out
 }
 
 func getDefaultKubeConfigFile() (string, error) {

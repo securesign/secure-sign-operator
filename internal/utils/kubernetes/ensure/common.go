@@ -43,14 +43,3 @@ func ControllerReference[T client.Object](owner client.Object, cli client.Client
 		return controllerutil.SetControllerReference(owner, controlled, cli.Scheme())
 	}
 }
-
-func Optional[T client.Object](condition bool, fn func(controlled T) error) func(controlled T) error {
-	if condition {
-		return fn
-	} else {
-		// return empty function
-		return func(controlled T) error {
-			return nil
-		}
-	}
-}

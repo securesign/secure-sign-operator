@@ -8,7 +8,6 @@ import (
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -27,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/matchers"
+	routev1 "github.com/openshift/api/route/v1"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
@@ -264,9 +264,13 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			if testSupportKubernetes.IsRemoteClusterOpenshift() {
 				Expect(ingress.Annotations).To(HaveKeyWithValue("route.openshift.io/termination", "edge"))
 
-				r, err := kubernetes.GetRoute(ctx, cli, namespace.Name, labels.ForComponent(constants.ComponentName, s.Name))
-				Expect(err).To(Not(HaveOccurred()))
-				Expect(r.Labels).To(HaveKeyWithValue("foo", "bar"))
+				routes := &routev1.RouteList{}
+				Expect(cli.List(ctx, routes,
+					client.InNamespace(namespace.Name),
+					client.MatchingLabels(labels.ForComponent(constants.ComponentName, s.Name)),
+				)).To(Succeed())
+				Expect(routes.Items).NotTo(BeEmpty())
+				Expect(routes.Items[0].Labels).To(HaveKeyWithValue("foo", "bar"))
 			}
 		})
 
