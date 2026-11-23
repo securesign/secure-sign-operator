@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
-	"github.com/securesign/operator/internal/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -109,29 +107,4 @@ func ListSecrets(ctx context.Context, c client.Client, namespace string, labelSe
 	}
 	return list, nil
 
-}
-
-var (
-	// ErrImmutableSecretDataMismatch is returned when an attempt is made to update
-	// the data of a Kubernetes Secret that has Immutable: true.
-	ErrImmutableSecretDataMismatch = errors.New("can't update immutable Secret data")
-
-	// ErrImmutableSecretMutability is returned when an attempt is made to change
-	// a Secret's Immutable field from true to false.
-	ErrImmutableSecretMutability = errors.New("can't update Secret mutability")
-)
-
-func EnsureSecretData(immutable bool, data map[string][]byte) func(secret *corev1.Secret) error {
-	return func(instance *corev1.Secret) error {
-		switch {
-		case !utils.OptionalBool(instance.Immutable):
-		case !reflect.DeepEqual(instance.Data, data):
-			return fmt.Errorf("%w", ErrImmutableSecretDataMismatch)
-		case utils.OptionalBool(instance.Immutable) && !immutable:
-			return fmt.Errorf("%w", ErrImmutableSecretMutability)
-		}
-		instance.Immutable = utils.Pointer(immutable)
-		instance.Data = data
-		return nil
-	}
 }

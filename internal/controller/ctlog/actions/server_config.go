@@ -5,22 +5,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -128,22 +127,28 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		})
 	}
 
-	newConfig := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("ctlog-config-%s", instance.Name),
-			Namespace:    instance.Namespace,
-		},
+	config, err := traits.Apply(
+		corev1ac.Secret("", instance.Namespace).
+			WithGenerateName(fmt.Sprintf("ctlog-config-%s", instance.Name)).
+			WithImmutable(true).
+			WithData(cfg),
+		traits.ControllerReference[*corev1ac.SecretApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.SecretApplyConfiguration](configLabels),
+		traits.Annotations[*corev1ac.SecretApplyConfiguration](i.configMatchingAnnotations(trillianUrl, hash)),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build server config: %w", err), instance,
+			metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
+			})
 	}
 
-	configAnnotations := i.configMatchingAnnotations(trillianUrl, hash)
-
-	if err = kubernetes.Create(ctx, i.Client,
-		newConfig,
-		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
-		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
-		ensure.Annotations[*corev1.Secret](serverConfigAnnotations, configAnnotations),
-		kubernetes.EnsureSecretData(true, cfg),
-	); err != nil {
+	newConfig, err := kubernetes.Create(ctx, i.Client, config)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
 			metav1.Condition{
 				Type:               ConfigCondition,
@@ -154,10 +159,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 			})
 	}
 
-	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.Name}
+	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.GetName()}
 
-	i.Logger.Info("Server config secret created", "secret", newConfig.Name)
-	i.Recorder.Eventf(instance, newConfig, corev1.EventTypeNormal, "CTLogConfigCreated", "Created", "Config secret created successfully: %s", newConfig.Name)
+	i.Logger.Info("Server config secret created", "secret", newConfig.GetName())
+	i.Recorder.Eventf(instance, newConfig, corev1.EventTypeNormal, "CTLogConfigCreated", "Created", "Config secret created successfully: %s", newConfig.GetName())
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,

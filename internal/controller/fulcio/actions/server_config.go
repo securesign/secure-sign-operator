@@ -4,26 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
-	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	yaml "sigs.k8s.io/yaml/goyaml.v2"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 const (
@@ -79,30 +77,25 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 	// invalidate
 	instance.Status.ServerConfigRef = nil
 
-	// create new config
-	newConfig := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "fulcio-config-",
-			Namespace:    instance.Namespace,
-		},
+	desiredConfig, err := traits.Apply(
+		corev1ac.ConfigMap("", instance.Namespace).
+			WithGenerateName("fulcio-config-").
+			WithImmutable(true).
+			WithData(map[string]string{serverConfigName: string(config)}),
+		traits.ControllerReference[*corev1ac.ConfigMapApplyConfiguration](instance, i.Client),
+		traits.Labels[*corev1ac.ConfigMapApplyConfiguration](configLabel),
+	)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not build server config: %w", err), instance)
 	}
 
-	if err = kubernetes.Create(ctx, i.Client,
-		newConfig,
-		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
-		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(configLabel)), configLabel),
-		kubernetes.EnsureConfigMapData(
-			true,
-			map[string]string{
-				serverConfigName: string(config),
-			},
-		),
-	); err != nil {
+	newConfig, err := kubernetes.Create(ctx, i.Client, desiredConfig)
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance)
 	}
 
-	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "FulcioConfigUpdated", "Updated", "Fulcio config updated: %s", newConfig.Name)
-	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.Name}
+	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "FulcioConfigUpdated", "Updated", "Fulcio config updated: %s", newConfig.GetName())
+	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.GetName()}
 
 	meta.SetStatusCondition(&instance.Status.Conditions,
 		metav1.Condition{

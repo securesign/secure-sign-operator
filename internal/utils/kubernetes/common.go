@@ -131,15 +131,20 @@ func FindByLabelSelector(ctx context.Context, c client.Client, list client.Objec
 	return c.List(ctx, list, client.InNamespace(namespace), listOptions)
 }
 
-func Create[T client.Object](ctx context.Context, cli client.Client, obj T, fn ...func(object T) error) error {
-	var err error
-	for _, f := range fn {
-		err = errors.Join(err, f(obj))
+// Create posts an apply configuration as a new object and returns the server response.
+func Create(ctx context.Context, cli client.Client, configuration runtime.ApplyConfiguration) (*unstructured.Unstructured, error) {
+	if configuration == nil {
+		return nil, errors.New("apply configuration is required")
 	}
+	fields, err := runtime.DefaultUnstructuredConverter.ToUnstructured(configuration)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("could not convert apply configuration for create: %w", err)
 	}
-	return cli.Create(ctx, obj)
+	obj := &unstructured.Unstructured{Object: fields}
+	if err := cli.Create(ctx, obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 // migrateLegacyManagedFields converts the stale LegacyFieldManager Update-operation
