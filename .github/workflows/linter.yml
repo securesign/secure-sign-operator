@@ -75,5 +75,22 @@ jobs:
             fi
           done
           exit $FAILED
-
-
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: 'go.mod'
+      - name: Regenerate committed generated files
+        run: make manifests generate update-ctfe-configpb
+      - name: Check for uncommitted changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            git diff
+            echo "::error::Generated files are out of date. Run 'make manifests generate' and commit the result."
+            exit 1
+          fi
