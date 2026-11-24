@@ -3,9 +3,9 @@ package utils
 import (
 	"testing"
 
-	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/internal/controller/ctlog/configpb"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )

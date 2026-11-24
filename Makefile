@@ -254,6 +254,8 @@ CONTROLLER_TOOLS_VERSION ?= v0.17.0
 ENVTEST_VERSION ?= release-0.20
 GOLANGCI_LINT_VERSION ?= v2.13.2
 CONVERSION_GEN_VERSION ?= v0.36.1
+# renovate: datasource=go depName=github.com/google/certificate-transparency-go
+CTFE_CONFIGPB_VERSION ?= v1.4.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -286,6 +288,14 @@ generate-conversion: conversion-gen ## Generate conversion functions for API ver
 		--go-header-file=./hack/boilerplate.go.txt \
 		--output-file=zz_generated.conversion.go \
 		./api/v1alpha1 ./api/v1
+
+CTFE_CONFIGPB_DIR = internal/controller/ctlog/configpb
+
+.PHONY: update-ctfe-configpb
+update-ctfe-configpb: ## Copy the generated CTFE configpb from certificate-transparency-go.
+	@src=$$(cd $$(mktemp -d) && go mod download -json github.com/google/certificate-transparency-go@$(CTFE_CONFIGPB_VERSION) | grep '"Dir"' | cut -d'"' -f4) && \
+	mkdir -p $(CTFE_CONFIGPB_DIR) && \
+	install -m 644 $$src/trillian/ctfe/configpb/config.pb.go $$src/trillian/ctfe/configpb/config.proto $(CTFE_CONFIGPB_DIR)/
 
 .PHONY: custom-golangci-lint
 custom-golangci-lint: golangci-lint ## Build golangci-lint with action framework linter plugin.

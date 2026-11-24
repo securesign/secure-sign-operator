@@ -27,6 +27,16 @@
       ],
       "datasourceTemplate": "docker",
       "versioningTemplate": "redhat"
+    },
+    {
+      "customType": "regex",
+      "description": "Update versions pinned in Makefile",
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n[A-Z_]+ \\?= (?<currentValue>\\S+)"
+      ]
     }
   ]
 }
