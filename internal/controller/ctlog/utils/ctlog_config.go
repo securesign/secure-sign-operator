@@ -5,8 +5,8 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
+	"github.com/securesign/operator/internal/controller/ctlog/configpb"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
