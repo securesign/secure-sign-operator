@@ -205,7 +205,11 @@ func main() {
 	// The SecurityProfileWatcher restarts the operator when it changes.
 	appconfig.ClusterTLSAdherenceStrict = clusterEnforcesStrictTLS(tlsAdherence)
 
-	tlsConfigFn, unsupportedCiphers := ostls.NewTLSConfigFromProfile(tlsProfileSpec)
+	tlsConfigFn, unsupportedCiphers, err := ostls.NewTLSConfigFromProfile(tlsProfileSpec)
+	if err != nil {
+		setupLog.Error(err, "unable to build TLS config from cluster TLS profile")
+		os.Exit(1)
+	}
 	if len(unsupportedCiphers) > 0 {
 		setupLog.Info("cluster TLS profile contains ciphers unsupported by Go TLS",
 			"ciphers", unsupportedCiphers)
