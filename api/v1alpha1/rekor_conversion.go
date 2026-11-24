@@ -95,6 +95,7 @@ func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Spec.Ingress.Annotations = restored.Spec.Ingress.Annotations
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	if dst.Spec.Trillian.URL == "" {

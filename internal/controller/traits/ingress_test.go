@@ -95,3 +95,64 @@ func TestWithRule_MultiplePaths(t *testing.T) {
 	g.Expect(*paths[1].Backend.Service.Port.Name).To(gomega.Equal("web"))
 	g.Expect(ingress.Spec.Rules[1].HTTP.Paths).To(gomega.HaveLen(1))
 }
+
+func TestAnnotations_HAProxyMerge(t *testing.T) {
+	t.Parallel()
+	defaults := annotations.HAProxyThrottlingDefaults(100, 100, 100)
+
+	tests := []struct {
+		name            string
+		openShift       bool
+		userAnnotations map[string]string
+		expected        map[string]string
+	}{
+		{
+			name:      "haproxy defaults on openshift",
+			openShift: true,
+			expected:  defaults,
+		},
+		{
+			name:      "no haproxy on non-openshift",
+			openShift: false,
+		},
+		{
+			name:            "user overrides haproxy defaults",
+			openShift:       true,
+			userAnnotations: map[string]string{annotations.HAProxyRateLimitConcurrentTCP: "50", annotations.HAProxyRateLimitRateHTTP: "25"},
+			expected: map[string]string{
+				annotations.HAProxyRateLimitEnabled:       "true",
+				annotations.HAProxyRateLimitConcurrentTCP: "50",
+				annotations.HAProxyRateLimitRateHTTP:      "25",
+				annotations.HAProxyRateLimitRateTCP:       "100",
+			},
+		},
+		{
+			name:            "user annotations merge with haproxy defaults",
+			openShift:       true,
+			userAnnotations: map[string]string{"custom/annotation": "value"},
+			expected: map[string]string{
+				annotations.HAProxyRateLimitEnabled:       "true",
+				annotations.HAProxyRateLimitConcurrentTCP: "100",
+				annotations.HAProxyRateLimitRateHTTP:      "100",
+				annotations.HAProxyRateLimitRateTCP:       "100",
+				"custom/annotation":                       "value",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			g := gomega.NewWithT(t)
+			ingress, err := Apply(networkingv1ac.Ingress("test", "default"),
+				Optional(tt.openShift, Annotations[*networkingv1ac.IngressApplyConfiguration](defaults)),
+				Annotations[*networkingv1ac.IngressApplyConfiguration](tt.userAnnotations),
+			)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			if tt.expected == nil {
+				g.Expect(ingress.Annotations).To(gomega.BeEmpty())
+			} else {
+				g.Expect(ingress.Annotations).To(gomega.Equal(tt.expected))
+			}
+		})
+	}
+}

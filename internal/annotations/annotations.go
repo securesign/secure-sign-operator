@@ -160,6 +160,8 @@
 //	    rhtas.redhat.com/tlsAdherence: "strict"
 package annotations
 
+import "strconv"
+
 const (
 	// PausedReconciliation defines the annotation key used to pause reconciliation for a resource.
 	PausedReconciliation = "rhtas.redhat.com/pause-reconciliation"
@@ -193,6 +195,22 @@ const (
 
 	IngressTermination = "route.openshift.io/termination"
 )
+
+const (
+	HAProxyRateLimitEnabled       = "haproxy.router.openshift.io/rate-limit-connections"
+	HAProxyRateLimitConcurrentTCP = "haproxy.router.openshift.io/rate-limit-connections.concurrent-tcp"
+	HAProxyRateLimitRateHTTP      = "haproxy.router.openshift.io/rate-limit-connections.rate-http"
+	HAProxyRateLimitRateTCP       = "haproxy.router.openshift.io/rate-limit-connections.rate-tcp"
+)
+
+func HAProxyThrottlingDefaults(concurrentTCP, rateHTTP, rateTCP int) map[string]string {
+	return map[string]string{
+		HAProxyRateLimitEnabled:       "true",
+		HAProxyRateLimitConcurrentTCP: strconv.Itoa(concurrentTCP),
+		HAProxyRateLimitRateHTTP:      strconv.Itoa(rateHTTP),
+		HAProxyRateLimitRateTCP:       strconv.Itoa(rateTCP),
+	}
+}
 
 var InheritableAnnotations = []string{
 	TrustedCA, LogType, Godebug, TLSAdherence,

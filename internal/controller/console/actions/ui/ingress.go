@@ -6,6 +6,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/console/actions"
 	"github.com/securesign/operator/internal/controller/traits"
@@ -52,6 +53,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Console) *a
 		traits.Labels[*networkingv1ac.IngressApplyConfiguration](l),
 		traits.ControllerReference[*networkingv1ac.IngressApplyConfiguration](instance, i.Client),
 		traits.Optional(kubernetes.IsOpenShift(), traits.IngressTLSWithTermination(traits.IngressTerminationEdge)),
+		traits.Optional(kubernetes.IsOpenShift(), traits.Annotations[*networkingv1ac.IngressApplyConfiguration](annotations.HAProxyThrottlingDefaults(100, 50, 100))),
+		traits.Annotations[*networkingv1ac.IngressApplyConfiguration](instance.Spec.UI.Ingress.Annotations),
 		traits.WithRule(
 			traits.IngressHost(ctx, i.Client, instance.Spec.UI.Ingress, *svc),
 			traits.IngressPath(*svc, actions.UIPortName, "/"),

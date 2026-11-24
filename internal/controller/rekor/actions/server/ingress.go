@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/traits"
 	"github.com/securesign/operator/internal/labels"
@@ -53,6 +54,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		traits.Labels[*networkingv1ac.IngressApplyConfiguration](labels),
 		traits.ControllerReference[*networkingv1ac.IngressApplyConfiguration](instance, i.Client),
 		traits.Optional(kubernetes.IsOpenShift(), traits.IngressTLSWithTermination(traits.IngressTerminationEdge)),
+		traits.Optional(kubernetes.IsOpenShift(), traits.Annotations[*networkingv1ac.IngressApplyConfiguration](annotations.HAProxyThrottlingDefaults(200, 200, 200))),
+		traits.Annotations[*networkingv1ac.IngressApplyConfiguration](instance.Spec.Ingress.Annotations),
 		traits.WithRule(
 			traits.IngressHost(ctx, i.Client, instance.Spec.Ingress, *svc),
 			traits.IngressPath(*svc, actions.ServerDeploymentPortName, "/"),
