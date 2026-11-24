@@ -136,3 +136,8 @@ require (
 // requires via MVS (which would downgrade back to v3.0.0) but does not touch replace directives.
 // Remove this once library-go is upgraded to a version requiring distribution >= v3.1.1.
 replace github.com/distribution/distribution/v3 => github.com/distribution/distribution/v3 v3.1.1
+
+// certificate-transparency-go requires etcd v3.6.8, which is affected by CVE-2026-33413 and
+// CVE-2026-33343. A replace directive is used because `go mod tidy` drops a plain require (etcd is
+// not imported by this module). Remove this once certificate-transparency-go requires etcd >= v3.6.9.
+replace go.etcd.io/etcd/v3 => go.etcd.io/etcd/v3 v3.6.17
