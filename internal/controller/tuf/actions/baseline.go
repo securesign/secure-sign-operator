@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -14,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var ErrorBaseline = fmt.Errorf("failed to set declarative TUF baseline")
 
 func NewBaselineAction() action.Action[*rhtasv1.Tuf] {
 	return &baselineAction{}
@@ -51,18 +54,36 @@ func (i baselineAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *acti
 		case rhtasv1.TufKeyCTFE:
 			binding.URL, err = serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, trustroot.FirstBinding(instance.Spec.Ctlog), instance.Namespace, &rhtasv1.CTlog{})
 			if err != nil {
-				return i.Error(ctx, fmt.Errorf("resolve %s url: %w", key.Name, err), instance)
+				err = errors.Join(ErrorBaseline, err)
+				return i.Error(ctx, err, instance, metav1.Condition{
+					Type:    tufConstants.TrustRootSynced,
+					Status:  metav1.ConditionFalse,
+					Reason:  state.Failure.String(),
+					Message: err.Error(),
+				})
 			}
 			published.Ctlog = append(published.Ctlog, binding)
 		case rhtasv1.TufKeyFulcio:
 			binding.URL, err = serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, trustroot.FirstBinding(instance.Spec.Fulcio), instance.Namespace, &rhtasv1.Fulcio{})
 			if err != nil {
-				return i.Error(ctx, fmt.Errorf("resolve %s url: %w", key.Name, err), instance)
+				err = errors.Join(ErrorBaseline, err)
+				return i.Error(ctx, err, instance, metav1.Condition{
+					Type:    tufConstants.TrustRootSynced,
+					Status:  metav1.ConditionFalse,
+					Reason:  state.Failure.String(),
+					Message: err.Error(),
+				})
 			}
 			var oidcIssuers []string
 			oidcIssuers, err = trustroot.LoadFulcioIssuers(ctx, i.Client, instance.Namespace, instance.Spec.Fulcio, &rhtasv1.Fulcio{})
 			if err != nil {
-				return i.Error(ctx, fmt.Errorf("resolve %s oidc issuers: %w", key.Name, err), instance)
+				err = errors.Join(ErrorBaseline, err)
+				return i.Error(ctx, err, instance, metav1.Condition{
+					Type:    tufConstants.TrustRootSynced,
+					Status:  metav1.ConditionFalse,
+					Reason:  state.Failure.String(),
+					Message: err.Error(),
+				})
 			}
 			published.Fulcio = append(published.Fulcio, rhtasv1.TrustRootBindingWithOIDC{
 				TrustRootBinding: binding,
@@ -71,7 +92,13 @@ func (i baselineAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *acti
 		case rhtasv1.TufKeyRekor:
 			binding.URL, err = serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, trustroot.FirstBinding(instance.Spec.Rekor), instance.Namespace, &rhtasv1.Rekor{})
 			if err != nil {
-				return i.Error(ctx, fmt.Errorf("resolve %s url: %w", key.Name, err), instance)
+				err = errors.Join(ErrorBaseline, err)
+				return i.Error(ctx, err, instance, metav1.Condition{
+					Type:    tufConstants.TrustRootSynced,
+					Status:  metav1.ConditionFalse,
+					Reason:  state.Failure.String(),
+					Message: err.Error(),
+				})
 			}
 			published.Rekor = append(published.Rekor, binding)
 		case rhtasv1.TufKeyTSA:
@@ -80,7 +107,13 @@ func (i baselineAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *acti
 			}
 			binding.URL, err = serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, trustroot.FirstBinding(*instance.Spec.Tsa), instance.Namespace, &rhtasv1.TimestampAuthority{})
 			if err != nil {
-				return i.Error(ctx, fmt.Errorf("resolve %s url: %w", key.Name, err), instance)
+				err = errors.Join(ErrorBaseline, err)
+				return i.Error(ctx, err, instance, metav1.Condition{
+					Type:    tufConstants.TrustRootSynced,
+					Status:  metav1.ConditionFalse,
+					Reason:  state.Failure.String(),
+					Message: err.Error(),
+				})
 			}
 			published.Tsa = append(published.Tsa, binding)
 		}

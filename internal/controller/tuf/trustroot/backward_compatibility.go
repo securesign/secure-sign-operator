@@ -9,6 +9,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var ErrorResolveServiceUrl = fmt.Errorf("failed to resolve service url")
+
 func LoadFulcioIssuers(ctx context.Context, cli client.Client, namespace string, bindings []rhtasv1.TrustRootBindingWithOIDC, instance *rhtasv1.Fulcio) ([]string, error) {
 	if len(bindings) == 1 && bindings[0].OIDCIssuers != nil {
 		return bindings[0].OIDCIssuers, nil

@@ -17,7 +17,6 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -101,8 +100,8 @@ exec run-httpd
 			WithVolumeMounts(corev1ac.VolumeMount().
 				WithName(tufConstants.VolumeName).
 				WithMountPath("/var/www/html").
-				WithReadOnly(false)).
-			WithLivenessProbe(corev1ac.Probe().
+				WithReadOnly(false)) //.
+			/* WithLivenessProbe(corev1ac.Probe().
 				WithTCPSocket(corev1ac.TCPSocketAction().
 					WithPort(intstr.FromInt32(tufConstants.Port))).
 				WithInitialDelaySeconds(0).
@@ -123,7 +122,7 @@ exec run-httpd
 					WithPort(intstr.FromInt32(tufConstants.Port))).
 				WithPeriodSeconds(5).
 				WithTimeoutSeconds(5).
-				WithFailureThreshold(12))
+				WithFailureThreshold(12)) */
 
 		podSpec := corev1ac.PodSpec().
 			WithVolumes(corev1ac.Volume().

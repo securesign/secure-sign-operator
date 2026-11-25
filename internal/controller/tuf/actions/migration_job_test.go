@@ -1,6 +1,7 @@
 package actions
 
 import (
+	_ "embed"
 	"testing"
 	"time"
 
@@ -24,6 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+//go:embed testdata/public_key.pem
+var testPEM string
 
 func setupMigrateAction() migrationJobAction {
 	scheme := runtime.NewScheme()

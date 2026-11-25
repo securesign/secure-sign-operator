@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/traits"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -133,7 +134,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 		),
 	)
 	if err != nil {
-		if errors.Is(err, utils.ErrorResolveServiceUrl) {
+		if errors.Is(err, trustroot.ErrorResolveServiceUrl) {
 			return i.Error(ctx, err, instance,
 				metav1.Condition{
 					Type:               constants.ReadyCondition,

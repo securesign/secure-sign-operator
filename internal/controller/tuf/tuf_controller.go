@@ -129,7 +129,8 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		transitions.NewToReadyPhaseAction[*rhtasv1.Tuf](),
 
 		// sync action run on Ready phase because it does not cause any downtime and is reported by separate condition
-		actions.NewTrustRootSyncAction(),
+		actions.NewProcessSyncResultsAction(),
+		actions.NewDetectSyncDriftAction(),
 	}
 
 	for _, a := range acs {

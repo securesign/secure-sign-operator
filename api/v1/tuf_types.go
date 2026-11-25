@@ -99,10 +99,10 @@ type TrustRootBinding struct {
 type ValidFor struct {
 	// RFC3339 timestamp when this binding's trust material becomes valid.
 	// +optional
-	Start *metav1.MicroTime `json:"start,omitempty"`
+	Start *metav1.Time `json:"start,omitempty"`
 	// RFC3339 timestamp when this binding's trust material expires.
 	// +optional
-	End *metav1.MicroTime `json:"end,omitempty"`
+	End *metav1.Time `json:"end,omitempty"`
 }
 
 // TrustRootBindingWithOIDC is a TrustRootBinding for Fulcio, which additionally

@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/serviceresolver"
 	v1 "k8s.io/api/core/v1"
 	batchv1ac "k8s.io/client-go/applyconfigurations/batch/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
@@ -48,31 +49,35 @@ func EnsureTufMigrationJob(ctx context.Context, c client.Client, instance *rhtas
 				corev1ac.VolumeMount().WithName("workdir").WithMountPath(workdirVolumePath),
 			)
 
-		for _, key := range trustroot.ActiveKeys(instance) {
-			var resolved trustroot.Resolved
-			var err error
-			if key == trustroot.Fulcio {
-				resolved, err = trustroot.ResolveFulcio(ctx, c, instance.Namespace, trustroot.FulcioBinding(instance))
-			} else {
-				resolved, err = trustroot.Resolve(ctx, c, instance.Namespace, key, trustroot.Binding(instance, key))
-			}
+		spec := &instance.Spec
+		rekorUrl, err := serviceresolver.ResolveExternalServiceUrl(ctx, c, trustroot.FirstBinding(spec.Rekor), instance.Namespace, &rhtasv1.Rekor{})
+		if err != nil {
+			return fmt.Errorf("%w: %w", trustroot.ErrorResolveServiceUrl, err)
+		}
+		ctlogUrl, err := serviceresolver.ResolveExternalServiceUrl(ctx, c, trustroot.FirstBinding(spec.Ctlog), instance.Namespace, &rhtasv1.CTlog{})
+		if err != nil {
+			return fmt.Errorf("%w: %w", trustroot.ErrorResolveServiceUrl, err)
+		}
+		fulcioUrl, err := serviceresolver.ResolveExternalServiceUrl(ctx, c, trustroot.FirstBinding(spec.Fulcio), instance.Namespace, &rhtasv1.Fulcio{})
+		if err != nil {
+			return fmt.Errorf("%w: %w", trustroot.ErrorResolveServiceUrl, err)
+		}
+		fulcioIssuers, err := trustroot.LoadFulcioIssuers(ctx, c, instance.Namespace, spec.Fulcio, &rhtasv1.Fulcio{})
+		if err != nil {
+			return fmt.Errorf("%w: %w", trustroot.ErrorResolveServiceUrl, err)
+		}
+		container.WithEnv(
+			corev1ac.EnvVar().WithName("REKOR_URL").WithValue(rekorUrl),
+			corev1ac.EnvVar().WithName("CTLOG_URL").WithValue(ctlogUrl),
+			corev1ac.EnvVar().WithName("FULCIO_URL").WithValue(fulcioUrl),
+			corev1ac.EnvVar().WithName("OIDC_ISSUERS").WithValue(strings.Join(fulcioIssuers, ",")),
+		)
+		if spec.Tsa != nil {
+			tsaUrl, err := serviceresolver.ResolveExternalServiceUrl(ctx, c, trustroot.FirstBinding(*spec.Tsa), instance.Namespace, &rhtasv1.TimestampAuthority{})
 			if err != nil {
-				return fmt.Errorf("%w: %w", ErrorResolveServiceUrl, err)
+				return fmt.Errorf("%w: %w", trustroot.ErrorResolveServiceUrl, err)
 			}
-
-			switch key {
-			case trustroot.Rekor:
-				container.WithEnv(corev1ac.EnvVar().WithName("REKOR_URL").WithValue(resolved.Address))
-			case trustroot.CTFE:
-				container.WithEnv(corev1ac.EnvVar().WithName("CTLOG_URL").WithValue(resolved.Address))
-			case trustroot.Fulcio:
-				container.WithEnv(
-					corev1ac.EnvVar().WithName("FULCIO_URL").WithValue(resolved.Address),
-					corev1ac.EnvVar().WithName("OIDC_ISSUERS").WithValue(strings.Join(resolved.OIDCIssuers, ",")),
-				)
-			case trustroot.TSA:
-				container.WithEnv(corev1ac.EnvVar().WithName("TSA_URL").WithValue(resolved.Address))
-			}
+			container.WithEnv(corev1ac.EnvVar().WithName("TSA_URL").WithValue(tsaUrl))
 		}
 
 		podSpec := corev1ac.PodSpec().
