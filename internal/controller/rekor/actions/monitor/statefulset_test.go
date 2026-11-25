@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -86,6 +87,64 @@ func findEnv(envs []core.EnvVar, name string) *core.EnvVar {
 		}
 	}
 	return nil
+}
+
+func TestMonitorStatefulSetProxyPropagation(t *testing.T) {
+	proxyEnv := []core.EnvVar{
+		{Name: "HTTP_PROXY", Value: "http://proxy.example.com:3128"},
+		{Name: "HTTPS_PROXY", Value: "https://proxy.example.com:3128"},
+		{Name: "NO_PROXY", Value: "localhost,127.0.0.1"},
+	}
+	for _, env := range proxyEnv {
+		t.Setenv(env.Name, env.Value)
+	}
+
+	g := NewWithT(t)
+	instance := createMonitorInstance()
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	ss, err := handleStatefulSet(t, c, instance)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	container := findContainer(ss.Spec.Template.Spec.Containers, actions.MonitorStatefulSetName)
+	g.Expect(container).ToNot(BeNil())
+	g.Expect(container.Env).To(ContainElements(proxyEnv), "monitor container needs proxy env vars")
+
+	initContainer := findContainer(ss.Spec.Template.Spec.InitContainers, initContainerName)
+	g.Expect(initContainer).ToNot(BeNil())
+	g.Expect(initContainer.Env).To(ContainElements(proxyEnv), "tuf-init needs proxy env vars")
+}
+
+func TestMonitorStatefulSetNoProxyWhenUnset(t *testing.T) {
+	for _, key := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"} {
+		t.Setenv(key, "")
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatalf("failed to unset %s: %v", key, err)
+		}
+	}
+
+	g := NewWithT(t)
+	instance := createMonitorInstance()
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	ss, err := handleStatefulSet(t, c, instance)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	container := findContainer(ss.Spec.Template.Spec.Containers, actions.MonitorStatefulSetName)
+	g.Expect(container).ToNot(BeNil())
+	g.Expect(container.Env).ToNot(ContainElement(HaveField("Name", "HTTP_PROXY")))
+	g.Expect(container.Env).ToNot(ContainElement(HaveField("Name", "HTTPS_PROXY")))
+	g.Expect(container.Env).ToNot(ContainElement(HaveField("Name", "NO_PROXY")))
+
+	initContainer := findContainer(ss.Spec.Template.Spec.InitContainers, initContainerName)
+	g.Expect(initContainer).ToNot(BeNil())
+	g.Expect(initContainer.Env).To(BeEmpty())
 }
 
 func TestMonitorStatefulSetCreatesFunctionalMonitor(t *testing.T) {
