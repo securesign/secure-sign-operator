@@ -30,7 +30,6 @@ import (
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
-	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/apps/v1"
@@ -100,19 +99,13 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(tuf *rhtasv1.Tuf) []string {
-		activeKeys := trustroot.ActiveKeys(tuf)
-		conditions := make([]string, 0, len(activeKeys)+1)
-		for _, k := range activeKeys {
-			conditions = append(conditions, k.String())
-		}
-		conditions = append(conditions, constants.RepositoryCondition)
-		return fipsutil.AppendFIPSCondition(conditions)
+		return fipsutil.AppendFIPSCondition([]string{constants.TrustRootSynced})
 	}
 	acs := []action.Action[*rhtasv1.Tuf]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Tuf](conditionSupplier),
 
-		actions.NewResolveKeysAction(),
+		// actions.NewResolveKeysAction(),
 		actions.NewFIPSValidationAction(),
 		tlsadherence.NewAction[*rhtasv1.Tuf]("tuf", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Tuf]),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Tuf](),
@@ -120,6 +113,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		actions.NewRBACAction(),
 		actions.NewCreatePvcAction(),
 		actions.NewInitJobAction(),
+		actions.NewBaselineAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
@@ -133,6 +127,9 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		actions.NewMigrationJobAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.Tuf](),
+
+		// sync action run on Ready phase because it does not cause any downtime and is reported by separate condition
+		actions.NewTrustRootSyncAction(),
 	}
 
 	for _, a := range acs {
