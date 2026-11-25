@@ -72,6 +72,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 		i.createMonitorStatefulSet(instance, rekorServerHost, tufServerHost),
 		traits.WithStatefulSetPodSpecTraits(
 			traits.ServiceAccount(actions.RBACMonitorName),
+			traits.Proxy([]string{actions.MonitorStatefulSetName, initContainerName}),
 			traits.SecurityContexts(actions.MonitorStatefulSetName, initContainerName),
 			traits.GODEBUG(instance.GetAnnotations(), actions.MonitorStatefulSetName),
 		),
