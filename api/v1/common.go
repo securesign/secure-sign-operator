@@ -30,6 +30,10 @@ type Ingress struct {
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=Labels can't be modified
 	Labels map[string]string `json:"labels,omitempty"`
+	// Set annotations applied to the created Ingress resource.
+	// On OpenShift, HAProxy rate-limiting annotations are applied by default and can be overridden here.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // TlogMonitoring configures monitoring for the Rekor transparency log.

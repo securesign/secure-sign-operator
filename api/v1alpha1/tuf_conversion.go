@@ -34,6 +34,7 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
+	dst.Spec.Ingress.Annotations = restored.Spec.Ingress.Annotations
 
 	restoreBindingRef(dst.Spec.Rekor, restored.Spec.Rekor)
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution

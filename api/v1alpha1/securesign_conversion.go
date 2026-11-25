@@ -101,6 +101,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 		return err
 	}
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
+	dst.Spec.Fulcio.Ingress.Annotations = restored.Spec.Fulcio.Ingress.Annotations
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
 	dst.Spec.Fulcio.Signer.Type = restored.Spec.Fulcio.Signer.Type
 	// If original v1 had File=&{} (empty struct), preserve it
@@ -128,6 +129,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 		return err
 	}
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
+	dst.Spec.Rekor.Ingress.Annotations = restored.Spec.Rekor.Ingress.Annotations
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions
 	if dst.Spec.Rekor.Trillian.URL == "" {
@@ -150,6 +152,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	}
 
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
+	dst.Spec.Tuf.Ingress.Annotations = restored.Spec.Tuf.Ingress.Annotations
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
 	restoreBindingRef(dst.Spec.Tuf.Rekor, restored.Spec.Tuf.Rekor)
@@ -170,6 +173,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error { //nolint:gocyclo
 	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets
+		dst.Spec.TimestampAuthority.Ingress.Annotations = restored.Spec.TimestampAuthority.Ingress.Annotations
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor
 		dst.Spec.TimestampAuthority.PodExtensions = restored.Spec.TimestampAuthority.PodExtensions
 		// restore also the auth from annotation for case where no KMS or Tink is set

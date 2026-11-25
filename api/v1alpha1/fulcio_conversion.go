@@ -139,6 +139,7 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Spec.Ingress.Annotations = restored.Spec.Ingress.Annotations
 	dst.Spec.Signer.Type = restored.Spec.Signer.Type
 	if dst.Spec.Signer.File == nil {
 		dst.Spec.Signer.File = restored.Spec.Signer.File
