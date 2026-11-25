@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -67,6 +68,8 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 				securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 				securesign.WithoutMonitoring(),
 				func(v *rhtasv1.Securesign) {
+					v.Spec.Rekor.Monitoring.TLog.Enabled = ptr.To(true)
+					v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
 					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
 						OIDCIssuers: []rhtasv1.OIDCIssuer{
 							{
@@ -84,6 +87,44 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 
 		It("All components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
+		})
+
+		It("All pods have proxy env vars", func(ctx SpecContext) {
+			proxyVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
+
+			// Pods that do not make external network calls and intentionally
+			// do not receive proxy configuration. Every pod not listed here
+			// is expected to carry proxy env vars — adding a new workload
+			// without traits.Proxy will cause this test to fail.
+			skipPods := []string{
+				"proxy",       // fake proxy server (test infrastructure)
+				"trillian-db", // local database, listens only
+			}
+
+			shouldSkipPod := func(name string) bool {
+				for _, prefix := range skipPods {
+					if strings.HasPrefix(name, prefix) {
+						return true
+					}
+				}
+				return false
+			}
+
+			podList := &v1.PodList{}
+			Expect(cli.List(ctx, podList, runtimeCli.InNamespace(namespace.Name))).To(Succeed())
+			Expect(podList.Items).ToNot(BeEmpty())
+
+			for _, pod := range podList.Items {
+				if shouldSkipPod(pod.Name) || pod.Status.Phase == v1.PodSucceeded {
+					continue
+				}
+				for _, c := range pod.Spec.Containers {
+					for _, pv := range proxyVars {
+						Expect(c.Env).To(ContainElement(HaveField("Name", pv)),
+							fmt.Sprintf("pod %s container %s should have %s", pod.Name, c.Name, pv))
+					}
+				}
+			}
 		})
 
 		It("OIDC connection run through proxy", func(ctx SpecContext) {

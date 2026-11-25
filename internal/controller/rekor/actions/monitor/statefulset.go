@@ -86,6 +86,9 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
 		func(object *v1.StatefulSet) error {
+			return ensure.Proxy()(&object.Spec.Template.Spec)
+		},
+		func(object *v1.StatefulSet) error {
 			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
 		},
 	); err != nil {
