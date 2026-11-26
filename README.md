@@ -1,5 +1,7 @@
 # RHTAS Operator
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/securesign/secure-sign-operator)
+
 Red Hat Trusted Artifact Signer (RHTAS) operator deploys a production-ready [Sigstore](https://www.sigstore.dev/) infrastructure on OpenShift and Kubernetes.
 
 ## Description
