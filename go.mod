@@ -13,7 +13,7 @@ require (
 	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20261120164020-96782a26f0d7
 	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
-	github.com/openshift/api v0.0.0-20261123012947-9ac77f18ba5d
+	github.com/openshift/api v0.0.0-20261125195341-a68b96767479
 	github.com/openshift/controller-runtime-common v0.0.0-20261026124434-bdfc411d93cd
 	github.com/operator-framework/api v0.47.1
 	github.com/operator-framework/operator-lib v0.19.0
