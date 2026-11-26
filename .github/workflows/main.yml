@@ -27,7 +27,7 @@ env:
   IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
   BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
-  NEW_OLM_CHANNEL: rhtas-operator.v1.5.1
+  NEW_OLM_CHANNEL: rhtas-operator.v1.5.2
   BASE_CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-k8s-catalog:rhtas-v1.5.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
   TARGET_PLATFORM: kubernetes
