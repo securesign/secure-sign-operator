@@ -1,7 +1,10 @@
 package trustroot
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -39,15 +42,39 @@ func TestResolve_ExplicitSecretRefAndURL(t *testing.T) {
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
 
+	start := metav1.NewTime(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC))
 	binding := rhtasv1.TrustRootBinding{
 		ServiceReference: rhtasv1.ServiceReference{URL: "http://rekor.fakeserver.com"},
 		SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "keys"}, Key: "rekor.pub"},
+		ValidFor:         &rhtasv1.ValidFor{Start: &start},
+		TargetName:       "custom-rekor.pub",
 	}
 
-	resolved, err := Resolve(t.Context(), c, t.Name(), Rekor, binding)
+	resolved, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Rekor: []rhtasv1.TrustRootBinding{binding}})
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(resolved.Address).To(Equal("http://rekor.fakeserver.com"))
-	g.Expect(resolved.Material).To(Equal([]byte(testPEM)))
+	g.Expect(resolved.Components.Rekor).To(HaveLen(1))
+	g.Expect(resolved.Components.Rekor).To(HaveKeyWithValue(binding.TargetName, ResolvedBinding{
+		BaseURL:       "http://rekor.fakeserver.com",
+		TrustMaterial: testPEM,
+		ValidFor:      ResolvedValidity{Start: &start},
+		OIDCIssuers:   []string{},
+	}))
+	documentJSON, err := json.Marshal(resolved)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(documentJSON).To(MatchJSON(fmt.Sprintf(`{
+		"components": {
+			"ctlog": {},
+			"fulcio": {},
+			"rekor": {
+				"custom-rekor.pub": {
+					"uri": "http://rekor.fakeserver.com",
+					"material": %q,
+					"validFor": {"start": "2025-01-01T00:00:00Z", "end": null}
+				}
+			},
+			"tsa": {}
+		}
+	}`, testPEM)))
 }
 
 func TestResolve_RefBased(t *testing.T) {
@@ -63,13 +90,14 @@ func TestResolve_RefBased(t *testing.T) {
 		ServiceReference: rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{Name: "rekor", Namespace: t.Name()}},
 	}
 
-	resolved, err := Resolve(t.Context(), c, t.Name(), Rekor, binding)
+	resolved, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Rekor: []rhtasv1.TrustRootBinding{binding}})
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(resolved.Address).To(Equal("https://rekor.internal.svc"))
-	g.Expect(resolved.Material).To(Equal([]byte(testPEM)))
+	g.Expect(resolved.Components.Rekor).To(HaveLen(1))
+	g.Expect(resolved.Components.Rekor[string(Rekor)].BaseURL).To(Equal("https://rekor.internal.svc"))
+	g.Expect(resolved.Components.Rekor[string(Rekor)].TrustMaterial).To(Equal(testPEM))
 }
 
-func TestResolve_Autodiscovery(t *testing.T) {
+func TestResolve_UsesActiveCTlog(t *testing.T) {
 	g := NewWithT(t)
 	ctlog := &rhtasv1.CTlog{ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: t.Name()}}
 	ctlog.Status.Logs = []rhtasv1.CTlogLogStatus{
@@ -84,13 +112,17 @@ func TestResolve_Autodiscovery(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ctlog).WithStatusSubresource(ctlog).Build()
 	g.Expect(c.Status().Update(t.Context(), ctlog)).To(Succeed())
 
-	resolved, err := Resolve(t.Context(), c, t.Name(), CTFE, rhtasv1.TrustRootBinding{})
+	binding := rhtasv1.TrustRootBinding{
+		ServiceReference: rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{Name: "ctlog", Namespace: t.Name()}},
+	}
+	resolved, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Ctlog: []rhtasv1.TrustRootBinding{binding}})
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(resolved.Address).To(Equal("https://ctlog.internal.svc"))
-	g.Expect(resolved.Material).To(Equal([]byte(testPEM)))
+	g.Expect(resolved.Components.Ctlog).To(HaveLen(1))
+	g.Expect(resolved.Components.Ctlog[string(CTFE)].BaseURL).To(Equal("https://ctlog.internal.svc"))
+	g.Expect(resolved.Components.Ctlog[string(CTFE)].TrustMaterial).To(Equal(testPEM))
 }
 
-func TestResolve_ExplicitURLAddress_MaterialFromStatus_NotReadyRegression(t *testing.T) {
+func TestResolve_RejectsUnreadyReference(t *testing.T) {
 	g := NewWithT(t)
 	fulcio := &rhtasv1.Fulcio{ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: t.Name()}}
 	fulcio.Status.CertificateChain = testPEM
@@ -101,16 +133,17 @@ func TestResolve_ExplicitURLAddress_MaterialFromStatus_NotReadyRegression(t *tes
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(fulcio).WithStatusSubresource(fulcio).Build()
 	g.Expect(c.Status().Update(t.Context(), fulcio)).To(Succeed())
 
-	binding := rhtasv1.TrustRootBinding{
-		ServiceReference: rhtasv1.ServiceReference{URL: "http://fulcio.fakeserver.com"},
+	binding := rhtasv1.TrustRootBindingWithOIDC{
+		TrustRootBinding: rhtasv1.TrustRootBinding{
+			ServiceReference: rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{Name: "fulcio", Namespace: t.Name()}},
+		},
 	}
 
-	_, err := Resolve(t.Context(), c, t.Name(), Fulcio, binding)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err).To(MatchError(ErrComponentNotReady))
+	_, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Fulcio: []rhtasv1.TrustRootBindingWithOIDC{binding}})
+	g.Expect(err).To(MatchError(ErrResolveAddress))
 }
 
-func TestResolveFulcio_ExplicitOIDCIssuersWin(t *testing.T) {
+func TestResolve_ExplicitOIDCIssuersWin(t *testing.T) {
 	g := NewWithT(t)
 	fulcio := &rhtasv1.Fulcio{
 		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: t.Name()},
@@ -131,12 +164,13 @@ func TestResolveFulcio_ExplicitOIDCIssuersWin(t *testing.T) {
 		OIDCIssuers: []string{"https://explicit.example.com"},
 	}
 
-	resolved, err := ResolveFulcio(t.Context(), c, t.Name(), binding)
+	resolved, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Fulcio: []rhtasv1.TrustRootBindingWithOIDC{binding}})
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(resolved.OIDCIssuers).To(Equal([]string{"https://explicit.example.com"}))
+	g.Expect(resolved.Components.Fulcio).To(HaveLen(1))
+	g.Expect(resolved.Components.Fulcio[string(Fulcio)].OIDCIssuers).To(Equal([]string{"https://explicit.example.com"}))
 }
 
-func TestResolveFulcio_IssuersFromRefWhenUnset(t *testing.T) {
+func TestResolve_IssuersFromRefWhenUnset(t *testing.T) {
 	g := NewWithT(t)
 	fulcio := &rhtasv1.Fulcio{
 		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: t.Name()},
@@ -159,12 +193,13 @@ func TestResolveFulcio_IssuersFromRefWhenUnset(t *testing.T) {
 		},
 	}
 
-	resolved, err := ResolveFulcio(t.Context(), c, t.Name(), binding)
+	resolved, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Fulcio: []rhtasv1.TrustRootBindingWithOIDC{binding}})
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(resolved.OIDCIssuers).To(Equal([]string{"https://from-ref.example.com", "https://legacy-issuer.example.com"}))
+	g.Expect(resolved.Components.Fulcio).To(HaveLen(1))
+	g.Expect(resolved.Components.Fulcio[string(Fulcio)].OIDCIssuers).To(Equal([]string{"https://from-ref.example.com", "https://legacy-issuer.example.com"}))
 }
 
-func TestResolveFulcio_IssuersFromAutodiscoveryWhenUnset(t *testing.T) {
+func TestResolve_RejectsAutodiscovery(t *testing.T) {
 	g := NewWithT(t)
 	fulcio := &rhtasv1.Fulcio{
 		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: t.Name()},
@@ -180,17 +215,6 @@ func TestResolveFulcio_IssuersFromAutodiscoveryWhenUnset(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(fulcio).WithStatusSubresource(fulcio).Build()
 	g.Expect(c.Status().Update(t.Context(), fulcio)).To(Succeed())
 
-	binding := rhtasv1.TrustRootBindingWithOIDC{}
-
-	resolved, err := ResolveFulcio(t.Context(), c, t.Name(), binding)
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(resolved.Address).To(Equal("https://fulcio.internal.svc"))
-	g.Expect(resolved.OIDCIssuers).To(Equal([]string{"https://from-autodiscovery.example.com"}))
-}
-
-func TestResolve_UnknownComponent(t *testing.T) {
-	g := NewWithT(t)
-	c := fake.NewClientBuilder().WithScheme(scheme).Build()
-	_, err := Resolve(t.Context(), c, t.Name(), ComponentKey("bogus"), rhtasv1.TrustRootBinding{})
-	g.Expect(err).To(MatchError(ErrUnknownComponent))
+	_, err := Resolve(t.Context(), c, t.Name(), rhtasv1.Components{Fulcio: []rhtasv1.TrustRootBindingWithOIDC{{}}})
+	g.Expect(err).To(MatchError(ErrResolveAddress))
 }

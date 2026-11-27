@@ -961,10 +961,7 @@ spec:
                     type: object
                 type: object
               ctlog:
-                description: |-
-                  Ctlog service and trust material binding.
-                  At most one entry is allowed today; this ceiling is deliberate and temporary,
-                  pending future multi-instance support.
+                description: Ctlog service and trust material binding.
                 items:
                   description: |-
                     TrustRootBinding identifies a component's service binding and, optionally, a
@@ -1006,6 +1003,9 @@ spec:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
+                    targetName:
+                      description: TargetName is the name of this binding's TUF target.
+                      type: string
                     url:
                       description: |-
                         Direct URL for an external or cross-namespace service.
@@ -1013,13 +1013,28 @@ spec:
                       maxLength: 2048
                       minLength: 1
                       type: string
+                    validFor:
+                      description: ValidFor is the validity interval of this binding's
+                        trust material.
+                      properties:
+                        end:
+                          description: RFC3339 timestamp when this binding's trust
+                            material expires.
+                          format: date-time
+                          type: string
+                        start:
+                          description: RFC3339 timestamp when this binding's trust
+                            material becomes valid.
+                          format: date-time
+                          type: string
+                      type: object
                   type: object
                   x-kubernetes-validations:
                   - message: ref and secretRef are mutually exclusive
                     rule: '!(has(self.ref) && has(self.secretRef))'
                   - message: ref and url are mutually exclusive
                     rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
-                maxItems: 1
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
@@ -1027,10 +1042,7 @@ spec:
                     //[:port]/path
                   rule: self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'))
               fulcio:
-                description: |-
-                  Fulcio service and trust material binding.
-                  At most one entry is allowed today; this ceiling is deliberate and temporary,
-                  pending future multi-instance support.
+                description: Fulcio service and trust material binding.
                 items:
                   description: |-
                     TrustRootBindingWithOIDC is a TrustRootBinding for Fulcio, which additionally
@@ -1078,6 +1090,9 @@ spec:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
+                    targetName:
+                      description: TargetName is the name of this binding's TUF target.
+                      type: string
                     url:
                       description: |-
                         Direct URL for an external or cross-namespace service.
@@ -1085,13 +1100,28 @@ spec:
                       maxLength: 2048
                       minLength: 1
                       type: string
+                    validFor:
+                      description: ValidFor is the validity interval of this binding's
+                        trust material.
+                      properties:
+                        end:
+                          description: RFC3339 timestamp when this binding's trust
+                            material expires.
+                          format: date-time
+                          type: string
+                        start:
+                          description: RFC3339 timestamp when this binding's trust
+                            material becomes valid.
+                          format: date-time
+                          type: string
+                      type: object
                   type: object
                   x-kubernetes-validations:
                   - message: ref and secretRef are mutually exclusive
                     rule: '!(has(self.ref) && has(self.secretRef))'
                   - message: ref and url are mutually exclusive
                     rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
-                maxItems: 1
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
@@ -1798,10 +1828,7 @@ spec:
                   rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
                     || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
               rekor:
-                description: |-
-                  Rekor service and trust material binding.
-                  At most one entry is allowed today; this ceiling is deliberate and temporary,
-                  pending future multi-instance support.
+                description: Rekor service and trust material binding.
                 items:
                   description: |-
                     TrustRootBinding identifies a component's service binding and, optionally, a
@@ -1843,6 +1870,9 @@ spec:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
+                    targetName:
+                      description: TargetName is the name of this binding's TUF target.
+                      type: string
                     url:
                       description: |-
                         Direct URL for an external or cross-namespace service.
@@ -1850,13 +1880,28 @@ spec:
                       maxLength: 2048
                       minLength: 1
                       type: string
+                    validFor:
+                      description: ValidFor is the validity interval of this binding's
+                        trust material.
+                      properties:
+                        end:
+                          description: RFC3339 timestamp when this binding's trust
+                            material expires.
+                          format: date-time
+                          type: string
+                        start:
+                          description: RFC3339 timestamp when this binding's trust
+                            material becomes valid.
+                          format: date-time
+                          type: string
+                      type: object
                   type: object
                   x-kubernetes-validations:
                   - message: ref and secretRef are mutually exclusive
                     rule: '!(has(self.ref) && has(self.secretRef))'
                   - message: ref and url are mutually exclusive
                     rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
-                maxItems: 1
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
@@ -1996,10 +2041,7 @@ spec:
               tsa:
                 description: |-
                   TSA service and trust material binding. A nil value excludes TSA from the
-                  trust root entirely; a non-nil value (even an empty list, meaning
-                  autodiscover) includes it.
-                  At most one entry is allowed today; this ceiling is deliberate and temporary,
-                  pending future multi-instance support.
+                  trust root entirely.
                 items:
                   description: |-
                     TrustRootBinding identifies a component's service binding and, optionally, a
@@ -2041,6 +2083,9 @@ spec:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
+                    targetName:
+                      description: TargetName is the name of this binding's TUF target.
+                      type: string
                     url:
                       description: |-
                         Direct URL for an external or cross-namespace service.
@@ -2048,13 +2093,28 @@ spec:
                       maxLength: 2048
                       minLength: 1
                       type: string
+                    validFor:
+                      description: ValidFor is the validity interval of this binding's
+                        trust material.
+                      properties:
+                        end:
+                          description: RFC3339 timestamp when this binding's trust
+                            material expires.
+                          format: date-time
+                          type: string
+                        start:
+                          description: RFC3339 timestamp when this binding's trust
+                            material becomes valid.
+                          format: date-time
+                          type: string
+                      type: object
                   type: object
                   x-kubernetes-validations:
                   - message: ref and secretRef are mutually exclusive
                     rule: '!(has(self.ref) && has(self.secretRef))'
                   - message: ref and url are mutually exclusive
                     rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
-                maxItems: 1
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
@@ -3007,6 +3067,8 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               keys:
+                description: Keys holds the Secret references mounted by the repository
+                  init job.
                 items:
                   properties:
                     name:
@@ -3038,6 +3100,344 @@ spec:
                 x-kubernetes-list-type: map
               pvcName:
                 type: string
+              trustRoot:
+                description: TrustRoot records the last successful trust root publication.
+                properties:
+                  lastPublishTime:
+                    description: LastPublishTime is the time of the last successful
+                      trust-material update.
+                    format: date-time
+                    type: string
+                  published:
+                    description: Published is a deep copy of the component bindings
+                      included in the last successful publication.
+                    properties:
+                      ctlog:
+                        items:
+                          description: |-
+                            TrustRootBinding identifies a component's service binding and, optionally, a
+                            reference to the Secret holding its trust material (public key for
+                            Rekor/CTlog, cert chain for Fulcio/TSA). If SecretRef is unset, the operator
+                            resolves material from the referenced or autodiscovered component CR's
+                            status.
+                          properties:
+                            ref:
+                              description: In-cluster reference to a component CR.
+                              properties:
+                                name:
+                                  description: Name of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                                namespace:
+                                  description: Namespace of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - namespace
+                              type: object
+                            secretRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            targetName:
+                              description: TargetName is the name of this binding's
+                                TUF target.
+                              type: string
+                            url:
+                              description: |-
+                                Direct URL for an external or cross-namespace service.
+                                Accepts: host:port, dns:///host:port, http(s)://host/path
+                              maxLength: 2048
+                              minLength: 1
+                              type: string
+                            validFor:
+                              description: ValidFor is the validity interval of this
+                                binding's trust material.
+                              properties:
+                                end:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material expires.
+                                  format: date-time
+                                  type: string
+                                start:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material becomes valid.
+                                  format: date-time
+                                  type: string
+                              type: object
+                          type: object
+                          x-kubernetes-validations:
+                          - message: ref and secretRef are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.secretRef))'
+                          - message: ref and url are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                              > 0)'
+                        maxItems: 64
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      fulcio:
+                        items:
+                          description: |-
+                            TrustRootBindingWithOIDC is a TrustRootBinding for Fulcio, which additionally
+                            carries the OIDC issuers accepted for code-signing certificate requests.
+                          properties:
+                            oidcIssuers:
+                              description: |-
+                                OIDCIssuers is a list of OIDC issuer URLs to include in the Fulcio signing configuration.
+                                Use for manual configuration; when specified, these values take precedence over auto-loaded OIDC configuration from the Fulcio service reference.
+                              items:
+                                pattern: ^[a-zA-Z][a-zA-Z0-9+.-]*://.+$
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: set
+                            ref:
+                              description: In-cluster reference to a component CR.
+                              properties:
+                                name:
+                                  description: Name of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                                namespace:
+                                  description: Namespace of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - namespace
+                              type: object
+                            secretRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            targetName:
+                              description: TargetName is the name of this binding's
+                                TUF target.
+                              type: string
+                            url:
+                              description: |-
+                                Direct URL for an external or cross-namespace service.
+                                Accepts: host:port, dns:///host:port, http(s)://host/path
+                              maxLength: 2048
+                              minLength: 1
+                              type: string
+                            validFor:
+                              description: ValidFor is the validity interval of this
+                                binding's trust material.
+                              properties:
+                                end:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material expires.
+                                  format: date-time
+                                  type: string
+                                start:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material becomes valid.
+                                  format: date-time
+                                  type: string
+                              type: object
+                          type: object
+                          x-kubernetes-validations:
+                          - message: ref and secretRef are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.secretRef))'
+                          - message: ref and url are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                              > 0)'
+                        maxItems: 64
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      rekor:
+                        items:
+                          description: |-
+                            TrustRootBinding identifies a component's service binding and, optionally, a
+                            reference to the Secret holding its trust material (public key for
+                            Rekor/CTlog, cert chain for Fulcio/TSA). If SecretRef is unset, the operator
+                            resolves material from the referenced or autodiscovered component CR's
+                            status.
+                          properties:
+                            ref:
+                              description: In-cluster reference to a component CR.
+                              properties:
+                                name:
+                                  description: Name of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                                namespace:
+                                  description: Namespace of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - namespace
+                              type: object
+                            secretRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            targetName:
+                              description: TargetName is the name of this binding's
+                                TUF target.
+                              type: string
+                            url:
+                              description: |-
+                                Direct URL for an external or cross-namespace service.
+                                Accepts: host:port, dns:///host:port, http(s)://host/path
+                              maxLength: 2048
+                              minLength: 1
+                              type: string
+                            validFor:
+                              description: ValidFor is the validity interval of this
+                                binding's trust material.
+                              properties:
+                                end:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material expires.
+                                  format: date-time
+                                  type: string
+                                start:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material becomes valid.
+                                  format: date-time
+                                  type: string
+                              type: object
+                          type: object
+                          x-kubernetes-validations:
+                          - message: ref and secretRef are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.secretRef))'
+                          - message: ref and url are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                              > 0)'
+                        maxItems: 64
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      tsa:
+                        items:
+                          description: |-
+                            TrustRootBinding identifies a component's service binding and, optionally, a
+                            reference to the Secret holding its trust material (public key for
+                            Rekor/CTlog, cert chain for Fulcio/TSA). If SecretRef is unset, the operator
+                            resolves material from the referenced or autodiscovered component CR's
+                            status.
+                          properties:
+                            ref:
+                              description: In-cluster reference to a component CR.
+                              properties:
+                                name:
+                                  description: Name of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                                namespace:
+                                  description: Namespace of the referenced CR.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - namespace
+                              type: object
+                            secretRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            targetName:
+                              description: TargetName is the name of this binding's
+                                TUF target.
+                              type: string
+                            url:
+                              description: |-
+                                Direct URL for an external or cross-namespace service.
+                                Accepts: host:port, dns:///host:port, http(s)://host/path
+                              maxLength: 2048
+                              minLength: 1
+                              type: string
+                            validFor:
+                              description: ValidFor is the validity interval of this
+                                binding's trust material.
+                              properties:
+                                end:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material expires.
+                                  format: date-time
+                                  type: string
+                                start:
+                                  description: RFC3339 timestamp when this binding's
+                                    trust material becomes valid.
+                                  format: date-time
+                                  type: string
+                              type: object
+                          type: object
+                          x-kubernetes-validations:
+                          - message: ref and secretRef are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.secretRef))'
+                          - message: ref and url are mutually exclusive
+                            rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                              > 0)'
+                        maxItems: 64
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
+                  publishedTargetsVersion:
+                    description: |-
+                      PublishedTargetsVersion is the targets.json version recorded by the
+                      last successful publication. Older results are ignored.
+                    format: int64
+                    type: integer
+                type: object
               url:
                 type: string
             type: object

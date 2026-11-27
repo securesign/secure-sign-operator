@@ -48,35 +48,26 @@ type TufSpec struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service and trust material binding.
 	// +optional
-	// At most one entry is allowed today; this ceiling is deliberate and temporary,
-	// pending future multi-instance support.
-	// +kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=64
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'))",message="url must follow the pattern scheme://host[:port]/path or //[:port]/path"
-	Ctlog []TrustRootBinding `json:"ctlog,omitempty"` //nolint:kubeapilinter // arrayofstruct: empty struct means autoload
+	Ctlog []TrustRootBinding `json:"ctlog,omitempty"` //nolint:kubeapilinter
 	// Fulcio service and trust material binding.
 	// +optional
-	// At most one entry is allowed today; this ceiling is deliberate and temporary,
-	// pending future multi-instance support.
-	// +kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=64
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
-	Fulcio []TrustRootBindingWithOIDC `json:"fulcio,omitempty"` //nolint:kubeapilinter // arrayofstruct: empty struct means autoload
+	Fulcio []TrustRootBindingWithOIDC `json:"fulcio,omitempty"` //nolint:kubeapilinter
 	// Rekor service and trust material binding.
 	// +optional
-	// At most one entry is allowed today; this ceiling is deliberate and temporary,
-	// pending future multi-instance support.
-	// +kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=64
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
-	Rekor []TrustRootBinding `json:"rekor,omitempty"` //nolint:kubeapilinter // arrayofstruct: empty struct means autoload
+	Rekor []TrustRootBinding `json:"rekor,omitempty"` //nolint:kubeapilinter
 	// TSA service and trust material binding. A nil value excludes TSA from the
-	// trust root entirely; a non-nil value (even an empty list, meaning
-	// autodiscover) includes it.
+	// trust root entirely.
 	// +optional
-	// At most one entry is allowed today; this ceiling is deliberate and temporary,
-	// pending future multi-instance support.
-	// +kubebuilder:validation:MaxItems:=1
+	// +kubebuilder:validation:MaxItems:=64
 	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Tsa *[]TrustRootBinding `json:"tsa,omitempty"`
@@ -97,6 +88,21 @@ type TrustRootBinding struct {
 	ServiceReference `json:",inline"`
 	// +optional
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
+	// ValidFor is the validity interval of this binding's trust material.
+	// +optional
+	ValidFor *ValidFor `json:"validFor,omitempty"`
+	// TargetName is the name of this binding's TUF target.
+	// +optional
+	TargetName string `json:"targetName,omitempty"`
+}
+
+type ValidFor struct {
+	// RFC3339 timestamp when this binding's trust material becomes valid.
+	// +optional
+	Start *metav1.Time `json:"start,omitempty"`
+	// RFC3339 timestamp when this binding's trust material expires.
+	// +optional
+	End *metav1.Time `json:"end,omitempty"`
 }
 
 // TrustRootBindingWithOIDC is a TrustRootBinding for Fulcio, which additionally
@@ -109,6 +115,41 @@ type TrustRootBindingWithOIDC struct {
 	// +listType=set
 	// +kubebuilder:validation:items:Pattern=`^[a-zA-Z][a-zA-Z0-9+.-]*://.+$`
 	OIDCIssuers []string `json:"oidcIssuers,omitempty"`
+}
+
+// Components holds a snapshot of the component bindings used for publication.
+type Components struct {
+	// +optional
+	// +kubebuilder:validation:MaxItems:=64
+	// +listType=atomic
+	Ctlog []TrustRootBinding `json:"ctlog,omitempty"`
+	// +optional
+	// +kubebuilder:validation:MaxItems:=64
+	// +listType=atomic
+	Fulcio []TrustRootBindingWithOIDC `json:"fulcio,omitempty"`
+	// +optional
+	// +kubebuilder:validation:MaxItems:=64
+	// +listType=atomic
+	Rekor []TrustRootBinding `json:"rekor,omitempty"`
+	// +optional
+	// +kubebuilder:validation:MaxItems:=64
+	// +listType=atomic
+	Tsa []TrustRootBinding `json:"tsa,omitempty"`
+}
+
+// TrustRootStatus records the last successful trust root publication.
+type TrustRootStatus struct {
+	// PublishedTargetsVersion is the targets.json version recorded by the
+	// last successful publication. Older results are ignored.
+	PublishedTargetsVersion int64 `json:"publishedTargetsVersion,omitempty"`
+
+	// Published is a deep copy of the component bindings included in the last successful publication.
+	// +optional
+	Published *Components `json:"published,omitempty"`
+
+	// LastPublishTime is the time of the last successful trust-material update.
+	// +optional
+	LastPublishTime *metav1.Time `json:"lastPublishTime,omitempty"`
 }
 
 type TufKeyStatus struct {
@@ -126,6 +167,11 @@ type TufStatus struct {
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// TrustRoot records the last successful trust root publication.
+	// +optional
+	TrustRoot *TrustRootStatus `json:"trustRoot,omitempty"`
+	// +deprecated: use TrustRoot instead
+	// Keys holds the Secret references mounted by the repository init job.
 	// +listType=map
 	// +listMapKey=name
 	Keys []TufKeyStatus `json:"keys,omitempty"` //nolint:kubeapilinter // arrayofstruct: status fields are operator-managed
@@ -188,4 +234,20 @@ func (i *Tuf) GetTrustedCA() *LocalObjectReference {
 
 func (i *Tuf) GetServiceURL() string {
 	return i.Status.URL
+}
+
+func (b TrustRootBinding) GetTrustRootBinding() TrustRootBinding {
+	return b
+}
+
+func (b TrustRootBinding) GetSecretRef() *SecretKeySelector {
+	return b.SecretRef
+}
+
+func (b TrustRootBinding) GetValidFor() *ValidFor {
+	return b.ValidFor
+}
+
+func (b TrustRootBinding) GetName() string {
+	return b.TargetName
 }

@@ -3,13 +3,15 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	fipsAction "github.com/securesign/operator/internal/action/fips"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
-	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,22 +27,37 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.Tuf] {
 
 func tufCryptoMaterial(ctx context.Context, i *rhtasv1.Tuf, c client.Client) ([]fipsAction.CryptoRef, error) {
 	var refs []fipsAction.CryptoRef
-
-	specHasRef := make(map[string]bool)
-	for _, key := range trustroot.ActiveKeys(i) {
-		secretRef := trustroot.Binding(i, key).SecretRef
-		if secretRef == nil {
-			continue
+	asTrustRootBindings := func(bindings []rhtasv1.TrustRootBindingWithOIDC) []rhtasv1.TrustRootBinding {
+		b := make([]rhtasv1.TrustRootBinding, len(bindings))
+		for i, binding := range bindings {
+			b[i] = binding.TrustRootBinding
 		}
-		specHasRef[key.String()] = true
-		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, secretRef,
-			fmt.Sprintf("spec.%s[0].secretRef", key), fipsutil.ValidateCryptoMaterialPEM, &refs); err != nil {
-			return nil, err
+		return b
+	}
+
+	components := map[string][]rhtasv1.TrustRootBinding{
+		"ctlog":  i.Spec.Ctlog,
+		"fulcio": asTrustRootBindings(i.Spec.Fulcio),
+		"rekor":  i.Spec.Rekor,
+		"tsa":    ptr.Deref(i.Spec.Tsa, nil),
+	}
+	for component, array := range components {
+		for _, key := range array {
+
+			if key.SecretRef == nil {
+				continue
+			}
+			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, key.SecretRef,
+				fmt.Sprintf("spec.%s[0].secretRef", component), fipsutil.ValidateCryptoMaterialPEM, &refs); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	for _, ks := range i.Status.Keys {
-		if ks.SecretRef == nil || specHasRef[ks.Name] {
+		if slices.ContainsFunc(slices.Concat(slices.Collect(maps.Values(components))...), func(key rhtasv1.TrustRootBinding) bool {
+			return key.SecretRef != nil && key.SecretRef.Name == ks.SecretRef.Name
+		}) {
 			continue
 		}
 		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, ks.SecretRef,

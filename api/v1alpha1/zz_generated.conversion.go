@@ -2749,6 +2749,7 @@ func autoConvert_v1alpha1_TufStatus_To_v1_TufStatus(in *TufStatus, out *v1.TufSt
 
 func autoConvert_v1_TufStatus_To_v1alpha1_TufStatus(in *v1.TufStatus, out *TufStatus, s conversion.Scope) error {
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
+	// WARNING: in.TrustRoot requires manual conversion: does not exist in peer-type
 	out.Keys = *(*[]TufKey)(unsafe.Pointer(&in.Keys))
 	out.PvcName = in.PvcName
 	// WARNING: in.URL requires manual conversion: does not exist in peer-type

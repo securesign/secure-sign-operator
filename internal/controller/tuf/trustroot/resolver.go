@@ -1,14 +1,13 @@
-// Package trustroot resolves a TUF trust root component's service address and
-// trust material through one three-tier flow: explicit secretRef/URL, in-cluster
-// ref, or autodiscovery-by-listing. Address and material resolve independently,
-// sharing a single cluster fetch of the sibling component instance when both
-// need it.
+// Package trustroot resolves configured component bindings for TUF publication.
 package trustroot
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"reflect"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action/trustmaterial"
@@ -18,13 +17,11 @@ import (
 	"github.com/securesign/operator/internal/serviceresolver"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// ComponentKey identifies a trust root component. Values match the well-known
-// TUF target filenames (rhtasv1.TufKeyRekor etc.) so they double as
-// TufStatus.Keys entries and condition-type names, with no separate lookup table.
+// ComponentKey identifies a trust root component by its well-known TUF target filename.
 type ComponentKey string
 
 const (
@@ -34,160 +31,133 @@ const (
 	TSA    ComponentKey = ComponentKey(rhtasv1.TufKeyTSA)
 )
 
-func (k ComponentKey) String() string { return string(k) }
-
-// ActiveKeys lists the components included in instance's trust root: Rekor/CTlog/Fulcio
-// always, TSA only when instance.Spec.Tsa is non-nil (nil excludes TSA from the trust
-// root entirely).
-func ActiveKeys(instance *rhtasv1.Tuf) []ComponentKey {
-	keys := []ComponentKey{Rekor, CTFE, Fulcio}
-	if instance.Spec.Tsa != nil {
-		keys = append(keys, TSA)
-	}
-	return keys
-}
-
-// Binding returns the configured binding for key in instance.Spec, or a zero-value
-// binding (which triggers autodiscovery) when the list is empty or key is Fulcio
-// with no configured entry. Use FulcioBinding instead for Fulcio's OIDC issuers.
-func Binding(instance *rhtasv1.Tuf, key ComponentKey) rhtasv1.TrustRootBinding {
-	switch key {
-	case Rekor:
-		return firstBinding(instance.Spec.Rekor)
-	case CTFE:
-		return firstBinding(instance.Spec.Ctlog)
-	case Fulcio:
-		return FulcioBinding(instance).TrustRootBinding
-	case TSA:
-		if instance.Spec.Tsa == nil {
-			return rhtasv1.TrustRootBinding{}
-		}
-		return firstBinding(*instance.Spec.Tsa)
-	default:
-		return rhtasv1.TrustRootBinding{}
-	}
-}
-
-// FulcioBinding returns instance's configured Fulcio binding, or a zero-value
-// binding (autodiscovery, no static OIDC issuers) when unconfigured.
-func FulcioBinding(instance *rhtasv1.Tuf) rhtasv1.TrustRootBindingWithOIDC {
-	if len(instance.Spec.Fulcio) == 0 {
-		return rhtasv1.TrustRootBindingWithOIDC{}
-	}
-	return instance.Spec.Fulcio[0]
-}
-
-// firstBinding returns bindings[0], or a zero-value binding when empty which falls
-// through to autodiscovery.
-func firstBinding(bindings []rhtasv1.TrustRootBinding) rhtasv1.TrustRootBinding {
-	if len(bindings) == 0 {
-		return rhtasv1.TrustRootBinding{}
-	}
-	return bindings[0]
-}
-
 var (
-	ErrUnknownComponent  = errors.New("unknown trust root component")
 	ErrResolveAddress    = errors.New("failed to resolve component address")
 	ErrResolveMaterial   = errors.New("failed to resolve trust material")
 	ErrComponentNotReady = errors.New("component instance not ready")
 )
 
-// Resolved is a component's resolved service address and trust material.
-type Resolved struct {
-	Address     string
-	Material    []byte
-	OIDCIssuers []string
+var componentSuppliers = map[ComponentKey]func() apis.AddressableConditionAware{
+	Rekor:  func() apis.AddressableConditionAware { return &rhtasv1.Rekor{} },
+	CTFE:   func() apis.AddressableConditionAware { return &rhtasv1.CTlog{} },
+	Fulcio: func() apis.AddressableConditionAware { return &rhtasv1.Fulcio{} },
+	TSA:    func() apis.AddressableConditionAware { return &rhtasv1.TimestampAuthority{} },
 }
 
-type descriptor struct {
-	newInstance        func() apis.AddressableConditionAware
-	materialFromStatus func(apis.AddressableConditionAware) string
+type TrustRootBinder interface {
+	apis.ServiceReferencer
+	GetSecretRef() *rhtasv1.SecretKeySelector
+	GetValidFor() *rhtasv1.ValidFor
+	GetName() string
 }
 
-var descriptors = map[ComponentKey]descriptor{
-	Rekor: {
-		newInstance:        func() apis.AddressableConditionAware { return &rhtasv1.Rekor{} },
-		materialFromStatus: func(obj apis.AddressableConditionAware) string { return obj.(*rhtasv1.Rekor).Status.PublicKey },
+// ResolvedBinding holds the publication inputs for a TUF target.
+type ResolvedBinding struct {
+	BaseURL       string           `json:"uri"`
+	TrustMaterial string           `json:"material"`
+	ValidFor      ResolvedValidity `json:"validFor"`
+	OIDCIssuers   []string         `json:"oidcIssuers,omitempty"`
+}
+
+// ResolvedValidity holds the optional bounds of a target's validity interval.
+type ResolvedValidity struct {
+	Start *metav1.Time `json:"start"`
+	End   *metav1.Time `json:"end"`
+}
+
+// ResolvedComponents holds the resolved bindings indexed by TUF target filename.
+type ResolvedComponents struct {
+	Ctlog  map[string]ResolvedBinding `json:"ctlog"`
+	Fulcio map[string]ResolvedBinding `json:"fulcio"`
+	Rekor  map[string]ResolvedBinding `json:"rekor"`
+	Tsa    map[string]ResolvedBinding `json:"tsa"`
+}
+
+// ResolvedTrustRootDocument holds the resolved component maps used to generate a trust root patch.
+type ResolvedTrustRootDocument struct {
+	Components ResolvedComponents `json:"components"`
+}
+
+var materialFromStatus = map[reflect.Type]func(apis.AddressableConditionAware) string{
+	reflect.TypeOf(&rhtasv1.Rekor{}): func(obj apis.AddressableConditionAware) string { return obj.(*rhtasv1.Rekor).Status.PublicKey },
+	reflect.TypeOf(&rhtasv1.CTlog{}): func(obj apis.AddressableConditionAware) string {
+		ctlog := obj.(*rhtasv1.CTlog)
+		activeLog := ctlogutils.ActiveLogStatus(ctlog.Status.Logs)
+		if activeLog != nil {
+			return activeLog.PublicKey
+		}
+		return ""
 	},
-	CTFE: {
-		newInstance: func() apis.AddressableConditionAware { return &rhtasv1.CTlog{} },
-		materialFromStatus: func(obj apis.AddressableConditionAware) string {
-			ctlog := obj.(*rhtasv1.CTlog)
-			activeLog := ctlogutils.ActiveLogStatus(ctlog.Status.Logs)
-			if activeLog != nil {
-				return activeLog.PublicKey
-			}
-			return ""
-		},
-	},
-	Fulcio: {
-		newInstance:        func() apis.AddressableConditionAware { return &rhtasv1.Fulcio{} },
-		materialFromStatus: func(obj apis.AddressableConditionAware) string { return obj.(*rhtasv1.Fulcio).Status.CertificateChain },
-	},
-	TSA: {
-		newInstance: func() apis.AddressableConditionAware { return &rhtasv1.TimestampAuthority{} },
-		materialFromStatus: func(obj apis.AddressableConditionAware) string {
-			return obj.(*rhtasv1.TimestampAuthority).Status.CertificateChain
-		},
+	reflect.TypeOf(&rhtasv1.Fulcio{}): func(obj apis.AddressableConditionAware) string { return obj.(*rhtasv1.Fulcio).Status.CertificateChain },
+	reflect.TypeOf(&rhtasv1.TimestampAuthority{}): func(obj apis.AddressableConditionAware) string {
+		return obj.(*rhtasv1.TimestampAuthority).Status.CertificateChain
 	},
 }
 
-// Resolve resolves key's address and trust material from binding.
-func Resolve(ctx context.Context, cli client.Client, namespace string, key ComponentKey, binding rhtasv1.TrustRootBinding) (Resolved, error) {
-	desc, ok := descriptors[key]
+// ResolveBinding resolves the address and trust material for a component binding.
+func ResolveBinding(ctx context.Context, cli client.Client, namespace string, component ComponentKey, b TrustRootBinder) (ResolvedBinding, error) {
+	if err := validateExplicitBinding(b); err != nil {
+		return ResolvedBinding{}, err
+	}
+	componentInstanceSupplier, ok := componentSuppliers[component]
 	if !ok {
-		return Resolved{}, reconcile.TerminalError(fmt.Errorf("%w: %s", ErrUnknownComponent, key))
+		return ResolvedBinding{}, fmt.Errorf("no component supplier found for %q", component)
 	}
-	return resolveComponent(ctx, cli, namespace, desc, binding, desc.newInstance())
-}
+	componentInstance := componentInstanceSupplier()
 
-// ResolveFulcio resolves Fulcio's address, trust material, and accepted OIDC
-// issuers from binding. binding.OIDCIssuers wins if set; otherwise issuers are
-// read from the resolved (ref or autodiscovered) Fulcio instance's own config.
-func ResolveFulcio(ctx context.Context, cli client.Client, namespace string, binding rhtasv1.TrustRootBindingWithOIDC) (Resolved, error) {
-	fulcio := &rhtasv1.Fulcio{}
-	resolved, err := resolveComponent(ctx, cli, namespace, descriptors[Fulcio], binding.TrustRootBinding, fulcio)
+	address, err := serviceresolver.ResolveExternalServiceUrl(ctx, cli, b.GetServiceRef(), namespace, componentInstance)
 	if err != nil {
-		return Resolved{}, err
+		return ResolvedBinding{}, fmt.Errorf("%w: %w", ErrResolveAddress, err)
 	}
 
-	if len(binding.OIDCIssuers) > 0 {
-		resolved.OIDCIssuers = binding.OIDCIssuers
-		return resolved, nil
+	material, err := resolveMaterial(ctx, cli, namespace, b, componentInstance)
+	if err != nil {
+		return ResolvedBinding{}, err
 	}
 
-	if err := ensureFetched(ctx, cli, namespace, binding.ServiceReference, fulcio); err != nil {
-		return Resolved{}, fmt.Errorf("%w: %w", ErrResolveAddress, err)
+	issuers := []string{}
+	if withOidc, ok := any(b).(rhtasv1.TrustRootBindingWithOIDC); ok {
+		issuers = withOidc.OIDCIssuers
 	}
-	for _, oidc := range fulcio.Spec.Config.OIDCIssuers {
-		switch {
-		case oidc.IssuerURL != "":
-			resolved.OIDCIssuers = append(resolved.OIDCIssuers, oidc.IssuerURL)
-		case oidc.Issuer != "":
-			resolved.OIDCIssuers = append(resolved.OIDCIssuers, oidc.Issuer)
+
+	resolved := ResolvedBinding{
+		BaseURL:       address,
+		TrustMaterial: string(material),
+		OIDCIssuers:   issuers,
+	}
+	if validFor := b.GetValidFor(); validFor != nil {
+		resolved.ValidFor = ResolvedValidity{
+			Start: validFor.Start.DeepCopy(),
+			End:   validFor.End.DeepCopy(),
+		}
+	}
+
+	if fulcio, ok := componentInstance.(*rhtasv1.Fulcio); ok && len(issuers) == 0 {
+		if err := ensureFetched(ctx, cli, namespace, b.GetServiceRef(), fulcio); err != nil {
+			return ResolvedBinding{}, fmt.Errorf("%w: %w", ErrResolveAddress, err)
+		}
+	}
+
+	if fulcio, ok := componentInstance.(*rhtasv1.Fulcio); ok && len(issuers) == 0 {
+		if err := ensureFetched(ctx, cli, namespace, b.GetServiceRef(), fulcio); err != nil {
+			return ResolvedBinding{}, fmt.Errorf("%w: %w", ErrResolveAddress, err)
+		}
+		for _, oidc := range fulcio.Spec.Config.OIDCIssuers {
+			issuer := oidc.IssuerURL
+			if issuer == "" {
+				issuer = oidc.Issuer
+			}
+			if issuer != "" {
+				resolved.OIDCIssuers = append(resolved.OIDCIssuers, issuer)
+			}
 		}
 	}
 	return resolved, nil
 }
 
-func resolveComponent(ctx context.Context, cli client.Client, namespace string, desc descriptor, binding rhtasv1.TrustRootBinding, componentInstance apis.AddressableConditionAware) (Resolved, error) {
-	address, err := serviceresolver.ResolveExternalServiceUrl(ctx, cli, binding.ServiceReference, namespace, componentInstance)
-	if err != nil {
-		return Resolved{}, fmt.Errorf("%w: %w", ErrResolveAddress, err)
-	}
-
-	material, err := resolveMaterial(ctx, cli, namespace, desc, binding, componentInstance)
-	if err != nil {
-		return Resolved{}, err
-	}
-
-	return Resolved{Address: address, Material: material}, nil
-}
-
-func resolveMaterial(ctx context.Context, cli client.Client, namespace string, desc descriptor, binding rhtasv1.TrustRootBinding, componentInstance apis.AddressableConditionAware) ([]byte, error) {
-	if binding.SecretRef != nil {
-		data, err := k8sutils.GetSecretData(ctx, cli, namespace, binding.SecretRef)
+func resolveMaterial(ctx context.Context, cli client.Client, namespace string, b TrustRootBinder, componentInstance apis.AddressableConditionAware) ([]byte, error) {
+	if b.GetSecretRef() != nil {
+		data, err := k8sutils.GetSecretData(ctx, cli, namespace, b.GetSecretRef())
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrResolveMaterial, err)
 		}
@@ -197,14 +167,19 @@ func resolveMaterial(ctx context.Context, cli client.Client, namespace string, d
 		return data, nil
 	}
 
-	if err := ensureFetched(ctx, cli, namespace, binding.ServiceReference, componentInstance); err != nil {
+	if err := ensureFetched(ctx, cli, namespace, b.GetServiceRef(), componentInstance); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrResolveMaterial, err)
 	}
 	if !meta.IsStatusConditionTrue(componentInstance.GetConditions(), constants.ReadyCondition) {
 		return nil, fmt.Errorf("%w: %T %s", ErrComponentNotReady, componentInstance, componentInstance.GetName())
 	}
 
-	material := []byte(desc.materialFromStatus(componentInstance))
+	materialFromStatus, ok := materialFromStatus[reflect.TypeOf(componentInstance)]
+	if !ok {
+		return nil, fmt.Errorf("%w: %T", ErrResolveMaterial, componentInstance)
+	}
+
+	material := []byte(materialFromStatus(componentInstance))
 	if err := trustmaterial.ValidatePEM(material); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrResolveMaterial, err)
 	}
@@ -218,4 +193,61 @@ func ensureFetched(ctx context.Context, cli client.Client, namespace string, ref
 		return nil
 	}
 	return serviceresolver.PopulateInstance(ctx, cli, ref, namespace, instance)
+}
+
+// Resolve resolves all configured component bindings without discovering
+// component resources by listing them.
+func Resolve(ctx context.Context, cli client.Client, namespace string, source rhtasv1.Components) (ResolvedTrustRootDocument, error) {
+	var components ResolvedComponents
+	var err error
+	if components.Rekor, err = resolveBindings(ctx, cli, namespace, Rekor, source.Rekor); err != nil {
+		return ResolvedTrustRootDocument{}, err
+	}
+	if components.Ctlog, err = resolveBindings(ctx, cli, namespace, CTFE, source.Ctlog); err != nil {
+		return ResolvedTrustRootDocument{}, err
+	}
+	if components.Fulcio, err = resolveBindings(ctx, cli, namespace, Fulcio, source.Fulcio); err != nil {
+		return ResolvedTrustRootDocument{}, err
+	}
+	if components.Tsa, err = resolveBindings(ctx, cli, namespace, TSA, source.Tsa); err != nil {
+		return ResolvedTrustRootDocument{}, err
+	}
+	return ResolvedTrustRootDocument{Components: components}, nil
+}
+
+func resolveBindings[T TrustRootBinder](ctx context.Context, cli client.Client, namespace string, component ComponentKey, bindings []T) (map[string]ResolvedBinding, error) {
+	resolved := make(map[string]ResolvedBinding, len(bindings))
+	for i, binding := range bindings {
+		target := cmp.Or(binding.GetName(), string(component))
+		if _, exists := resolved[target]; exists {
+			return nil, fmt.Errorf("duplicate TUF target %q for %s", target, component)
+		}
+		entry, err := ResolveBinding(ctx, cli, namespace, component, binding)
+		if err != nil {
+			return nil, fmt.Errorf("resolve %s binding %d: %w", component, i, err)
+		}
+		resolved[target] = entry
+	}
+	return resolved, nil
+}
+
+func validateExplicitBinding(b TrustRootBinder) error {
+	if hasServiceRef(b.GetServiceRef().Ref) {
+		return nil
+	}
+	address, err := url.Parse(b.GetServiceRef().URL)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrResolveAddress, err)
+	}
+	if address.Hostname() == "" {
+		return fmt.Errorf("%w: binding requires ref or a URL with a hostname", ErrResolveAddress)
+	}
+	if b.GetSecretRef() == nil {
+		return fmt.Errorf("%w: binding requires ref or secretRef", ErrResolveMaterial)
+	}
+	return nil
+}
+
+func hasServiceRef(ref *rhtasv1.ServiceReferenceRef) bool {
+	return ref != nil && ref.Name != ""
 }
